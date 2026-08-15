@@ -6282,14 +6282,32 @@ function ventanaImpresion(html,css,nombre){
    '<style>'+css+'</style></head><body>'+html+'</body></html>');
   doc.close();
   const lanzar=()=>{
+    // Al imprimir desde un iframe, el navegador propone como nombre de archivo
+    // el título de LA PÁGINA PRINCIPAL, no el del documento interno.
+    // Se cambia mientras dura el diálogo y se restaura después.
+    const tituloPrevio=document.title;
+    if(nombre)document.title=nombre;
+    const restaurar=()=>{document.title=tituloPrevio;};
     try{
       const w=fr.contentWindow;
       try{w.document.querySelectorAll('svg.codigo').forEach(s=>{
         if(w.JsBarcode)w.JsBarcode(s,s.dataset.valor,{format:'CODE128',displayValue:false,height:28,margin:0,width:1.4});
         else s.outerHTML='<b style="font-size:8pt">'+s.dataset.valor+'</b>';
       });}catch(e){}
+      // El título vuelve a su valor cuando se cierra el diálogo de impresión
+      try{
+        w.addEventListener('afterprint',restaurar,{once:true});
+        window.addEventListener('afterprint',restaurar,{once:true});
+      }catch(e){}
+      // Redes de seguridad: si el navegador no dispara 'afterprint'
+      // (pasa en algunos móviles), el título vuelve igual.
+      setTimeout(restaurar,3000);
+      window.addEventListener('focus',restaurar,{once:true});
       w.focus();w.print();
-    }catch(e){toast('No se pudo abrir la impresión en esta vista. Descarga el archivo y ábrelo en Chrome.');}
+    }catch(e){
+      restaurar();
+      toast('No se pudo abrir la impresión en esta vista. Descarga el archivo y ábrelo en Chrome.');
+    }
   };
   if(fr.contentWindow.document.readyState==='complete')setTimeout(lanzar,600);
   else fr.onload=()=>setTimeout(lanzar,600);
