@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CDI Marcala — Acceso</title>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Montserrat',sans-serif;background:#1a3446;min-height:100vh;display:flex;align-items:center;justify-content:center}
+.card{background:#fff;border-radius:20px;padding:40px 36px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.logo{text-align:center;margin-bottom:28px}
+.logo-ico{width:72px;height:72px;background:#285068;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px}
+.logo-ico svg{width:40px;height:40px}
+h1{font-size:20px;font-weight:800;color:#285068;text-align:center;line-height:1.2}
+.sub{font-size:12px;color:#6b7f8c;text-align:center;margin-top:4px}
+.campo{margin-top:18px}
+.campo label{display:block;font-size:11px;font-weight:800;color:#6b7f8c;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px}
+.campo input{width:100%;padding:12px 14px;border:1.5px solid #d8e2e8;border-radius:10px;font-family:inherit;font-size:15px;outline:none;transition:.15s}
+.campo input:focus{border-color:#285068;box-shadow:0 0 0 3px rgba(40,80,104,.12)}
+.btn{width:100%;margin-top:22px;padding:13px;background:#285068;color:#fff;border:none;border-radius:10px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;transition:.15s}
+.btn:hover{background:#1a3446}
+.btn:disabled{opacity:.6;cursor:not-allowed}
+.error{margin-top:14px;padding:10px 14px;background:#fdecea;border-radius:8px;font-size:13px;color:#c0392b;display:none}
+.dorado{color:#b8974a;font-weight:700}
+footer{margin-top:24px;text-align:center;font-size:11px;color:#6b7f8c}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <div class="logo-ico">
+      <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="20" cy="20" r="17" stroke="#fff" stroke-width="2.5"/>
+        <rect x="18" y="8" width="4" height="24" rx="2" fill="#70A020"/>
+        <rect x="8" y="18" width="24" height="4" rx="2" fill="#fff"/>
+      </svg>
+    </div>
+    <h1>Centro de Diagnóstico<br>Integral Marcala</h1>
+    <p class="sub">Sistema de Laboratorio Clínico</p>
+  </div>
+  <div class="campo">
+    <label>Usuario</label>
+    <input type="text" id="usr" placeholder="admin" autocomplete="username" autofocus>
+  </div>
+  <div class="campo">
+    <label>Contraseña</label>
+    <input type="password" id="pwd" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()">
+  </div>
+  <div class="error" id="err"></div>
+  <button class="btn" id="btn" onclick="login()">Ingresar al sistema</button>
+  <footer>Dr. Ronald E. Martínez · CMQCH 2023-2105 · <span class="dorado">CDI Marcala</span></footer>
+</div>
+<script>
+async function login(){
+  const btn=document.getElementById('btn');
+  const err=document.getElementById('err');
+  const usr=document.getElementById('usr').value.trim();
+  const pwd=document.getElementById('pwd').value;
+  if(!usr||!pwd){mostrarError('Escribe el usuario y la contraseña');return;}
+  btn.disabled=true;btn.textContent='Verificando…';err.style.display='none';
+  try{
+    const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({usuario:usr,clave:pwd})});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||'Error desconocido');
+    window.location.href='/';
+  }catch(e){
+    mostrarError(e.message);
+    btn.disabled=false;btn.textContent='Ingresar al sistema';
+  }
+}
+function mostrarError(m){const e=document.getElementById('err');e.textContent=m;e.style.display='block';}
+// Si ya está logueado, ir directo
+fetch('/api/auth/me').then(r=>r.ok&&(window.location.href='/'));
+</script>
+</body>
+</html>
