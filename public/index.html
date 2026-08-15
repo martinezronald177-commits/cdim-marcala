@@ -408,6 +408,37 @@ kbd{background:#fff;border:1px solid var(--linea);border-bottom-width:2px;border
 }
 @media (max-width:900px){
   .topbar{display:flex}
+  /* ── Tablas en el teléfono ──────────────────────────────────
+     Sin esto el navegador reparte el ancho entre todas las columnas y
+     termina rompiendo el texto letra por letra. Se ocultan las columnas
+     secundarias y la tabla conserva un ancho mínimo legible. */
+  .tarjeta{overflow-x:auto;-webkit-overflow-scrolling:touch;position:relative}
+  /* Los anchos en % del escritorio no sirven aquí: se anulan y el navegador
+     reparte según el contenido real de cada columna visible. */
+  .tarjeta>table{min-width:0;table-layout:auto;width:100%}
+  .tarjeta>table th,.tarjeta>table td{white-space:normal;padding:9px 6px;font-size:12.5px;width:auto !important}
+  /* El nombre del paciente necesita espacio: es lo que identifica el registro */
+  .tabla-ordenes th:nth-child(4),.tabla-ordenes td:nth-child(4){min-width:120px}
+  /* Los números largos (COT-WEB-20260814-183535) se parten por el guion,
+     no letra por letra */
+  .tarjeta>table td b{word-break:normal;overflow-wrap:break-word;hyphens:none}
+  .num-largo{font-size:11.5px;line-height:1.35;letter-spacing:-.2px;display:block}
+  /* En el teléfono, el estado se muestra bajo el número y su columna se oculta:
+     así el botón de acción no queda fuera de la pantalla. */
+  .solo-movil{display:block}
+  /* Cotizaciones: 9 columnas no caben. La de Estado se oculta porque su
+     información ya se muestra bajo el número. */
+  .tabla-ordenes.cot th:nth-child(6),.tabla-ordenes.cot td:nth-child(6){display:none}
+  /* Las acciones quedan al alcance: se apilan en vez de salirse a la derecha */
+  .cel-acc{white-space:normal;text-align:left}
+  .cel-acc .btn{margin:2px 4px 2px 0}
+  /* Columnas que se ocultan primero: aportan contexto pero no son
+     indispensables para reconocer el registro en una pantalla chica. */
+  .col-sec{display:none !important}
+  /* La cabecera de sección se apila en vez de encimarse */
+  .cabecera{flex-direction:column;align-items:stretch;gap:12px}
+  .cabecera>div{display:flex;gap:8px;width:100%}
+  .cabecera>div .btn{flex:1}
   /* 100dvh respeta la barra del navegador del teléfono; 100vh queda por debajo */
   aside{transform:translateX(-100%);width:270px;height:100vh;height:100dvh;
     padding:calc(14px + env(safe-area-inset-top)) 0 0}
@@ -524,12 +555,11 @@ td,th,.ci-txt b,.ci-sub{overflow-wrap:anywhere}
   color:var(--gris);margin-bottom:7px}
 .acc-botones{display:flex;flex-wrap:wrap;gap:7px}
 .acc-botones .btn{flex:0 1 auto}
-@media(max-width:1100px){
-  .tabla-ordenes .col-ex,.tabla-ordenes td:nth-child(4),.tabla-ordenes th:nth-child(4){display:none}
-}
-@media(max-width:850px){
-  .tabla-ordenes td:nth-child(2),.tabla-ordenes th:nth-child(2){display:none}
-}
+/* Las columnas que se ocultan en pantalla chica se marcan con .col-sec en el
+   HTML, no por su posición: cada tabla tiene un orden distinto de columnas. */
+
+/* La copia móvil del estado no se muestra en escritorio */
+.solo-movil{display:none}
 </style>
 </head>
 <body>
@@ -1937,9 +1967,11 @@ function vCotizaciones(){
     Revisa, ajusta el precio si aplica y apruébalas para crear la orden directamente.
   </div>`:''}
   <div class="tarjeta">
-  ${cs.length?`<table><thead><tr>
-    <th>Número</th><th>Origen</th><th>Fecha</th><th>Paciente</th><th>DNI</th>
-    <th>Exámenes</th><th>Total</th><th>Estado</th><th></th>
+  ${cs.length?`<table class="tabla-ordenes cot"><thead><tr>
+    <th style="width:18%">Número</th><th class="col-sec" style="width:9%">Origen</th><th class="col-sec" style="width:8%">Fecha</th>
+    <th style="width:24%">Paciente</th><th class="col-sec" style="width:13%">DNI</th>
+    <th class="col-sec" style="width:7%">Exám.</th><th style="width:10%">Total</th>
+    <th style="width:11%">Estado</th><th style="width:14%;text-align:right">Acciones</th>
   </tr></thead><tbody>
     ${cs.map(c=>{const t=calcCot(c);const esWeb=c.origen==='web';
       const estadoChip=(()=>{
@@ -1951,27 +1983,71 @@ function vCotizaciones(){
           :'<span class="chip chip-do">Vigente</span>';
       })();
       return `<tr>
-        <td><b>${esc(c.numero)}</b></td>
-        <td><span class="chip ${esWeb?'chip-az':'chip-do'}">${esWeb?'🌐 Web':'Interno'}</span></td>
-        <td style="font-size:11.5px">${fmtFecha(c.fecha)}</td>
-        <td><b>${esc(c.nombre)}</b>${c.tel?'<div style="font-size:10px;color:var(--gris)">'+esc(c.tel)+'</div>':''}</td>
-        <td style="font-size:11.5px;font-family:monospace">${esc(c.idNumero||'—')}</td>
-        <td style="text-align:center">${c.items.length}</td>
+        <td><b class="num-largo">${esc(c.numero)}</b>
+          <div class="solo-movil" style="margin-top:4px">${estadoChip}</div></td>
+        <td class="col-sec"><span class="chip ${esWeb?'chip-az':'chip-do'}">${esWeb?'🌐 Web':'Interno'}</span></td>
+        <td class="col-sec" style="font-size:11.5px">${fmtFecha(c.fecha)}</td>
+        <td><b>${esc(c.nombre)}</b>${c.tel?'<div class="cel-sub">'+esc(c.tel)+'</div>':''}</td>
+        <td class="col-sec" style="font-size:11px;font-family:ui-monospace,monospace">${esc(c.idNumero||'—')}</td>
+        <td class="col-sec" style="text-align:center">${c.items.length}</td>
         <td><b>${L(t.total)}</b></td>
         <td>${estadoChip}</td>
-        <td style="text-align:right;white-space:nowrap">
+        <td class="cel-acc">
           ${c.estadoCot==='Pendiente'
-            ?`<button class="btn btn-v btn-min" onclick="aprobarCotWeb('${c.numero}')">✓ Aprobar</button>
-               <button class="btn btn-p btn-min" onclick="modalVerCotizacion('${c.numero}')">Ver</button>
-               <button class="btn btn-g btn-min" onclick="modalCotizacion('${c.numero}')">Editar</button>`
-            :`<button class="btn btn-p btn-min" onclick="modalVerCotizacion('${c.numero}')">Ver</button>
-              ${!c.ot?`<button class="btn btn-g btn-min" onclick="modalCotizacion('${c.numero}')">Editar</button>
-               <button class="btn btn-v btn-min" onclick="cotAOrden('${c.numero}')">→ Orden</button>`:''}`}
-          <button class="btn btn-d btn-min" onclick="previsualizar(()=>imprimirCotizacion('${c.numero}'),'${c.numero}','Imprimir')">🖨</button>
-          ${!c.ot?`<button class="btn btn-r btn-min" onclick="borrarCot('${c.numero}')">✕</button>`:''}
+            ?`<button class="btn btn-v btn-min" onclick="aprobarCotWeb('${c.numero}')">✓ Aprobar</button>`
+            :`<button class="btn btn-p btn-min" onclick="modalVerCotizacion('${c.numero}')">Ver</button>`}
+          <button class="btn btn-g btn-min" title="Más acciones" onclick="abrirMenuCot(event,'${c.numero}')">⋯</button>
         </td></tr>`;}).join('')}
   </tbody></table>`:'<div class="vacio">Sin cotizaciones aún.</div>'}
   </div>`;
+}
+
+/* Menú de acciones de una cotización: mantiene la fila legible */
+function abrirMenuCot(ev,n){
+  ev.stopPropagation();
+  const c=S.cotizaciones.find(x=>x.numero===n);
+  if(!c)return;
+  const t=calcCot(c);
+  abrirModal(`
+  <h3>${esc(c.numero)}</h3>
+  <p style="font-size:12.5px;color:var(--gris);margin-bottom:12px">
+    ${esc(c.nombre)} · ${fmtFecha(c.fecha)} · ${c.items.length} examen(es) · ${L(t.total)}
+    ${c.origen==='web'?' · <span class="chip chip-az">🌐 Portal web</span>':''}</p>
+
+  ${c.estadoCot==='Pendiente'?`<div class="acc-grupo"><b>Solicitud del portal</b>
+    <div class="acc-botones">
+      <button class="btn btn-v" onclick="cerrarModal();aprobarCotWeb('${n}')">✓ Aprobar y crear la orden</button>
+    </div>
+    <p style="font-size:11.5px;color:var(--gris);margin-top:7px;line-height:1.5">
+      Al aprobar se registra al paciente por su identidad y se crea la orden de trabajo.</p>
+  </div>`:''}
+
+  <div class="acc-grupo"><b>Revisar</b>
+    <div class="acc-botones">
+      <button class="btn btn-p" onclick="cerrarModal();modalVerCotizacion('${n}')">Ver detalle</button>
+      ${!c.ot?`<button class="btn btn-g" onclick="cerrarModal();modalCotizacion('${n}')">Editar</button>`:''}
+    </div>
+  </div>
+
+  <div class="acc-grupo"><b>Documentos</b>
+    <div class="acc-botones">
+      <button class="btn btn-d" onclick="cerrarModal();previsualizar(()=>imprimirCotizacion('${n}'),'${n}','Imprimir')">🖨 Imprimir</button>
+      <button class="btn btn-g" onclick="cerrarModal();modalPDF('cotizacion','${n}')">⬇ PDF</button>
+      <button class="btn btn-v" onclick="cerrarModal();modalCompartir('cotizacion','${n}')">✆ Enviar</button>
+    </div>
+  </div>
+
+  ${(!c.ot&&c.estadoCot!=='Pendiente')?`<div class="acc-grupo"><b>Convertir</b>
+    <div class="acc-botones">
+      <button class="btn btn-v" onclick="cerrarModal();cotAOrden('${n}')">→ Crear orden de trabajo</button>
+    </div>
+  </div>`:''}
+  ${c.ot?`<div class="aviso" style="margin-top:12px">Ya generó la orden <b>${esc(c.ot)}</b>.</div>`:''}
+
+  <div class="modal-pie">
+    ${!c.ot?`<button class="btn btn-r" onclick="cerrarModal();borrarCot('${n}')">✕ Eliminar</button>`:''}
+    <button class="btn btn-g" onclick="cerrarModal()">Cerrar</button>
+  </div>`,true);
 }
 
 /* Aprueba una cotización del portal web:
@@ -2807,8 +2883,8 @@ function chipEstado(e){
 function tablaOrdenes(lista){
   if(!lista.length)return '<div class="vacio">Sin órdenes de trabajo.</div>';
   return `<table class="tabla-ordenes"><thead><tr>
-    <th style="width:15%">No.</th><th style="width:9%">Fecha</th><th style="width:22%">Paciente</th>
-    <th style="width:16%">Exámenes</th><th style="width:12%">Total</th><th style="width:10%">Estado</th>
+    <th style="width:15%">No.</th><th class="col-sec" style="width:9%">Fecha</th><th style="width:22%">Paciente</th>
+    <th class="col-sec" style="width:16%">Exámenes</th><th style="width:12%">Total</th><th style="width:10%">Estado</th>
     <th style="width:16%;text-align:right">Acciones</th>
   </tr></thead><tbody>
   ${lista.map(o=>{
@@ -2819,9 +2895,9 @@ function tablaOrdenes(lista){
       ${dg?`<div class="cel-sub">Suc. ${dg.sucursal} · ${dg.dia}/${dg.mes}/${dg.anio} · N° ${dg.correlativo} del día</div>`:''}
       ${o.numeroAnterior?`<div class="cel-sub">antes: ${o.numeroAnterior}</div>`:''}
       ${o.cot?`<div class="cel-sub">de ${o.cot}</div>`:''}</td>
-    <td>${fmtFecha(o.fecha)}</td>
+    <td class="col-sec">${fmtFecha(o.fecha)}</td>
     <td><b>${esc(o.pacienteNombre)}</b>${al?' <span class="chip chip-rj">⚠ '+al+'</span>':''}</td>
-    <td class="cel-ex" title="${esc(ids.join(', '))}">${esc(ids.slice(0,4).join(', '))}${ids.length>4?` <span class="cel-sub">+${ids.length-4}</span>`:''}</td>
+    <td class="cel-ex col-sec" title="${esc(ids.join(', '))}">${esc(ids.slice(0,4).join(', '))}${ids.length>4?` <span class="cel-sub">+${ids.length-4}</span>`:''}</td>
     <td><b>${L(o.total)}</b>
       ${(o.subtotal&&o.subtotal>o.total)?`<div class="cel-sub"><s>${L(o.subtotal)}</s> · desc. ${round2((o.subtotal-o.total)/o.subtotal*100)} %</div>`:''}
       <div>${o.pagada?'<span class="chip chip-vd">Pagada</span>':'<span class="chip chip-am">Pendiente pago</span>'}</div></td>
