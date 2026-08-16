@@ -1283,13 +1283,46 @@ function semillaExamenes(){
    usuario activo. No se pide una segunda identificación dentro del sistema. */
 let USUARIO_WEB=null;
 function usuarioActivo(){
+  // El rol viaja tal cual desde el servidor; rolActivo() lo normaliza
   if(MODO_WEB&&USUARIO_WEB)
-    return {nombre:USUARIO_WEB.nombre,rol:USUARIO_WEB.rol==='Administrador'?'Admin':USUARIO_WEB.rol};
+    return {nombre:USUARIO_WEB.nombre,rol:USUARIO_WEB.rol};
   const u=sessionStorage.getItem('LIS_CDIM_sesion');
   if(u){const x=S.usuarios.find(z=>z.nombre===u);if(x)return x;}
   return {nombre:S.config.regente,rol:'Admin'};
 }
-function esAdmin(){return usuarioActivo().rol==='Admin';}
+/* ── Roles y permisos ───────────────────────────────────────
+   Admin          · dueño del sistema: todo, incluidos usuarios y configuración
+   Dr             · microbiólogo colegiado: valida y firma informes
+   Administrador  · parte administrativa: cobros, caja, contabilidad
+   Técnico        · bancada: captura resultados, no valida
+
+   La validación queda reservada a Dr y Admin porque la firma de un informe
+   clínico tiene responsabilidad profesional: en Honduras corresponde a un
+   microbiólogo colegiado. */
+const ROLES=['Admin','Dr','Administrador','Técnico'];
+const PERMISOS={
+  Admin:         {validar:true,  contabilidad:true,  config:true,  usuarios:true,  capturar:true,  cobrar:true},
+  'Dr':          {validar:true,  contabilidad:true,  config:false, usuarios:false, capturar:true,  cobrar:true},
+  Administrador: {validar:false, contabilidad:true,  config:false, usuarios:false, capturar:false, cobrar:true},
+  'Técnico':     {validar:false, contabilidad:false, config:false, usuarios:false, capturar:true,  cobrar:false},
+};
+function rolActivo(){
+  const r=String(usuarioActivo().rol||'').trim();
+  // "Administrador" se evalúa ANTES que "Admin": si no, el primero
+  // caería en el segundo por empezar igual.
+  if(/^administrador$/i.test(r))return 'Administrador';
+  if(/^admin$/i.test(r))return 'Admin';
+  if(/^(dr\.?|doctor|m[ée]dico|microbi[óo]logo|regente)$/i.test(r))return 'Dr';
+  if(/^(t[ée]cnico|tecnico|recepci[óo]n)/i.test(r))return 'Técnico';
+  return 'Técnico';   // ante la duda, el rol con menos alcance
+}
+function puede(accion){
+  const p=PERMISOS[rolActivo()];
+  return !!(p&&p[accion]);
+}
+function esAdmin(){return rolActivo()==='Admin';}
+/* Quien puede firmar un informe */
+function puedeValidar(){return puede('validar');}
 let pinBuffer='';
 function mostrarCandado(){
   // El servidor ya identificó a la persona: no hay segundo candado
@@ -1342,7 +1375,9 @@ document.getElementById('menu').addEventListener('click',e=>{
   b.classList.add('activo');render(b.dataset.v);
 });
 function render(v,arg){
-  if((v==='conta'||v==='config')&&!esAdmin()){toast('Sección restringida a usuarios con rol Admin');v='inicio';
+  if(v==='conta'&&!puede('contabilidad')){toast('Contabilidad está reservada a Dr, Administrador y Admin');v='inicio';}
+  if((v==='config'&&!puede('config'))||(v==='usuarios'&&!puede('usuarios'))){
+    toast('Sección reservada al Administrador del sistema');v='inicio';
     document.querySelectorAll('#menu button').forEach(x=>x.classList.toggle('activo',x.dataset.v==='inicio'));}
   if(v==='inicio')vInicio();
   else if(v==='pacientes')vPacientes();
@@ -2844,6 +2879,11 @@ function alertasDelta(o){
   return out;
 }
 function validarExamen(n,ei){
+  // La firma de un informe clínico corresponde a un microbiólogo colegiado
+  if(!puedeValidar()){
+    toast('Solo un usuario con rol Dr o Admin puede validar y firmar resultados');
+    return;
+  }
   const o=S.ordenes.find(x=>x.numero===n),e=o.examenes[ei];
   const faltan=e.params.filter(p=>p.valor==='').length;
   if(faltan&&!confirm('Quedan '+faltan+' parámetro(s) sin resultado en '+e.nombre+'.\n¿Validar de todos modos?'))return;
@@ -2859,7 +2899,7 @@ function validarExamen(n,ei){
 }
 function anularValidacion(n,ei){
   const o=S.ordenes.find(x=>x.numero===n),e=o.examenes[ei];
-  if(!esAdmin()){toast('Solo un usuario Admin puede anular una validación');return;}
+  if(!puedeValidar()){toast('Solo un usuario con rol Dr o Admin puede anular una validación');return;}
   const motivo=prompt('Motivo de la anulación de la validación (queda en bitácora):');
   if(motivo===null)return;
   e.validado=false;e.validadoPor='';e.fechaValidacion='';
@@ -3101,7 +3141,7 @@ function quitarExamenSel(id){
   if(selContexto){
     const o=S.ordenes.find(x=>x.numero===selContexto);
     const ex=o&&o.examenes.find(e=>e.id===id);
-    if(ex&&ex.validado&&!esAdmin()){toast('Examen validado: solo un Admin puede retirarlo');return;}
+    if(ex&&ex.validado&&!puedeValidar()){toast('Examen validado: solo un Dr o Admin puede retirarlo');return;}
     if(ex&&ex.params.some(p=>p.valor!=='')&&!confirm('Ese examen ya tiene resultados capturados.\n¿Retirarlo de la orden y perder esos datos?'))return;
   }
   selExamenes=selExamenes.filter(x=>x.id!==id);refrescarSelector();
@@ -3144,7 +3184,7 @@ function totalizarOrden(){
 function modalEditarOrden(n){
   const o=S.ordenes.find(x=>x.numero===n);
   if(!o){toast('Orden no encontrada');return;}
-  if(o.estado==='Entregada'&&!esAdmin()){toast('Orden entregada: solo un Admin puede modificarla');return;}
+  if(o.estado==='Entregada'&&!puedeValidar()){toast('Orden entregada: solo un Dr o Admin puede modificarla');return;}
   selExamenes=o.examenes.filter(e=>S.examenes.some(x=>x.id===e.id))
     .map(e=>({id:e.id,precio:e.precio,descPct:pctItem(e)}));
   selDescGlobal=o.descPct||0;
@@ -3243,7 +3283,9 @@ function modalResultados(n,desde,sinScroll){
           ${e.validado
           ?`<span class="chip chip-vd">✓ Validado por ${esc(e.validadoPor)} · ${fmtFecha(e.fechaValidacion)}</span>
             <button class="btn btn-g btn-min" onclick="anularValidacion('${n}',${ei})">Anular</button>`
-          :`<button class="btn btn-v btn-min" onclick="validarExamen('${n}',${ei})">✓ Validar examen</button>`}
+          :(puedeValidar()
+            ?`<button class="btn btn-v btn-min" onclick="validarExamen('${n}',${ei})">✓ Validar examen</button>`
+            :`<span class="chip chip-am" title="La validación corresponde a un usuario con rol Dr o Admin">⏳ Pendiente de validación</span>`)}
         </div>
       </div>
       <table><thead><tr><th style="width:24%">Análisis</th><th style="width:15%">Resultado</th><th style="width:10%">Unidad</th><th style="width:20%">Referencia</th><th style="width:23%">3 resultados anteriores</th><th></th></tr></thead><tbody>
@@ -3736,7 +3778,7 @@ function previewImportar(n,ei){
 }
 function aplicarImportar(n,ei){
   const o=S.ordenes.find(x=>x.numero===n),e=o.examenes[ei];
-  if(e.validado&&!esAdmin()){toast('Examen validado: solo un Admin puede reemplazar resultados');return;}
+  if(e.validado&&!puedeValidar()){toast('Examen validado: solo un Dr o Admin puede reemplazar resultados');return;}
   const r=parsearResultados(document.getElementById('imp_txt').value,e.params);
   const hallados=Object.keys(r.asignados);
   if(!hallados.length){toast('No se reconoció ningún análisis');return;}
@@ -9247,7 +9289,7 @@ function vUsuarios(){
       ${us.map(u=>`<tr>
         <td><b>${esc(u.nombre)}</b><div class="solo-movil cel-sub">${esc(u.usuario)}</div></td>
         <td style="font-family:monospace">${esc(u.usuario)}</td>
-        <td><span class="chip ${u.rol==='Administrador'?'chip-az':'chip-vd'}">${esc(u.rol)}</span></td>
+        <td><span class="chip ${u.rol==='Admin'?'chip-rj':u.rol==='Dr'?'chip-az':u.rol==='Administrador'?'chip-do':'chip-vd'}">${esc(u.rol)}</span></td>
         <td><span class="chip ${u.activo!==false?'chip-vd':'chip-rj'}">${u.activo!==false?'Activo':'Inactivo'}</span></td>
         <td style="text-align:right">
           <button class="btn btn-g btn-min" onclick="modalEditarUsuario('${u.id}','${esc(u.nombre)}','${esc(u.usuario)}','${esc(u.rol)}',${u.activo!==false})">Editar</button>
@@ -9274,7 +9316,12 @@ function modalNuevoUsuario(){
     <div class="campo"><label>Nombre de usuario *</label><input id="nu_usr" placeholder="ana.garcia"></div>
     <div class="campo"><label>Contraseña *</label><input type="password" id="nu_pwd" placeholder="Mínimo 6 caracteres"></div>
     <div class="campo"><label>Rol</label>
-      <select id="nu_rol"><option value="Técnico">Técnico de laboratorio</option><option value="Recepción">Recepción</option><option value="Administrador">Administrador</option></select></div>
+      <select id="nu_rol">
+        <option value="Técnico">Técnico — captura resultados, no valida</option>
+        <option value="Administrador">Administrador — cobros, caja y contabilidad</option>
+        <option value="Dr">Dr — valida y firma informes</option>
+        <option value="Admin">Admin — control total del sistema</option>
+      </select></div>
   </div>
   <div class="modal-pie">
     <button class="btn btn-g" onclick="cerrarModal()">Cancelar</button>
@@ -9298,7 +9345,12 @@ function modalEditarUsuario(id,nombre,usuario,rol,activo){
   <div class="rejilla c2">
     <div class="campo" style="grid-column:1/-1"><label>Nombre completo</label><input id="eu_nom" value="${nombre}"></div>
     <div class="campo"><label>Rol</label>
-      <select id="eu_rol"><option ${rol==='Técnico'?'selected':''}>Técnico</option><option ${rol==='Recepción'?'selected':''}>Recepción</option><option ${rol==='Administrador'?'selected':''}>Administrador</option></select></div>
+      <select id="eu_rol">
+        <option value="Técnico" ${rol==='Técnico'?'selected':''}>Técnico — captura resultados, no valida</option>
+        <option value="Administrador" ${rol==='Administrador'?'selected':''}>Administrador — cobros, caja y contabilidad</option>
+        <option value="Dr" ${rol==='Dr'?'selected':''}>Dr — valida y firma informes</option>
+        <option value="Admin" ${rol==='Admin'?'selected':''}>Admin — control total del sistema</option>
+      </select></div>
     <div class="campo"><label>Estado</label>
       <select id="eu_act"><option value="true" ${activo?'selected':''}>Activo</option><option value="false" ${!activo?'selected':''}>Inactivo</option></select></div>
     <div class="campo" style="grid-column:1/-1"><label>Nueva contraseña (dejar vacío para no cambiar)</label><input type="password" id="eu_pwd" placeholder="Mínimo 6 caracteres"></div>
