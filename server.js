@@ -69,8 +69,28 @@ function respaldoDiario(estado){
 }
 
 // ── Inicializar usuarios si no existen ───────────────────────
+/* Migración de roles: el sistema pasó de dos roles a cuatro.
+   El usuario 'admin' y quien quedara con el rol antiguo 'Administrador'
+   como único dueño del sistema deben conservar el control total. */
+function migrarRoles(){
+  const usuarios = leerDB('usuarios');
+  if(!usuarios || !usuarios.length) return;
+  let cambio = false;
+  // 1. La cuenta 'admin' siempre tiene control total
+  const admin = usuarios.find(u => u.usuario === 'admin');
+  if(admin && admin.rol !== 'Admin'){ admin.rol = 'Admin'; cambio = true;
+    console.log('[CDIM] Cuenta admin promovida a rol Admin'); }
+  // 2. Si nadie tiene rol Admin, se promueve el primer usuario:
+  //    sin esto el laboratorio quedaría sin acceso a configuración.
+  if(!usuarios.some(u => u.rol === 'Admin')){
+    usuarios[0].rol = 'Admin'; cambio = true;
+    console.log(`[CDIM] ${usuarios[0].usuario} promovido a Admin (no había ninguno)`);
+  }
+  if(cambio) escribirDB('usuarios', usuarios);
+}
+
 function inicializarUsuarios(){
-  if(leerDB('usuarios')) return;
+  if(leerDB('usuarios')){ migrarRoles(); return; }
   const admin = {
     id    : 'usr-admin',
     nombre: 'Dr. Ronald Enrique Martínez Márquez',
@@ -201,6 +221,10 @@ app.put('/api/usuarios/:id', auth, soloAdmin, (req, res) => {
   const u = usuarios.find(x => x.id === req.params.id);
   if(!u) return res.status(404).json({error:'Usuario no encontrado'});
   const {nombre, rol, activo, clave} = req.body;
+  // El laboratorio no puede quedarse sin nadie que administre el sistema
+  const quitaAdmin = u.rol === 'Admin' && ((rol && rol !== 'Admin') || activo === false);
+  if(quitaAdmin && usuarios.filter(x => x.rol === 'Admin' && x.activo !== false).length <= 1)
+    return res.status(400).json({error:'Debe quedar al menos un usuario con rol Admin. Crea otro antes de cambiar este.'});
   if(nombre) u.nombre = nombre;
   if(rol)    u.rol    = rol;
   if(activo !== undefined) u.activo = activo;
@@ -212,6 +236,11 @@ app.put('/api/usuarios/:id', auth, soloAdmin, (req, res) => {
 
 app.delete('/api/usuarios/:id', auth, soloAdmin, (req, res) => {
   if(req.params.id === req.user.id) return res.status(400).json({error:'No puedes eliminarte a ti mismo'});
+  const todos = leerDB('usuarios') || [];
+  const victima = todos.find(x => x.id === req.params.id);
+  if(victima && victima.rol === 'Admin' &&
+     todos.filter(x => x.rol === 'Admin' && x.activo !== false).length <= 1)
+    return res.status(400).json({error:'Es el único usuario con rol Admin. Crea otro antes de eliminarlo.'});
   const usuarios = (leerDB('usuarios') || []).filter(x => x.id !== req.params.id);
   escribirDB('usuarios', usuarios);
   res.json({ok:true});
