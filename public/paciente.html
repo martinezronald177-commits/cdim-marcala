@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Mis resultados — CDI Marcala</title>
+<link rel="manifest" href="paciente_manifest.json">
+<meta name="theme-color" content="#285068">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CDI Marcala">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--azul:#285068;--azul-osc:#1a3446;--verde:#70A020;--dorado:#b8974a;
+  --bg:#eef2f5;--carta:#fff;--linea:#d8e2e8;--gris:#6b7f8c;--rojo:#c0392b;--r:12px}
+body{font-family:'Montserrat',sans-serif;background:var(--bg);color:#16242e;min-height:100vh;padding-bottom:40px}
+header{background:var(--azul);color:#fff;padding:16px 20px;display:flex;align-items:center;gap:14px;
+  box-shadow:0 2px 12px rgba(0,0,0,.22);position:sticky;top:0;z-index:20}
+header .ico{width:46px;height:46px;border-radius:50%;background:#fff;color:var(--azul);flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;text-align:center;line-height:1.1}
+header h1{font-size:16px;font-weight:800;line-height:1.2}
+header p{font-size:11.5px;opacity:.85;margin-top:2px}
+.cont{max-width:820px;margin:0 auto;padding:20px 14px}
+.tarjeta{background:var(--carta);border-radius:var(--r);padding:20px;margin-bottom:14px;box-shadow:0 1px 6px rgba(0,0,0,.07)}
+.tarjeta h2{font-size:15px;font-weight:800;color:var(--azul);margin-bottom:14px;
+  padding-bottom:9px;border-bottom:2px solid var(--linea)}
+.campo{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+.campo label{font-size:11px;font-weight:800;color:var(--gris);text-transform:uppercase;letter-spacing:.4px}
+.campo input{padding:12px 14px;border:1.5px solid var(--linea);border-radius:9px;font-family:inherit;
+  font-size:16px;outline:none;transition:.15s;background:#fff;width:100%}
+.campo input:focus{border-color:var(--azul);box-shadow:0 0 0 3px rgba(40,80,104,.12)}
+.campo .ayuda{font-size:11px;color:var(--gris)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:9px;
+  border:none;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;transition:.15s;width:100%}
+.btn-p{background:var(--azul);color:#fff}.btn-p:hover{background:var(--azul-osc)}
+.btn-g{background:var(--linea);color:#16242e}.btn-g:hover{background:#c6d4dd}
+.btn-v{background:var(--verde);color:#fff}.btn-v:hover{background:#5a8a18}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn-min{width:auto;padding:9px 15px;font-size:13px}
+.error{margin-top:12px;padding:11px 14px;background:#fdecea;border-radius:9px;font-size:13.5px;
+  color:var(--rojo);display:none;line-height:1.5}
+/* Pestañas */
+.tabs{display:flex;gap:0;background:var(--carta);border-radius:var(--r);overflow:hidden;
+  margin-bottom:14px;box-shadow:0 1px 6px rgba(0,0,0,.07)}
+.tab{flex:1;padding:14px 8px;text-align:center;font-size:13.5px;font-weight:700;background:none;border:none;
+  font-family:inherit;color:var(--gris);cursor:pointer;transition:.15s;border-bottom:3px solid transparent}
+.tab.act{color:var(--azul);border-bottom-color:var(--azul);background:#f6f9fb}
+/* Orden */
+.orden{border:1.5px solid var(--linea);border-radius:10px;margin-bottom:12px;overflow:hidden}
+.orden-cab{background:#f6f9fb;padding:13px 16px;display:flex;justify-content:space-between;
+  align-items:center;gap:10px;cursor:pointer;flex-wrap:wrap}
+.orden-cab b{font-size:14px;color:var(--azul)}
+.orden-cab .fecha{font-size:12px;color:var(--gris)}
+.orden-cuerpo{padding:0 16px;max-height:0;overflow:hidden;transition:max-height .3s ease,padding .3s}
+.orden.abierta .orden-cuerpo{max-height:4000px;padding:14px 16px}
+.chip{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:800}
+.chip-v{background:#e6f4d9;color:#3b6d11}
+.chip-a{background:#fdf2d9;color:#854f0b}
+.chip-az{background:#e2edf3;color:#1a3446}
+.area-tit{font-size:11.5px;font-weight:800;color:var(--azul);text-transform:uppercase;
+  letter-spacing:.5px;margin:14px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--linea)}
+.area-tit:first-child{margin-top:0}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-size:10.5px;font-weight:800;color:var(--gris);text-transform:uppercase;
+  letter-spacing:.4px;padding:6px 4px;border-bottom:1px solid var(--linea)}
+td{padding:8px 4px;border-bottom:1px solid #eef2f5;vertical-align:top;line-height:1.45}
+.val{font-weight:800;text-align:right;white-space:nowrap}
+.val.alto{color:var(--rojo)}.val.bajo{color:#1a5a9e}
+.ref{color:var(--gris);font-size:12px;text-align:right;white-space:nowrap}
+.ex-nom{font-weight:700;color:var(--azul);font-size:13px;margin:10px 0 4px}
+/* Cotización */
+.busca{position:relative;margin-bottom:12px}
+#buscaEx{width:100%;padding:12px 14px 12px 38px;border:1.5px solid var(--linea);border-radius:9px;
+  font-family:inherit;font-size:15px;outline:none}
+#buscaEx:focus{border-color:var(--azul);box-shadow:0 0 0 3px rgba(40,80,104,.12)}
+.busca .lupa{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--gris);pointer-events:none}
+.lista{display:flex;flex-direction:column;gap:4px;max-height:340px;overflow-y:auto}
+.ex-fila{display:flex;align-items:center;gap:11px;padding:11px 13px;border-radius:9px;
+  border:1.5px solid var(--linea);cursor:pointer;transition:.14s;background:#fff}
+.ex-fila:hover{border-color:var(--azul);background:#f4f8fa}
+.ex-fila.sel{border-color:var(--verde);background:#f0f8e6}
+.chk{width:20px;height:20px;border:2px solid var(--linea);border-radius:5px;flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;transition:.14s}
+.ex-fila.sel .chk{background:var(--verde);border-color:var(--verde)}
+.ex-info{flex:1;min-width:0}
+.ex-info b{font-size:13.5px;font-weight:600;line-height:1.3;display:block}
+.ex-info span{font-size:11px;color:var(--gris)}
+.precio{font-size:14px;font-weight:800;color:var(--azul);white-space:nowrap}
+.area-h{font-size:10.5px;font-weight:800;color:var(--azul);text-transform:uppercase;letter-spacing:.5px;
+  padding:11px 0 4px;border-bottom:1.5px solid var(--linea);margin-bottom:4px}
+.res-item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;
+  border-bottom:1px solid var(--linea);font-size:13.5px}
+.res-item:last-child{border-bottom:none}
+.total{display:flex;justify-content:space-between;font-weight:800;font-size:17px;color:var(--azul);
+  padding-top:13px;border-top:2px solid var(--azul);margin-top:10px}
+.quitar{background:none;border:none;color:var(--rojo);font-size:17px;cursor:pointer;padding:0 5px;opacity:.7}
+.quitar:hover{opacity:1}
+.vacio{text-align:center;padding:34px 18px;color:var(--gris);font-size:14px;line-height:1.6}
+.aviso{background:#fff8e6;border:1.5px solid #f0c060;border-radius:9px;padding:12px 15px;
+  font-size:13px;margin-bottom:14px;line-height:1.6}
+.exito{text-align:center;padding:30px 18px}
+.exito .em{font-size:52px;margin-bottom:10px}
+.exito h2{color:var(--verde);font-size:19px;margin-bottom:8px;border:none;padding:0}
+.exito p{color:var(--gris);font-size:14px;line-height:1.7;margin-bottom:6px}
+.codigo{font-size:19px;font-weight:800;color:var(--azul);letter-spacing:1px;background:#eef4f8;
+  padding:9px 20px;border-radius:9px;display:inline-block;margin:12px 0;word-break:break-all}
+.oculto{display:none}
+footer{text-align:center;padding:22px 16px;font-size:11.5px;color:var(--gris);line-height:1.7}
+#banner{display:none;background:var(--azul);color:#fff;padding:12px 18px;align-items:center;
+  gap:14px;justify-content:space-between}
+@media(max-width:520px){
+  header{flex-direction:column;text-align:center;gap:8px}
+  .tab{font-size:12px;padding:12px 4px}
+  .cont{padding:14px 10px}
+  .tarjeta{padding:16px}
+}
+</style>
+</head>
+<body>
+
+<div id="banner">
+  <b style="font-size:13px">📱 Instala CDI Marcala en tu celular</b>
+  <button onclick="instalar()" style="background:var(--dorado);color:#fff;border:none;padding:8px 15px;
+    border-radius:8px;font-family:inherit;font-weight:700;cursor:pointer;white-space:nowrap">Instalar</button>
+</div>
+
+<header>
+  <div class="ico">CDI<br>Marcala</div>
+  <div>
+    <h1>Centro de Diagnóstico Integral Marcala</h1>
+    <p>Servicio de Laboratorio Clínico · WhatsApp 9758-9992</p>
+  </div>
+</header>
+
+<div class="cont">
+
+  <!-- ══ INGRESO ══ -->
+  <div id="secIngreso">
+    <div class="tarjeta">
+      <h2>Consulta tus resultados</h2>
+      <div class="aviso">
+        Para proteger tu información necesitamos <b>dos datos</b>: tu número de identidad
+        y tu fecha de nacimiento. Así nadie más puede ver tus resultados.
+      </div>
+      <div class="campo">
+        <label>Número de identidad</label>
+        <input type="text" id="inDni" inputmode="numeric" placeholder="1208-1990-00001" maxlength="15" oninput="fmtDni(this)">
+        <span class="ayuda">El mismo que diste cuando te tomaron la muestra</span>
+      </div>
+      <div class="campo">
+        <label>Fecha de nacimiento</label>
+        <input type="date" id="inFnac">
+      </div>
+      <div class="error" id="errIngreso"></div>
+      <button class="btn btn-p" id="btnEntrar" onclick="entrar()">Ver mis resultados</button>
+    </div>
+    <div class="tarjeta">
+      <h2>¿Solo quieres cotizar?</h2>
+      <p style="font-size:13.5px;color:var(--gris);line-height:1.7;margin-bottom:14px">
+        Puedes pedir el precio de tus exámenes sin necesidad de haber venido antes al laboratorio.
+      </p>
+      <button class="btn btn-v" onclick="soloCotizar()">Cotizar mis exámenes</button>
+    </div>
+  </div>
+
+  <!-- ══ PANEL DEL PACIENTE ══ -->
+  <div id="secPanel" class="oculto">
+    <div class="tarjeta" style="padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:11px;color:var(--gris);font-weight:800;text-transform:uppercase;letter-spacing:.4px">Paciente</div>
+        <div style="font-size:16px;font-weight:800;color:var(--azul);margin-top:2px" id="nomPac"></div>
+      </div>
+      <button class="btn btn-g btn-min" onclick="salir()">Salir</button>
+    </div>
+
+    <div class="tabs">
+      <button class="tab act" data-t="res" onclick="verTab('res')">Mis resultados</button>
+      <button class="tab" data-t="cot" onclick="verTab('cot')">Cotizar</button>
+      <button class="tab" data-t="his" onclick="verTab('his')">Mis solicitudes</button>
+    </div>
+
+    <div id="tabRes"><div class="tarjeta"><div class="vacio">Cargando…</div></div></div>
+    <div id="tabCot" class="oculto"></div>
+    <div id="tabHis" class="oculto"><div class="tarjeta"><div class="vacio">Cargando…</div></div></div>
+  </div>
+
+  <!-- ══ COTIZACIÓN ══ -->
+  <div id="secCot" class="oculto">
+    <div class="tarjeta">
+      <h2>Tus datos</h2>
+      <div class="campo">
+        <label>Nombre completo *</label>
+        <input type="text" id="cNombre" placeholder="Como aparece en tu identidad" autocomplete="name">
+      </div>
+      <div class="campo">
+        <label>Número de identidad *</label>
+        <input type="text" id="cDni" inputmode="numeric" placeholder="1208-1990-00001" maxlength="15" oninput="fmtDni(this)">
+      </div>
+      <div class="campo">
+        <label>Fecha de nacimiento *</label>
+        <input type="date" id="cFnac">
+      </div>
+      <div class="campo">
+        <label>Sexo *</label>
+        <select id="cSexo" style="padding:12px 14px;border:1.5px solid var(--linea);border-radius:9px;font-family:inherit;font-size:16px;outline:none;background:#fff;width:100%">
+          <option value="">Seleccionar…</option>
+          <option value="M">Masculino</option>
+          <option value="F">Femenino</option>
+        </select>
+      </div>
+      <div class="campo">
+        <label>Teléfono / WhatsApp</label>
+        <input type="tel" id="cTel" placeholder="9999-9999">
+      </div>
+      <div class="campo">
+        <label>Médico que los solicita</label>
+        <input type="text" id="cMedico" placeholder="Opcional">
+      </div>
+    </div>
+
+    <div class="tarjeta">
+      <h2>Elige tus exámenes</h2>
+      <div class="busca"><span class="lupa">🔍</span>
+        <input type="text" id="buscaEx" placeholder="Buscar por nombre…" oninput="pintarEx(this.value)"></div>
+      <div class="lista" id="listaEx"><div class="vacio">Cargando catálogo…</div></div>
+    </div>
+
+    <div class="tarjeta oculto" id="panelRes">
+      <h2>Lo que has elegido</h2>
+      <div id="resItems"></div>
+      <div class="total"><span>Total estimado</span><span id="resTotal">L 0.00</span></div>
+      <p style="font-size:12px;color:var(--gris);margin-top:10px;line-height:1.6">
+        Los precios son referenciales. El laboratorio revisa tu solicitud y te confirma el precio final.</p>
+    </div>
+
+    <div class="campo">
+      <label>Algo más que debamos saber</label>
+      <input type="text" id="cObs" placeholder="Opcional">
+    </div>
+    <div class="error" id="errCot"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-g btn-min" onclick="volverInicio()">← Volver</button>
+      <button class="btn btn-v" style="flex:1;min-width:180px" id="btnEnviar" onclick="enviarCot()">Enviar solicitud</button>
+    </div>
+  </div>
+
+  <!-- ══ ENVIADO ══ -->
+  <div id="secOk" class="oculto">
+    <div class="tarjeta">
+      <div class="exito">
+        <div class="em">✅</div>
+        <h2>Solicitud enviada</h2>
+        <p>El laboratorio la revisa y te contacta por WhatsApp para confirmarte precio y horario.</p>
+        <div class="codigo" id="numCot"></div>
+        <p><b>Guarda este código.</b></p>
+        <p style="margin-top:14px">📱 <a href="https://wa.me/50497589992" style="color:var(--azul);font-weight:700">WhatsApp: +504 9758-9992</a></p>
+        <button class="btn btn-g" style="margin-top:20px" onclick="location.reload()">Volver al inicio</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <b>Centro de Diagnóstico Integral Marcala</b><br>
+  Dr. Ronald Enrique Martínez Márquez · Microbiólogo y Químico Clínico · CMQCH 2023-2105<br>
+  Col. Melgar Castro, calle hacia el 21 de Octubre · Marcala, La Paz
+</footer>
+
+<script>
+let PAC=null, CAT=[], SEL=new Set();
+
+function fmtDni(el){
+  let v=el.value.replace(/\D/g,'').slice(0,13);
+  if(v.length>8)v=v.slice(0,4)+'-'+v.slice(4,8)+'-'+v.slice(8);
+  else if(v.length>4)v=v.slice(0,4)+'-'+v.slice(4);
+  el.value=v;
+}
+function err(id,msg){const e=document.getElementById(id);e.textContent=msg;e.style.display=msg?'block':'none';}
+function ver(id){['secIngreso','secPanel','secCot','secOk'].forEach(s=>
+  document.getElementById(s).classList.toggle('oculto',s!==id));
+  window.scrollTo({top:0,behavior:'smooth'});}
+const L=n=>'L '+Number(n||0).toFixed(2);
+
+/* ── Ingreso ── */
+async function entrar(){
+  const dni=document.getElementById('inDni').value.trim();
+  const fnac=document.getElementById('inFnac').value;
+  if(dni.length<13||!fnac){err('errIngreso','Escribe tu identidad completa y tu fecha de nacimiento.');return;}
+  const b=document.getElementById('btnEntrar');
+  b.disabled=true;b.textContent='Buscando…';err('errIngreso','');
+  try{
+    const r=await fetch('/api/resultado',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({dni,fnac})});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.error||'No se pudo consultar');
+    PAC={dni,fnac,...d};
+    document.getElementById('nomPac').textContent=d.nombre;
+    ver('secPanel');
+    pintarResultados();
+    cargarCatalogo();
+    cargarSolicitudes();
+  }catch(e){
+    err('errIngreso',e.message);
+  }finally{
+    b.disabled=false;b.textContent='Ver mis resultados';
+  }
+}
+function salir(){PAC=null;SEL.clear();ver('secIngreso');}
+function volverInicio(){ PAC?ver('secPanel'):ver('secIngreso'); }
+
+/* ── Pestañas ── */
+function verTab(t){
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('act',b.dataset.t===t));
+  ['res','cot','his'].forEach(x=>document.getElementById('tab'+x[0].toUpperCase()+x.slice(1)).classList.toggle('oculto',x!==t));
+  if(t==='cot'&&!CAT.length)cargarCatalogo();
+  if(t==='cot')pintarCotDentro();
+}
+
+/* ── Resultados ── */
+function marca(p){
+  const v=parseFloat(String(p.valor).replace(',','.'));
+  if(isNaN(v))return '';
+  if(p.refMax!==''&&p.refMax!=null&&v>parseFloat(p.refMax))return 'alto';
+  if(p.refMin!==''&&p.refMin!=null&&v<parseFloat(p.refMin))return 'bajo';
+  return '';
+}
+function pintarResultados(){
+  const cont=document.getElementById('tabRes');
+  if(!PAC.ordenes.length){
+    cont.innerHTML='<div class="tarjeta"><div class="vacio">Todavía no tienes resultados listos.<br>'+
+      'Cuando el laboratorio valide tus exámenes aparecerán aquí.</div></div>';return;}
+  cont.innerHTML='<div class="tarjeta"><h2>Tus resultados</h2>'+
+    PAC.ordenes.map((o,i)=>{
+      const areas={};
+      o.examenes.filter(e=>e.validado).forEach(e=>{(areas[e.area||'General']=areas[e.area||'General']||[]).push(e);});
+      return `<div class="orden ${i===0?'abierta':''}" id="o${i}">
+        <div class="orden-cab">
+          <div onclick="document.getElementById('o${i}').classList.toggle('abierta')" style="flex:1;cursor:pointer">
+            <b>Orden ${o.numero}</b><div class="fecha">${o.fecha.split('-').reverse().join('/')}</div>
+          </div>
+          <span class="chip ${o.estado==='Entregada'?'chip-v':'chip-az'}">${o.estado}</span>
+          ${o.token?`<a class="btn btn-p btn-min" style="text-decoration:none" href="/r/${o.numero}/${o.token}">Ver informe ›</a>`:''}
+        </div>
+        <div class="orden-cuerpo">
+          ${Object.entries(areas).map(([a,exs])=>`
+            <div class="area-tit">${a}</div>
+            ${exs.map(e=>`
+              <div class="ex-nom">${e.nombre}</div>
+              <table><thead><tr><th>Análisis</th><th style="text-align:right">Resultado</th><th style="text-align:right">Referencia</th></tr></thead><tbody>
+              ${e.params.filter(p=>p.valor!=='').map(p=>`<tr>
+                <td>${p.nombre}</td>
+                <td class="val ${marca(p)}">${p.valor}${p.unidad?' <span style="font-weight:400;color:var(--gris);font-size:11.5px">'+p.unidad+'</span>':''}</td>
+                <td class="ref">${(p.refMin!==''&&p.refMax!=='')?p.refMin+' – '+p.refMax:(p.refMax!==''?'< '+p.refMax:(p.refMin!==''?'> '+p.refMin:'—'))}</td>
+              </tr>`).join('')}
+              </tbody></table>`).join('')}
+          `).join('')}
+        </div></div>`;}).join('')+
+    '<div class="aviso" style="margin-top:16px;margin-bottom:0">Estos resultados son informativos. '+
+    '<b>Llévalos siempre a tu médico</b> para que los interprete junto con tu historia clínica.</div></div>';
+}
+
+/* ── Catálogo y cotización ── */
+async function cargarCatalogo(){
+  try{
+    const r=await fetch('/api/catalogo');
+    CAT=await r.json();
+    pintarEx('');
+    pintarCotDentro();
+  }catch(e){
+    document.getElementById('listaEx').innerHTML='<div class="vacio">No se pudo cargar el catálogo.</div>';
+  }
+}
+const norm=s=>s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+function pintarEx(q){
+  const destinos=[document.getElementById('listaEx'),document.getElementById('listaExDentro')].filter(Boolean);
+  const f=norm(q||'');
+  const vis=f?CAT.filter(e=>norm(e.nombre+' '+e.area).includes(f)):CAT;
+  const html=(()=>{
+    if(!vis.length)return '<div class="vacio">Ningún examen coincide.</div>';
+    const porArea={};vis.forEach(e=>{(porArea[e.area]=porArea[e.area]||[]).push(e);});
+    return Object.entries(porArea).sort((a,b)=>a[0].localeCompare(b[0])).map(([a,exs])=>
+      `<div class="area-h">${a}</div>`+exs.map(e=>
+        `<div class="ex-fila ${SEL.has(e.id)?'sel':''}" onclick="alt('${e.id}')">
+          <div class="chk">${SEL.has(e.id)?'✓':''}</div>
+          <div class="ex-info"><b>${e.nombre}</b><span>${e.entrega?'Entrega: '+e.entrega:''}</span></div>
+          <div class="precio">${L(e.precio)}</div>
+        </div>`).join('')).join('');
+  })();
+  destinos.forEach(d=>d.innerHTML=html);
+}
+function alt(id){
+  SEL.has(id)?SEL.delete(id):SEL.add(id);
+  const busca=document.getElementById('buscaEx');
+  pintarEx(busca?busca.value:'');
+  resumen();
+}
+function quitar(id){SEL.delete(id);pintarEx(document.getElementById('buscaEx').value||'');resumen();}
+function resumen(){
+  const items=[...SEL].map(id=>CAT.find(e=>e.id===id)).filter(Boolean);
+  const tot=items.reduce((a,e)=>a+e.precio,0);
+  ['panelRes','panelResDentro'].forEach(pid=>{
+    const p=document.getElementById(pid);if(!p)return;
+    p.classList.toggle('oculto',!items.length);
+  });
+  ['resItems','resItemsDentro'].forEach(iid=>{
+    const c=document.getElementById(iid);if(!c)return;
+    c.innerHTML=items.map(e=>`<div class="res-item">
+      <button class="quitar" onclick="quitar('${e.id}')">✕</button>
+      <span style="flex:1">${e.nombre}</span>
+      <b style="color:var(--azul)">${L(e.precio)}</b></div>`).join('');
+  });
+  ['resTotal','resTotalDentro'].forEach(tid=>{
+    const t=document.getElementById(tid);if(t)t.textContent=L(tot);
+  });
+}
+/* La pestaña de cotizar dentro del panel reutiliza el mismo catálogo */
+function pintarCotDentro(){
+  const c=document.getElementById('tabCot');
+  if(c.dataset.listo)return;
+  c.dataset.listo='1';
+  c.innerHTML=`
+  <div class="tarjeta">
+    <h2>Solicita una cotización</h2>
+    <div class="busca"><span class="lupa">🔍</span>
+      <input type="text" id="buscaExDentro" placeholder="Buscar por nombre…" oninput="pintarEx(this.value)"></div>
+    <div class="lista" id="listaExDentro"></div>
+  </div>
+  <div class="tarjeta oculto" id="panelResDentro">
+    <h2>Lo que has elegido</h2>
+    <div id="resItemsDentro"></div>
+    <div class="total"><span>Total estimado</span><span id="resTotalDentro">L 0.00</span></div>
+  </div>
+  <div class="tarjeta">
+    <div class="campo"><label>Algo más que debamos saber</label>
+      <input type="text" id="cObsDentro" placeholder="Opcional"></div>
+    <div class="error" id="errCotDentro"></div>
+    <button class="btn btn-v" id="btnEnviarDentro" onclick="enviarCot(true)">Enviar solicitud</button>
+  </div>`;
+  pintarEx('');resumen();
+}
+
+async function soloCotizar(){ ver('secCot'); if(!CAT.length)await cargarCatalogo(); }
+
+async function enviarCot(dentro){
+  const g=id=>{const e=document.getElementById(id);return e?e.value.trim():'';};
+  let datos;
+  if(dentro){
+    datos={nombre:PAC.nombre,dni:PAC.dni,fnac:PAC.fnac,sexo:PAC.sexo||'',tel:'',medico:'',
+      obs:g('cObsDentro')};
+  }else{
+    datos={nombre:g('cNombre'),dni:g('cDni'),fnac:g('cFnac'),
+      sexo:document.getElementById('cSexo').value,tel:g('cTel'),medico:g('cMedico'),obs:g('cObs')};
+    if(!datos.nombre||datos.dni.length<13||!datos.fnac||!datos.sexo){
+      err(dentro?'errCotDentro':'errCot','Completa tu nombre, identidad, fecha de nacimiento y sexo.');return;}
+  }
+  if(!SEL.size){err(dentro?'errCotDentro':'errCot','Elige al menos un examen.');return;}
+  const bid=dentro?'btnEnviarDentro':'btnEnviar';
+  const b=document.getElementById(bid);
+  b.disabled=true;b.textContent='Enviando…';err(dentro?'errCotDentro':'errCot','');
+  const items=[...SEL].map(id=>{const e=CAT.find(x=>x.id===id);
+    return {id:e.id,nombre:e.nombre,precio:e.precio,cantidad:1};});
+  const d=new Date();
+  const cot={
+    numero:'COT-WEB-'+d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0')+
+      '-'+String(d.getHours()).padStart(2,'0')+String(d.getMinutes()).padStart(2,'0')+String(d.getSeconds()).padStart(2,'0'),
+    fecha:d.toISOString().slice(0,10),
+    nombre:datos.nombre,idNumero:datos.dni,fnac:datos.fnac,sexo:datos.sexo,
+    tel:datos.tel,medico:datos.medico,obs:datos.obs,
+    items,total:items.reduce((a,e)=>a+e.precio,0),origen:'web',estadoCot:'Pendiente'
+  };
+  try{
+    const r=await fetch('/api/cotizacion-publica',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(cot)});
+    if(!r.ok)throw new Error('No se pudo enviar');
+    if(dentro){
+      SEL.clear();resumen();pintarEx('');
+      alert('Solicitud enviada. Código: '+cot.numero);
+      cargarSolicitudes();verTab('his');
+    }else{
+      document.getElementById('numCot').textContent=cot.numero;
+      ver('secOk');
+    }
+  }catch(e){
+    err(dentro?'errCotDentro':'errCot','No se pudo enviar. Revisa tu conexión e inténtalo otra vez.');
+  }finally{
+    b.disabled=false;b.textContent='Enviar solicitud';
+  }
+}
+
+/* ── Mis solicitudes ── */
+async function cargarSolicitudes(){
+  const c=document.getElementById('tabHis');
+  try{
+    const r=await fetch('/api/mis-cotizaciones',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({dni:PAC.dni})});
+    const lista=await r.json();
+    if(!lista.length){
+      c.innerHTML='<div class="tarjeta"><div class="vacio">Aún no has enviado solicitudes de cotización.</div></div>';return;}
+    c.innerHTML='<div class="tarjeta"><h2>Tus solicitudes</h2>'+
+      lista.map(x=>`<div class="orden" style="margin-bottom:10px">
+        <div class="orden-cab" style="cursor:default">
+          <div><b>${x.numero}</b><div class="fecha">${x.fecha.split('-').reverse().join('/')} · ${L(x.total)}</div></div>
+          <span class="chip ${/Aprobada/.test(x.estado)?'chip-v':'chip-a'}">${x.estado}</span>
+        </div>
+        <div class="orden-cuerpo" style="max-height:none;padding:12px 16px">
+          <div style="font-size:12.5px;color:var(--gris);line-height:1.7">${x.items.join(' · ')}</div>
+        </div></div>`).join('')+'</div>';
+  }catch(e){
+    c.innerHTML='<div class="tarjeta"><div class="vacio">No se pudieron cargar tus solicitudes.</div></div>';
+  }
+}
+
+/* ── App instalable ── */
+if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
+let dp;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();dp=e;
+  document.getElementById('banner').style.display='flex';});
+function instalar(){if(!dp)return;dp.prompt();dp.userChoice.then(()=>{dp=null;});
+  document.getElementById('banner').style.display='none';}
+</script>
+</body>
+</html>
