@@ -76,7 +76,7 @@ function inicializarUsuarios(){
     nombre: 'Dr. Ronald Enrique Martínez Márquez',
     usuario: 'admin',
     clave  : bcrypt.hashSync('cdim2024', 10),
-    rol    : 'Administrador',
+    rol    : 'Admin',
     activo : true,
     creado : new Date().toISOString(),
   };
@@ -97,8 +97,9 @@ function auth(req, res, next){
   }
 }
 function soloAdmin(req, res, next){
-  if(req.user?.rol !== 'Administrador')
-    return res.status(403).json({error:'Solo el administrador puede hacer esto'});
+  // El control del sistema (usuarios, respaldos) corresponde al rol Admin
+  if(req.user?.rol !== 'Admin' && req.user?.rol !== 'Administrador')
+    return res.status(403).json({error:'Esta acción requiere el rol Admin'});
   next();
 }
 
@@ -185,7 +186,7 @@ app.post('/api/usuarios', auth, soloAdmin, (req, res) => {
     id     : 'usr-'+Date.now().toString(36),
     nombre, usuario,
     clave  : bcrypt.hashSync(clave, 10),
-    rol    : rol || 'Técnico',
+    rol    : ['Admin','Dr','Administrador','Técnico'].includes(rol) ? rol : 'Técnico',
     activo : true,
     creado : new Date().toISOString(),
   };
