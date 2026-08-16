@@ -10,14 +10,21 @@
 body{font-family:'Montserrat',sans-serif;background:#1a3446;min-height:100vh;display:flex;align-items:center;justify-content:center}
 .card{background:#fff;border-radius:20px;padding:40px 36px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
 .logo{text-align:center;margin-bottom:28px}
-.logo-ico{width:72px;height:72px;background:#285068;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;margin-bottom:12px}
-.logo-ico svg{width:40px;height:40px}
+.logo-img{width:112px;height:112px;object-fit:contain;margin-bottom:10px;
+  filter:drop-shadow(0 3px 10px rgba(0,0,0,.18))}
 h1{font-size:20px;font-weight:800;color:#285068;text-align:center;line-height:1.2}
 .sub{font-size:12px;color:#6b7f8c;text-align:center;margin-top:4px}
 .campo{margin-top:18px}
 .campo label{display:block;font-size:11px;font-weight:800;color:#6b7f8c;text-transform:uppercase;letter-spacing:.4px;margin-bottom:5px}
 .campo input{width:100%;padding:12px 14px;border:1.5px solid #d8e2e8;border-radius:10px;font-family:inherit;font-size:15px;outline:none;transition:.15s}
 .campo input:focus{border-color:#285068;box-shadow:0 0 0 3px rgba(40,80,104,.12)}
+/* Accesos rápidos a las cuentas usadas en este dispositivo */
+.recientes{display:flex;gap:6px;flex-wrap:wrap;margin-top:7px}
+.rec-btn{background:#eef3f6;border:1px solid #d8e2e8;border-radius:20px;padding:5px 13px;
+  font-family:inherit;font-size:12.5px;font-weight:600;color:#285068;cursor:pointer;transition:.14s}
+.rec-btn:hover{background:#285068;color:#fff;border-color:#285068}
+.rec-x{background:none;border:none;color:#6b7f8c;font-size:11px;cursor:pointer;padding:5px 4px}
+.rec-x:hover{color:#c0392b}
 .btn{width:100%;margin-top:22px;padding:13px;background:#285068;color:#fff;border:none;border-radius:10px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;transition:.15s}
 .btn:hover{background:#1a3446}
 .btn:disabled{opacity:.6;cursor:not-allowed}
@@ -29,19 +36,14 @@ footer{margin-top:24px;text-align:center;font-size:11px;color:#6b7f8c}
 <body>
 <div class="card">
   <div class="logo">
-    <div class="logo-ico">
-      <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="20" cy="20" r="17" stroke="#fff" stroke-width="2.5"/>
-        <rect x="18" y="8" width="4" height="24" rx="2" fill="#70A020"/>
-        <rect x="8" y="18" width="24" height="4" rx="2" fill="#fff"/>
-      </svg>
-    </div>
+    <img src="logo.png" alt="Centro de Diagnóstico Integral Marcala" class="logo-img">
     <h1>Centro de Diagnóstico<br>Integral Marcala</h1>
     <p class="sub">Sistema de Laboratorio Clínico</p>
   </div>
   <div class="campo">
     <label>Usuario</label>
-    <input type="text" id="usr" placeholder="admin" autocomplete="username" autofocus>
+    <input type="text" id="usr" placeholder="Tu usuario" autocomplete="username" autofocus>
+    <div id="recientes" class="recientes"></div>
   </div>
   <div class="campo">
     <label>Contraseña</label>
@@ -63,6 +65,7 @@ async function login(){
     const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({usuario:usr,clave:pwd})});
     const d=await r.json();
     if(!r.ok)throw new Error(d.error||'Error desconocido');
+    guardarReciente(usr);
     window.location.href='/';
   }catch(e){
     mostrarError(e.message);
@@ -70,6 +73,34 @@ async function login(){
   }
 }
 function mostrarError(m){const e=document.getElementById('err');e.textContent=m;e.style.display='block';}
+/* Cuentas usadas en este dispositivo: solo el nombre de usuario,
+   nunca la contraseña. Facilita alternar entre el Dr, el técnico y el admin. */
+function leerRecientes(){
+  try{ return JSON.parse(localStorage.getItem('CDIM_usuarios')||'[]'); }catch{ return []; }
+}
+function guardarReciente(u){
+  const l = leerRecientes().filter(x => x !== u);
+  l.unshift(u);
+  localStorage.setItem('CDIM_usuarios', JSON.stringify(l.slice(0,4)));
+}
+function olvidar(u,ev){
+  ev.stopPropagation();
+  localStorage.setItem('CDIM_usuarios', JSON.stringify(leerRecientes().filter(x=>x!==u)));
+  pintarRecientes();
+}
+function usar(u){
+  document.getElementById('usr').value = u;
+  document.getElementById('pwd').focus();
+}
+function pintarRecientes(){
+  const l = leerRecientes(), c = document.getElementById('recientes');
+  if(!l.length){ c.innerHTML=''; return; }
+  c.innerHTML = l.map(u =>
+    `<span class="rec-btn" onclick="usar('${u}')">${u}<button class="rec-x" onclick="olvidar('${u}',event)" title="Quitar de la lista">✕</button></span>`
+  ).join('');
+}
+pintarRecientes();
+
 // Si ya está logueado, ir directo
 fetch('/api/auth/me').then(r=>r.ok&&(window.location.href='/'));
 </script>

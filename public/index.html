@@ -610,6 +610,7 @@ td,th,.ci-txt b,.ci-sub{overflow-wrap:anywhere}
     <button data-v="respaldos" id="btn-respaldos" style="display:none" aria-label="Respaldos"><span class="ico" aria-hidden="true">💾</span>Respaldos</button>
     <button data-v="usuarios" id="btn-usuarios" style="display:none" aria-label="Usuarios"><span class="ico" aria-hidden="true">👥</span>Usuarios</button>
     <button data-v="config" aria-label="Configuración"><span class="ico" aria-hidden="true">⚙</span>Configuración</button>
+    <button onclick="cambiarUsuario()" id="btn-cambiar" style="display:none" aria-label="Cambiar de usuario"><span class="ico" aria-hidden="true">⇄</span>Cambiar de usuario</button>
     <button onclick="cerrarSesion()" id="btn-logout" style="display:none;margin-top:4px;background:rgba(192,57,43,.15);color:#e88" aria-label="Cerrar sesión"><span class="ico" aria-hidden="true">⏻</span>Cerrar sesión</button>
   </nav>
   <div class="pie-nav" style="border-top:1px solid rgba(255,255,255,.12);padding-top:12px">
@@ -9389,6 +9390,16 @@ async function cerrarSesion(){
   await fetch('/api/auth/logout',{method:'POST'});
   window.location.href='/login.html';
 }
+/* Cambiar de usuario sin salir del trabajo: útil cuando el técnico captura
+   y el Dr. tiene que validar en el mismo equipo. */
+async function cambiarUsuario(){
+  const u=usuarioActivo();
+  if(!confirm('Sesión actual: '+u.nombre+' ('+rolActivo()+')\n\n'+
+    '¿Cerrar sesión para que entre otra persona?\n'+
+    'Los datos ya están guardados en el servidor.'))return;
+  await fetch('/api/auth/logout',{method:'POST'});
+  window.location.href='/login.html';
+}
 
 /* =============== BITÁCORA DE TRABAJO =============== */
 const TIPOS_BIT=['Actividad de rutina','Control de calidad','Mantenimiento de equipo','Recepción de reactivos','Incidencia / No conformidad','Acción correctiva','Capacitación','Apertura de caja','Cierre de caja','Observación','Otro'];
@@ -9471,6 +9482,8 @@ function imprimirBitacora(){
       USUARIO_WEB=u;                    // quien entró por la pantalla de acceso
       console.log('[CDIM] Modo web · usuario:',u.nombre,'·',u.rol);
       // Mostrar botones de web
+      const bc=document.getElementById('btn-cambiar');
+      if(bc)bc.style.display='';
       const bl=document.getElementById('btn-logout');
       const bu=document.getElementById('btn-usuarios');
       if(bl)bl.style.display='';
