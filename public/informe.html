@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="format-detection" content="telephone=no,date=no,address=no,email=no">
+<title>Informe de resultados</title>
+<meta name="theme-color" content="#285068">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--azul:#285068;--azul-osc:#1a3446;--verde:#70A020;--dorado:#b8974a;
+  --linea:#d8e2e8;--gris:#6b7f8c;--rojo:#c0392b;--bg:#eef2f5}
+body{font-family:'Montserrat',sans-serif;background:var(--bg);color:#16242e;
+  min-height:100vh;padding-bottom:40px}
+
+/* ── Barra de acciones (no se imprime) ── */
+.barra-acc{position:sticky;top:0;z-index:20;background:var(--azul);color:#fff;
+  padding:12px 16px;display:flex;align-items:center;gap:10px;justify-content:space-between;
+  box-shadow:0 2px 10px rgba(0,0,0,.2);flex-wrap:wrap}
+.barra-acc .tit{font-size:13.5px;font-weight:700;line-height:1.3;flex:1;min-width:140px}
+.barra-acc .tit span{display:block;font-size:11px;opacity:.8;font-weight:400}
+.acciones{display:flex;gap:8px;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:10px 16px;border-radius:9px;
+  border:none;font-family:inherit;font-size:13.5px;font-weight:700;cursor:pointer;
+  transition:.15s;text-decoration:none;white-space:nowrap}
+.btn-b{background:rgba(255,255,255,.16);color:#fff}
+.btn-b:hover{background:rgba(255,255,255,.28)}
+.btn-v{background:var(--verde);color:#fff}
+.btn-v:hover{background:#5a8a18}
+
+/* ── Hoja del informe ── */
+.envoltura{max-width:850px;margin:18px auto;padding:0 12px}
+.hoja{background:#fff;border-radius:10px;padding:26px 30px;margin-bottom:16px;
+  box-shadow:0 2px 12px rgba(0,0,0,.09)}
+.cargando,.error-caja{background:#fff;border-radius:10px;padding:44px 28px;text-align:center;
+  color:var(--gris);font-size:14.5px;line-height:1.7;box-shadow:0 2px 12px rgba(0,0,0,.09)}
+.error-caja b{display:block;color:var(--rojo);font-size:16px;margin-bottom:8px}
+
+/* Cabecera institucional */
+.cab{display:grid;grid-template-columns:auto 1fr auto;gap:14px;align-items:center;
+  padding-bottom:12px;border-bottom:2px solid #111}
+.cab-logo img{height:66px;width:auto;display:block}
+.cab-nom{font-size:15px;font-weight:800;color:var(--azul);line-height:1.15;max-width:130px}
+.cab-datos{font-size:11px;line-height:1.55;color:#333}
+.cab-datos b{color:#111}
+.cab-prof{text-align:right;font-size:11px;line-height:1.5;color:#444}
+.cab-prof .n{font-size:12.5px;font-weight:800;color:#111}
+
+/* Barra de orden */
+.barra{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;
+  border-top:1.5px solid #111;border-bottom:1.5px solid #111;padding:7px 2px;margin-top:8px;
+  font-size:11.5px}
+/* Datos del paciente */
+.pac{background:#f5f7f9;border-radius:7px;padding:11px 14px;margin-top:8px;
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:4px 16px;font-size:12px}
+.pac .et{color:#555;font-weight:700}
+
+/* Área y tabla de resultados */
+.area{text-align:center;font-weight:800;font-size:14px;letter-spacing:1px;margin:18px 0 6px;
+  border-bottom:1.6px solid #111;padding-bottom:3px;text-transform:uppercase}
+.ex-tit{font-weight:800;font-size:13.5px;color:#111;margin:14px 0 5px;
+  border-left:3px solid #111;padding-left:8px}
+.metodo{font-size:11.5px;color:#555;font-style:italic;margin:0 0 7px 11px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:left;background:#f0f0f0;font-size:10.5px;font-weight:800;padding:6px 7px;
+  text-transform:uppercase;letter-spacing:.3px;border-bottom:1px solid #ccc}
+td{padding:6px 7px;border-bottom:1px solid #eee;vertical-align:top;line-height:1.45}
+.val{font-weight:800;text-align:right;white-space:nowrap}
+.val.alto{color:var(--rojo)}
+.val.bajo{color:#1a5a9e}
+.ref{color:#555;font-size:11.5px}
+.uni{color:#555;font-size:11.5px;white-space:nowrap}
+.sub-area{background:#f7f7f7;font-weight:800;font-size:11px;text-transform:uppercase;
+  letter-spacing:.4px;color:#333;padding:5px 7px}
+.leyenda{font-size:11px;color:#444;background:#f7f7f7;border-left:3px solid #999;
+  padding:7px 10px;margin:8px 0;line-height:1.55}
+.nota-pre{font-size:11px;color:#333;background:#f7f7f7;border-left:3px solid #666;
+  padding:6px 10px;margin-top:7px;line-height:1.5;font-style:italic}
+
+/* Firma */
+.firma{text-align:center;margin-top:26px;padding-top:10px}
+.firma-zona{position:relative;display:inline-block;min-height:60px}
+.firma-zona img.f{height:52px;position:relative;z-index:3}
+.firma-zona img.s{width:88px;height:88px;position:absolute;left:56%;top:-8px;z-index:2;opacity:.92}
+.linea{width:230px;border-top:1px solid #111;margin:2px auto 5px}
+.firma-nom{font-size:13px;font-weight:800}
+.firma-sub{font-size:11px;color:#444}
+
+/* Pie */
+.pie{margin-top:20px}
+.pie-serv{background:#1a1a1a;color:#fff;font-size:10.5px;font-weight:600;text-align:center;
+  padding:6px 9px;border-radius:5px;letter-spacing:.2px;line-height:1.5}
+.pie-dir{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;
+  font-size:10.5px;color:#444;margin-top:5px}
+.obs{font-size:11px;color:#333;border-top:1px solid #bbb;padding-top:5px;margin-top:12px;line-height:1.5}
+
+.aviso{background:#fff8e6;border:1.5px solid #f0c060;border-radius:9px;padding:12px 15px;
+  font-size:12.5px;margin:14px 0;line-height:1.6}
+.pie-web{text-align:center;padding:20px 16px;font-size:11.5px;color:var(--gris);line-height:1.7}
+.oculto{display:none}
+
+/* ── Al imprimir / Guardar PDF: solo la hoja, en alta calidad ──
+   El paciente descarga esto con window.print() → elige "Guardar como PDF" en
+   el diálogo del navegador (no hay generación de PDF del lado del servidor).
+   Sin *-print-color-adjust:exact, muchos navegadores omiten por defecto los
+   fondos y sombreados (encabezados de tabla, la barra negra de servicios,
+   los renglones "sub-area"/"leyenda"/"aviso") a menos que el usuario marque
+   a mano la casilla "Gráficos de fondo" del diálogo de impresión — algo que
+   casi ningún paciente sabe que existe. El resultado sin esto: un PDF
+   "descolorido", como una copia barata, aunque el paciente haya elegido
+   "Guardar". Esta regla fuerza la reproducción exacta de colores y fondos
+   sin depender de esa casilla. A diferencia de la base de impresión interna
+   del LIS (cssBaseImpresion en 50_impresion.js), aquí NO se fuerza texto en
+   negro puro: este informe marca alto/bajo únicamente por color
+   (.val.alto/.val.bajo), así que forzar negro borraría esa señal clínica
+   para el paciente — la base interna sí puede forzarlo porque ahí lo alto/
+   bajo ya se marca con texto (▲/▼ o chips), no solo con color. */
+@media print{
+  @page{size:letter;margin:10mm 11mm}
+  *,*::before,*::after{
+    -webkit-print-color-adjust:exact !important;
+    print-color-adjust:exact !important;
+    color-adjust:exact !important;
+  }
+  html,body{-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision}
+  img{image-rendering:-webkit-optimize-contrast;image-rendering:crisp-edges}
+  body{background:#fff;padding:0}
+  .barra-acc,.aviso,.pie-web{display:none !important}
+  .envoltura{max-width:none;margin:0;padding:0}
+  .hoja{box-shadow:none;border-radius:0;padding:0;margin:0}
+  a{color:inherit !important;text-decoration:none !important}
+  table{page-break-inside:auto}
+  tr{page-break-inside:avoid}
+  .firma,.pie{page-break-inside:avoid}
+}
+@media(max-width:640px){
+  .cab{grid-template-columns:1fr;text-align:center;gap:8px}
+  .cab-prof{text-align:center}
+  .hoja{padding:18px 15px}
+  .barra{font-size:11px}
+}
+</style>
+</head>
+<body>
+
+<div class="barra-acc" id="barra">
+  <div class="tit">Informe de resultados<span id="sub-tit">Cargando…</span></div>
+  <div class="acciones">
+    <button class="btn btn-v" onclick="window.print()">⬇ Guardar PDF</button>
+    <a class="btn btn-b" href="/paciente">Mis resultados</a>
+  </div>
+</div>
+
+<div class="envoltura">
+  <div id="aviso" class="aviso oculto">
+    Para guardarlo, use <b>Guardar PDF</b> y elija tamaño <b>Carta</b>. En el teléfono, el archivo
+    queda en Archivos o Descargas y puede enviarlo por WhatsApp a su médico.
+  </div>
+  <div id="cont"><div class="cargando">Cargando el informe…</div></div>
+</div>
+
+<div class="pie-web" id="pie-web"></div>
+
+<script>
+const partes = location.pathname.split('/').filter(Boolean);   // ['r', numero, token]
+const NUM = partes[1], TOK = partes[2];
+let DATOS = null;
+
+const esc = s => String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const fmtF = f => f ? f.split('-').reverse().join('/') : '—';
+const sexoTxt = s => s==='F' ? 'Femenino' : s==='M' ? 'Masculino' : '—';
+
+function edad(fnac, hasta){
+  if(!fnac) return '—';
+  const [a1,m1,d1] = fnac.split('-').map(Number);
+  const h = hasta ? new Date(hasta+'T12:00:00') : new Date();
+  let a = h.getFullYear()-a1, m = h.getMonth()+1-m1, d = h.getDate()-d1;
+  if(d<0){ m--; d += new Date(h.getFullYear(), h.getMonth(), 0).getDate(); }
+  if(m<0){ a--; m += 12; }
+  return a+' años '+m+' meses '+d+' días';
+}
+function marca(p){
+  const v = parseFloat(String(p.valor).replace(',','.'));
+  if(isNaN(v)) return '';
+  if(p.refMax!=='' && p.refMax!=null && v > parseFloat(p.refMax)) return 'alto';
+  if(p.refMin!=='' && p.refMin!=null && v < parseFloat(p.refMin)) return 'bajo';
+  return '';
+}
+function refTxt(p){
+  if(p.refTexto) return esc(p.refTexto).replace(/\n/g,'<br>');
+  if(p.refMin!=='' && p.refMin!=null && p.refMax!=='' && p.refMax!=null) return p.refMin+' – '+p.refMax;
+  if(p.refMax!=='' && p.refMax!=null) return '&lt; '+p.refMax;
+  if(p.refMin!=='' && p.refMin!=null) return '&gt; '+p.refMin;
+  return '—';
+}
+
+async function cargar(){
+  try{
+    const r = await fetch('/api/informe/'+NUM+'/'+TOK);
+    const d = await r.json();
+    if(!r.ok) throw new Error(d.error || 'No encontrado');
+    DATOS = d;
+    pintar();
+  }catch(e){
+    document.getElementById('cont').innerHTML =
+      '<div class="error-caja"><b>No pudimos abrir el informe</b>'+
+      esc(e.message)+'<br><br>Verifique que el código QR corresponda a un informe ya entregado.'+
+      '<br>Si la duda persiste, escríbanos por WhatsApp.</div>';
+    document.getElementById('sub-tit').textContent = 'No disponible';
+  }
+}
+
+function pintar(){
+  const {config:c, paciente:p, orden:o} = DATOS;
+  document.title = 'Resultados_'+o.numero+'_'+(p.nombre||'').replace(/[^\wáéíóúñÁÉÍÓÚÑ ]/g,'')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,'_')+'_'+(o.fecha||'').replace(/-/g,'_');
+  document.getElementById('sub-tit').textContent = (p.nombre||'') + ' · Orden ' + o.numero;
+  document.getElementById('aviso').classList.remove('oculto');
+  document.getElementById('pie-web').innerHTML =
+    '<b>'+esc(c.nombre||'')+'</b><br>'+esc(c.direccion||'')+'<br>WhatsApp '+esc(c.whatsapp||'');
+
+  // Agrupar los exámenes validados por área
+  const areas = {};
+  (o.examenes||[]).filter(e => e.validado).forEach(e => {
+    (areas[e.area||'General'] = areas[e.area||'General'] || []).push(e);
+  });
+
+  const cab = `
+  <div class="cab">
+    <div class="cab-logo">${c.logo ? '<img src="'+c.logo+'">' : '<div class="cab-nom">'+esc(c.nombre||'')+'</div>'}</div>
+    <div class="cab-datos">
+      <div>&#9906; <b>DIRECCIÓN:</b> ${esc((c.direccion||'').toUpperCase())}</div>
+      <div>&#9743; <b>CONTACTO:</b> ${esc(c.whatsapp||'')}${c.telefono2 ? ' / '+esc(c.telefono2) : ''}${c.correo ? ' &nbsp; &#9993; '+esc(c.correo) : ''}</div>
+    </div>
+    <div class="cab-prof">
+      <div class="n">${esc(c.profesional || c.regente || '')}</div>
+      <div>${esc(c.profesionalTitulo || 'Microbiólogo y Químico Clínico')}</div>
+      <div>${esc(c.colegiacion || '')}</div>
+    </div>
+  </div>
+  <div class="barra">
+    <span><b>Orden de trabajo #:</b> ${esc(o.numero)}</span>
+    <span><b>Fecha Orden:</b> ${fmtF(o.fecha)}</span>
+    <span><b>Fecha Informe:</b> ${fmtF(o.fechaValidacion || o.fecha)}</span>
+  </div>
+  <div class="pac">
+    <div><span class="et">Nombre:</span> <b>${esc(p.nombre||'')}</b></div>
+    <div><span class="et">N° Identidad:</span> ${esc(p.idNumero||'—')}</div>
+    <div><span class="et">Sexo:</span> ${sexoTxt(p.sexo)}</div>
+    <div><span class="et">Fecha de nacimiento:</span> ${fmtF(p.fnac)}</div>
+    <div><span class="et">Edad:</span> ${edad(p.fnac, o.fecha)}</div>
+    <div><span class="et">Remitente:</span> ${esc(p.medico||'N/A')}</div>
+  </div>`;
+
+  const cuerpo = Object.entries(areas).map(([area, exs]) => `
+    <div class="area">${esc(area)}</div>
+    ${exs.map(e => {
+      const conValor = (e.params||[]).filter(x => x.valor !== '' && x.valor != null);
+      if(!conValor.length) return '';
+      let grupoAct = null;
+      const filas = conValor.map(pp => {
+        let enc = '';
+        if(pp.grupo && pp.grupo !== grupoAct){
+          grupoAct = pp.grupo;
+          enc = '<tr><td colspan="4" class="sub-area">'+esc(pp.grupo)+'</td></tr>';
+        }
+        const m = marca(pp);
+        return enc + `<tr>
+          <td>${esc(pp.nombre)}</td>
+          <td class="val ${m}">${esc(pp.valor)}</td>
+          <td class="uni">${esc(pp.unidad||'')}</td>
+          <td class="ref">${refTxt(pp)}</td>
+        </tr>`;
+      }).join('');
+      return `
+      <div class="ex-tit">${esc(e.nombre)}</div>
+      ${e.metodo ? '<div class="metodo">'+esc(e.metodo)+'</div>' : ''}
+      <table>
+        <thead><tr><th>Análisis</th><th style="text-align:right">Resultado</th>
+          <th>Unidad</th><th>Intervalo de referencia</th></tr></thead>
+        <tbody>${filas}</tbody>
+      </table>
+      ${e.leyenda ? '<div class="leyenda">'+esc(e.leyenda).replace(/\n/g,'<br>')+'</div>' : ''}
+      ${e.obs ? '<div class="leyenda"><b>Observación:</b> '+esc(e.obs).replace(/\n/g,'<br>')+'</div>' : ''}`;
+    }).join('')}
+  `).join('');
+
+  const firma = `
+  <div class="firma">
+    <div class="firma-zona">
+      ${c.firma ? '<img class="f" src="'+c.firma+'">' : ''}
+      ${c.sello ? '<img class="s" src="'+c.sello+'">' : ''}
+    </div>
+    <div class="linea"></div>
+    <div class="firma-nom">${esc(o.validadoPor || c.regente || '')}</div>
+    <div class="firma-sub">Microbiólogo Regente · ${esc(c.colegiacion||'')}</div>
+    <div class="firma-sub">Validado electrónicamente: ${fmtF(o.fechaValidacion)} ${esc(o.horaValidacion||'')}</div>
+  </div>
+  <div class="obs"><b>Observaciones:</b> ${o.notaInforme ? esc(o.notaInforme)
+    : 'Fecha de recepción de muestra: '+fmtF(o.fecha)+'. '+esc(c.anclaSGC||'')}</div>
+  <div class="pie">
+    <div class="pie-serv">${esc(c.servicios||'')}</div>
+    <div class="pie-dir">
+      <span><b>${esc(c.nombre||'')}</b> · WhatsApp ${esc(c.whatsapp||'')}</span>
+      <span><b>Horario:</b> ${esc(c.horario||'')}</span>
+    </div>
+  </div>`;
+
+  document.getElementById('cont').innerHTML = '<div class="hoja">'+cab+cuerpo+firma+'</div>';
+}
+cargar();
+</script>
+</body>
+</html>
