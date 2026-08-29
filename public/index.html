@@ -6716,8 +6716,10 @@ function pintarItemsFac(){
       <tr><td>I.S.V. 18 %</td><td style="text-align:right">${L(t.isv18)}</td></tr>
       <tr><td><b>Total</b></td><td style="text-align:right"><b style="font-size:17px;color:var(--azul)">${L(t.total)}</b></td></tr>
     </table></div>
-  ${t.exonerado>0?`<div class="aviso" style="border-left-color:var(--ambar);margin-top:10px">
-    <b>Datos del adquiriente exonerado</b> — la SAR exige estos números en toda factura con importe exonerado.
+  <div class="aviso" style="border-left-color:var(--ambar);margin-top:10px">
+    <b>Datos del adquiriente exonerado</b>${t.exonerado>0
+      ?' — la SAR exige estos números en toda factura con importe exonerado.'
+      :' — solo hace falta llenarlos si algún concepto queda marcado como Exonerado.'}
     <div class="rejilla c3" style="margin-top:8px">
       <div class="campo"><label>N° Orden de Compra Exenta</label>
         <input id="f_exo_orden" value="${esc(exoOrdenPrev)}" placeholder="OCE-000000"></div>
@@ -6725,7 +6727,7 @@ function pintarItemsFac(){
         <input id="f_exo_registro" value="${esc(exoRegistroPrev)}" placeholder="RE-000000"></div>
       <div class="campo"><label>N° Registro SAG</label>
         <input id="f_exo_sag" value="${esc(exoSagPrev)}" placeholder="SAG-000000"></div>
-    </div></div>`:''}`;
+    </div></div>`;
 }
 /* Arma una factura "de mentira" con lo que hay AHORA en el formulario, sin
    tocar S ni el correlativo -- para el botón "Ver factura" del modal: el
@@ -6965,12 +6967,11 @@ function renderizarFactura(f){
     // que queda de "debajo del teléfono" sin reestructurar ese componente
     // compartido con el informe de resultados.
     extra:[
+      // Términos de pago primero y Dirección justo debajo (pedido del
+      // usuario, para aprovechar el espacio): "Facturó" se movió al
+      // encabezado, arriba de "Orden de trabajo" (ver el bloque .rv-num
+      // más abajo) -- ya no compite por espacio en esta rejilla.
       f.terminoPago?`<div><span class="et">Términos de pago:</span> <b>${esc(f.terminoPago)}</b></div>`:'',
-      // Justo debajo de Términos de pago (mismo renglón de 2 columnas, para
-      // aprovechar el espacio en vez de abrir uno nuevo): quién emitió la
-      // factura, con nombre corto (primer nombre + primer apellido) para que
-      // quepa sin ocupar tanto como el nombre completo con título.
-      f.emitidoPor?`<div><span class="et">Facturó:</span> <b>${esc(nombreCortoUsuario(f.emitidoPor))}</b></div>`:'',
       f.clienteDir?`<div class="ancho"><span class="et">Dirección:</span> <b>${esc(f.clienteDir)}</b></div>`:'',
       // Nombre e identificación (DNI/RTN/Pasaporte) de quien recibió el
       // servicio -- puede ser distinto de quien factura (una empresa por su
@@ -7005,6 +7006,7 @@ function renderizarFactura(f){
       <div class="rv-num">
         <div class="n">No. ${esc(f.numero)}</div>
         <div class="f">${fmtFecha(f.fecha)} · ${hora12(f.hora||'')} · Forma de pago: <b>${esc(f.metodo)}</b></div>
+        ${f.emitidoPor?`<div class="f">Facturó: <b>${esc(nombreCortoUsuario(f.emitidoPor))}</b></div>`:''}
         ${f.ot?`<div class="f">Orden de trabajo: ${esc(f.ot)}</div>`:''}
       </div>
     </div>
