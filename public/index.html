@@ -6570,6 +6570,8 @@ function modalFactura(ot){
     <div class="campo"><label>Tipo de documento</label>
       <select id="f_idtipo">${['DNI','RTN','Pasaporte'].map(t=>`<option ${(p.idTipo||'RTN')===t?'selected':''}>${t}</option>`).join('')}</select></div>
     <div class="campo"><label>Número</label><input id="f_id" value="${esc(p.idNumero||'')}" placeholder="0000-0000-000000"></div>
+    <div class="campo"><label>DNI del paciente (si es distinto de quien factura)</label>
+      <input id="f_pacid" value="${esc(p.idNumero||'')}" placeholder="Ej. cuando factura una empresa por el RTN"></div>
     <div class="campo" style="grid-column:span 2"><label>Dirección</label><input id="f_dir" value="${esc(p.dir||'')}"></div>
     <div class="campo"><label>Teléfono</label><input id="f_tel" value="${esc(p.tel||'')}"></div>
     <div class="campo"><label>Términos de pago</label>
@@ -6677,6 +6679,9 @@ function guardarFactura(){
   }
   const f={numero:numeroFactura(),fecha:hoy(),hora:ahoraHora(),
     clienteNombre:g('f_nombre'),clienteIdTipo:idTipo,clienteId:idNum,clienteDir:g('f_dir'),clienteTel:g('f_tel'),
+    // DNI de quien recibió el servicio, independiente de con qué documento se
+    // factura -- una empresa puede pagar (RTN) por un paciente (su DNI).
+    pacienteId:g('f_pacid'),
     terminoPago:document.getElementById('f_termpago').value,
     metodo:g('f_metodo'),ot:g('f_ot'),items:validos.map(i=>({...i,descPct:pctItem(i)})),
     descPct,nota:g('f_nota'),cai:c.facCAI,exoRegistro,exoOrden,
@@ -6761,7 +6766,12 @@ function imprimirFactura(num){
     extra:[
       f.terminoPago?`<div><span class="et">Términos de pago:</span> <b>${esc(f.terminoPago)}</b></div>`:'',
       f.clienteDir?`<div class="ancho"><span class="et">Dirección:</span> <b>${esc(f.clienteDir)}</b></div>`:'',
-      pac.idNumero?`<div><span class="et">${esc(pac.idTipo||'DNI')} del paciente:</span> <b>${esc(pac.idNumero)}</b></div>`:'',
+      // DNI de quien recibió el servicio -- puede ser distinto de quien
+      // factura (una empresa por su RTN, un familiar por su propio DNI…).
+      // Se omite si es el MISMO documento que ya aparece como
+      // "Identificación": mostrarlo dos veces no aporta nada.
+      (()=>{const pid=f.pacienteId||pac.idNumero||'';
+        return (pid&&pid!==f.clienteId)?`<div><span class="et">DNI del paciente:</span> <b>${esc(pid)}</b></div>`:'';})(),
     ],
     conCasillaQR:!!o,
     qrHTML:(urlQR&&!f.anulado)?`
