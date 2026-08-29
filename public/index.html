@@ -6413,27 +6413,33 @@ function calcFactura(f){ return calcRecibo(f); }
 
 /* Panel de histórico: mismo patrón que Órdenes/Cotizaciones (23_ordenes.js,
    22_cotizaciones.js) -- por defecto solo el día de hoy, el buscador ignora
-   la fecha y busca en TODO el historial, "Ver todo el historial" quita el
-   filtro de fecha por completo. _facFecha/_facQ quedan en memoria (no se
-   guardan) para no perder el filtro si algo repinta la vista completa. */
-let _facFecha=hoy(), _facQ='';
+   la fecha/mes y busca en TODO el historial, "Ver todo el historial" quita
+   el filtro por completo. Además del día, un modo "Mes" (mismo selector
+   día/mes/año/rango que ya usa Estadísticas, 71_estadisticas.js, pero acá
+   solo día/mes -- una factura se busca por fecha exacta o por mes, no hace
+   falta año completo ni rango). _facFecha/_facMes/_facModo/_facQ quedan en
+   memoria (no se guardan) para no perder el filtro si algo repinta la
+   vista completa. */
+let _facFecha=hoy(), _facMes='', _facModo='dia', _facQ='';
 function facturasFiltradas(){
   const f=normTxt(_facQ||'');
   let lista=S.facturas.slice();
   if(f){
     lista=lista.filter(x=>normTxt(x.numero+' '+x.clienteNombre+' '+(x.clienteId||'')+' '+(x.ot||'')).includes(f));
-  }else if(_facFecha){
+  }else if(_facModo==='mes'&&_facMes){
+    lista=lista.filter(x=>x.fecha.startsWith(_facMes));
+  }else if(_facModo==='dia'&&_facFecha){
     lista=lista.filter(x=>x.fecha===_facFecha);
   }
   return lista.slice().reverse();
 }
 function botonesExtraFacturas(){
   const hy=hoy();
-  const enHoySinBusqueda=!_facQ&&_facFecha===hy;
-  const filtrandoOtroDia=!_facQ&&_facFecha&&_facFecha!==hy;
+  const enHoySinBusqueda=!_facQ&&_facModo==='dia'&&_facFecha===hy;
+  const filtrandoOtro=!_facQ&&(_facModo==='mes'||(_facModo==='dia'&&_facFecha&&_facFecha!==hy));
   const n=facturasFiltradas().length;
   return `${!enHoySinBusqueda?`<button class="btn btn-g btn-min" onclick="irFacturasHoy()">📅 Hoy</button>`:''}
-  ${filtrandoOtroDia?`<button class="btn btn-g btn-min" onclick="verTodoHistorialFacturas()">Ver todo el historial</button>`:''}
+  ${filtrandoOtro?`<button class="btn btn-g btn-min" onclick="verTodoHistorialFacturas()">Ver todo el historial</button>`:''}
   <span class="ord-conteo">${n} factura(s)</span>`;
 }
 /* Mismo "Ver más" que Órdenes: facturasFiltradas() se deja SIN recortar
@@ -6447,18 +6453,24 @@ function contenidoListaFacturas(){
   const resto=todos.length-lista.length;
   return `${resto>0?`<div class="aviso" style="margin-bottom:8px">Mostrando ${lista.length} de ${todos.length} facturas.
     <button class="btn btn-g btn-min" onclick="verMasFacturas()">Ver 150 más</button>
-    <span style="color:var(--gris)">· usa la fecha o el buscador para llegar directo a una</span></div>`:''}${tablaFacturas(lista)}`;
+    <span style="color:var(--gris)">· usa la fecha, el mes o el buscador para llegar directo a una</span></div>`:''}${tablaFacturas(lista)}`;
 }
 function verMasFacturas(){_topeFac+=150;const l=document.getElementById('lista_fac');if(l)l.innerHTML=contenidoListaFacturas();}
+function cambiarModoFacturas(modo){
+  _facModo=modo;
+  if(modo==='mes'&&!_facMes)_facMes=hoy().slice(0,7);
+  vFacturas();
+}
 function filtrarVistaFacturas(){
   _facQ=document.getElementById('fac_q')?.value||'';
-  _facFecha=document.getElementById('fac_fecha')?.value||'';
+  if(_facModo==='mes')_facMes=document.getElementById('fac_mes')?.value||'';
+  else _facFecha=document.getElementById('fac_fecha')?.value||'';
   _topeFac=150;
   const l=document.getElementById('lista_fac');if(l)l.innerHTML=contenidoListaFacturas();
   const eb=document.getElementById('fac_extra_btns');if(eb)eb.innerHTML=botonesExtraFacturas();
 }
-function irFacturasHoy(){_facFecha=hoy();_facQ='';_topeFac=150;vFacturas();}
-function verTodoHistorialFacturas(){_facFecha='';_facQ='';_topeFac=150;vFacturas();}
+function irFacturasHoy(){_facModo='dia';_facFecha=hoy();_facQ='';_topeFac=150;vFacturas();}
+function verTodoHistorialFacturas(){_facModo='dia';_facFecha='';_facQ='';_topeFac=150;vFacturas();}
 
 function vFacturas(){
   const c=S.config;
@@ -6479,23 +6491,35 @@ function vFacturas(){
    :restantes<=10?`<div class="aviso" style="border-left-color:var(--ambar)">
     Quedan <b>${restantes}</b> de ${c.facHasta-c.facDesde+1} facturas autorizadas en este rango. Es buen momento
     para tramitar el siguiente.</div>`:''}
-  ${(()=>{const mes=hoy().slice(0,7);
+  ${(()=>{
+    // Con el selector en modo "Mes" los indicadores siguen el mes elegido,
+    // no siempre el actual -- es el punto de un control mensual: poder ver
+    // los totales de julio sin que la tarjeta insista en mostrar agosto.
+    const mes=(_facModo==='mes'&&_facMes)?_facMes:hoy().slice(0,7);
+    const esMesActual=mes===hoy().slice(0,7);
     const delMes=S.facturas.filter(x=>x.fecha.startsWith(mes)&&!x.anulado);
     const tot=delMes.reduce((a,x)=>a+calcFactura(x).total,0);
     const anul=S.facturas.filter(x=>x.fecha.startsWith(mes)&&x.anulado).length;
+    const etiquetaMes=esMesActual?'Este mes':mes.split('-').reverse().join('/');
     return `<div class="kpis" style="grid-template-columns:repeat(4,1fr)">
       <div class="kpi"><div class="n">${S.facturas.length}</div><div class="t">Facturas emitidas</div></div>
-      <div class="kpi" style="border-left-color:var(--verde)"><div class="n" style="color:var(--verde)">${delMes.length}</div><div class="t">Este mes</div></div>
+      <div class="kpi" style="border-left-color:var(--verde)"><div class="n" style="color:var(--verde)">${delMes.length}</div><div class="t">${esc(etiquetaMes)}</div></div>
       <div class="kpi" style="border-left-color:var(--dorado)"><div class="n" style="color:var(--dorado)">${L(tot)}</div><div class="t">Facturado del mes</div></div>
       <div class="kpi" style="border-left-color:var(--rojo)"><div class="n" style="color:var(--rojo)">${anul}</div><div class="t">Anuladas del mes</div></div>
     </div>`;})()}
   <div class="tarjeta">
     <div class="ord-filtros">
-      <input class="busqueda" id="fac_q" placeholder="Buscar por número, cliente, RTN u orden en todo el historial…"
+      <input class="busqueda" id="fac_q" placeholder="Buscar por número, cliente, identificación (DNI/RTN/Pasaporte) u orden en todo el historial…"
         value="${esc(_facQ)}" oninput="filtrarVistaFacturas()">
-      <label class="ord-fecha-lbl" title="Ver las facturas de otro día">📅
+      <select onchange="cambiarModoFacturas(this.value)" style="width:100px">
+        <option value="dia" ${_facModo==='dia'?'selected':''}>Día</option>
+        <option value="mes" ${_facModo==='mes'?'selected':''}>Mes</option>
+      </select>
+      ${_facModo==='mes'
+        ?`<input type="month" id="fac_mes" value="${_facMes||hoy().slice(0,7)}" onchange="filtrarVistaFacturas()">`
+        :`<label class="ord-fecha-lbl" title="Ver las facturas de otro día">📅
         <input type="date" id="fac_fecha" value="${_facFecha}" onchange="filtrarVistaFacturas()">
-      </label>
+      </label>`}
       <span id="fac_extra_btns">${botonesExtraFacturas()}</span>
     </div>
     <div id="lista_fac">${contenidoListaFacturas()}</div>
@@ -6506,7 +6530,7 @@ function vFacturas(){
   if(_facQ){const q=document.getElementById('fac_q');if(q)q.focus();}
 }
 function tablaFacturas(lista){
-  if(!lista.length)return `<div class="vacio">${_facQ?'Ninguna factura coincide con “'+esc(_facQ)+'”.':_facFecha?'Sin facturas de ese día.':'Sin facturas emitidas. Crea la primera con “+ Nueva factura”.'}</div>`;
+  if(!lista.length)return `<div class="vacio">${_facQ?'Ninguna factura coincide con “'+esc(_facQ)+'”.':(_facModo==='mes'&&_facMes)?'Sin facturas ese mes.':_facFecha?'Sin facturas de ese día.':'Sin facturas emitidas. Crea la primera con “+ Nueva factura”.'}</div>`;
   return `<table><thead><tr><th>No.</th><th>Fecha</th><th>Cliente</th><th>Identificación</th><th>Concepto</th><th>Método</th><th style="text-align:right">Total</th><th>Estado</th><th></th></tr></thead><tbody>
     ${lista.map(x=>{const t=calcFactura(x);return `<tr class="${x.anulado?'fila-anulada':''}">
       <td><b>${x.numero}</b>${x.ot?`<div style="font-size:9.5px;color:var(--gris)">Orden ${x.ot}</div>`:''}</td>
