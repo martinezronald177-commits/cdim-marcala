@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cotización en línea — CDI Marcala</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="manifest" href="cotizacion_manifest.json">
+  <meta name="theme-color" content="#285068">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="CDI Marcala">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --azul:#285068;--verde:#70A020;--dorado:#b8974a;
+      --azul-osc:#1a3446;--bg:#f0f4f7;--carta:#fff;
+      --linea:#d8e2e8;--gris:#6b7f8c;--rojo:#c0392b;
+      --r:10px;--trans:.18s ease;
+    }
+    body{font-family:'Montserrat',sans-serif;background:var(--bg);color:#16242e;min-height:100vh}
+    /* Cabecera */
+    header{background:var(--azul);color:#fff;padding:18px 24px;display:flex;align-items:center;gap:16px;box-shadow:0 2px 12px rgba(0,0,0,.25)}
+    header .logo{width:56px;height:56px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:var(--azul);text-align:center;line-height:1.2;flex-shrink:0}
+    header h1{font-size:18px;font-weight:800;line-height:1.2}
+    header p{font-size:12px;opacity:.85;margin-top:2px}
+    .badge-portal{background:var(--dorado);color:#fff;font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px;letter-spacing:.5px;margin-top:4px;display:inline-block}
+    /* Contenedor */
+    .contenedor{max-width:880px;margin:0 auto;padding:24px 16px 60px}
+    /* Pasos */
+    .pasos{display:flex;gap:0;margin-bottom:28px;border-radius:var(--r);overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.1)}
+    .paso{flex:1;padding:12px 8px;text-align:center;font-size:11.5px;font-weight:700;background:var(--linea);color:var(--gris);transition:var(--trans);border-right:1px solid #c0cdd5}
+    .paso:last-child{border-right:none}
+    .paso.activo{background:var(--azul);color:#fff}
+    .paso.listo{background:var(--verde);color:#fff}
+    .paso .num{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;margin-bottom:4px;background:rgba(255,255,255,.25)}
+    .paso.activo .num,.paso.listo .num{background:rgba(255,255,255,.3)}
+    /* Tarjeta */
+    .tarjeta{background:var(--carta);border-radius:var(--r);padding:22px;margin-bottom:16px;box-shadow:0 1px 6px rgba(0,0,0,.08)}
+    .tarjeta h2{font-size:15px;font-weight:800;color:var(--azul);margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid var(--linea)}
+    /* Campos */
+    .campo{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+    .campo label{font-size:11px;font-weight:800;color:var(--gris);text-transform:uppercase;letter-spacing:.4px}
+    .campo input,.campo select{padding:10px 13px;border:1.5px solid var(--linea);border-radius:8px;font-family:inherit;font-size:14px;outline:none;transition:var(--trans);background:#fff;width:100%}
+    .campo input:focus,.campo select:focus{border-color:var(--azul);box-shadow:0 0 0 3px rgba(40,80,104,.12)}
+    .campo input.err{border-color:var(--rojo)}
+    .campo .ayuda{font-size:11px;color:var(--gris)}
+    .fila{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+    /* Buscador de exámenes */
+    .busca-wrap{position:relative;margin-bottom:12px}
+    #busca-examen{width:100%;padding:11px 13px 11px 38px;border:1.5px solid var(--linea);border-radius:8px;font-family:inherit;font-size:14px;outline:none;transition:var(--trans)}
+    #busca-examen:focus{border-color:var(--azul);box-shadow:0 0 0 3px rgba(40,80,104,.12)}
+    .busca-ico{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--gris);font-size:16px;pointer-events:none}
+    .lista-examenes{display:flex;flex-direction:column;gap:4px;max-height:320px;overflow-y:auto;padding-right:2px}
+    .lista-examenes::-webkit-scrollbar{width:4px}
+    .lista-examenes::-webkit-scrollbar-track{background:transparent}
+    .lista-examenes::-webkit-scrollbar-thumb{background:var(--linea);border-radius:2px}
+    .ex-fila{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;border:1.5px solid var(--linea);cursor:pointer;transition:var(--trans);background:#fff;font-size:13px}
+    .ex-fila:hover{border-color:var(--azul);background:#eef4f8}
+    .ex-fila.sel{border-color:var(--verde);background:#edf7e4}
+    .ex-chk{width:18px;height:18px;border:2px solid var(--linea);border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:var(--trans)}
+    .ex-fila.sel .ex-chk{background:var(--verde);border-color:var(--verde);color:#fff}
+    .ex-nom{flex:1;font-weight:600;line-height:1.3}
+    .ex-area{font-size:10.5px;color:var(--gris);margin-top:1px}
+    .ex-precio{font-size:13px;font-weight:800;color:var(--azul);white-space:nowrap}
+    .ex-entrega{font-size:10px;color:var(--gris);white-space:nowrap}
+    .area-header{font-size:10.5px;font-weight:800;color:var(--azul);text-transform:uppercase;letter-spacing:.5px;padding:10px 0 4px;border-bottom:1.5px solid var(--linea);margin-bottom:4px}
+    /* Resumen */
+    .resumen-item{display:flex;justify-content:space-between;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--linea);font-size:13px;gap:10px}
+    .resumen-item:last-child{border-bottom:none}
+    .resumen-total{display:flex;justify-content:space-between;font-weight:800;font-size:16px;color:var(--azul);padding-top:12px;border-top:2px solid var(--azul);margin-top:8px}
+    .resumen-nom{flex:1}
+    .resumen-precio{font-weight:700;color:var(--azul)}
+    .quitar{background:none;border:none;color:var(--rojo);font-size:16px;cursor:pointer;padding:0 4px;flex-shrink:0;line-height:1;opacity:.7;transition:var(--trans)}
+    .quitar:hover{opacity:1}
+    /* Botones */
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 22px;border-radius:8px;border:none;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;transition:var(--trans)}
+    .btn-p{background:var(--azul);color:#fff}
+    .btn-p:hover{background:var(--azul-osc)}
+    .btn-g{background:var(--linea);color:#16242e}
+    .btn-g:hover{background:#c8d6de}
+    .btn-v{background:var(--verde);color:#fff}
+    .btn-v:hover{background:#5a8a18}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+    .acciones{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+    /* Confirmación */
+    .exito{text-align:center;padding:32px 20px}
+    .exito .ico{font-size:56px;margin-bottom:12px}
+    .exito h2{color:var(--verde);font-size:20px;margin-bottom:8px}
+    .exito p{color:var(--gris);font-size:14px;line-height:1.7;margin-bottom:6px}
+    .exito .codigo{font-size:22px;font-weight:800;color:var(--azul);letter-spacing:1.5px;background:#eef4f8;padding:8px 20px;border-radius:8px;display:inline-block;margin:10px 0}
+    /* Aviso */
+    .aviso{background:#fff8e6;border:1.5px solid #f0c060;border-radius:8px;padding:10px 14px;font-size:12.5px;margin-bottom:14px;line-height:1.6}
+    /* Pie */
+    footer{background:var(--azul);color:rgba(255,255,255,.7);text-align:center;padding:16px;font-size:12px;margin-top:40px}
+    footer b{color:#fff}
+    .vacío{text-align:center;padding:24px;color:var(--gris);font-size:13px}
+    @media(max-width:600px){
+      header{flex-direction:column;text-align:center}
+      .pasos{flex-direction:column;border-radius:var(--r)}
+      .paso{border-right:none;border-bottom:1px solid #c0cdd5;display:flex;align-items:center;gap:10px;text-align:left;padding:10px 14px}
+      .paso:last-child{border-bottom:none}
+      .paso .num{margin-bottom:0}
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div class="logo">CDI<br>Marcala</div>
+  <div>
+    <h1>Centro de Diagnóstico Integral Marcala</h1>
+    <p>📍 Col. Melgar Castro · Marcala, La Paz · WhatsApp: +504 9758-9992</p>
+    <span class="badge-portal">Portal de Cotización en Línea</span>
+  </div>
+</header>
+
+<!-- Banner de instalación (solo aparece en Android si no está instalada) -->
+<div id="install-banner" style="display:none;background:#285068;color:#fff;padding:12px 20px;align-items:center;gap:14px;justify-content:space-between">
+  <div style="font-size:13px;font-weight:700">📱 Instala CDI Marcala en tu celular</div>
+  <button onclick="instalarApp()" style="background:#b8974a;color:#fff;border:none;padding:8px 16px;border-radius:8px;font-family:inherit;font-weight:700;cursor:pointer;white-space:nowrap">Instalar gratis</button>
+</div>
+<div class="contenedor">
+  <div class="pasos" id="pasos">
+    <div class="paso activo" id="p1"><div class="num">1</div>Tus datos</div>
+    <div class="paso" id="p2"><div class="num">2</div>Exámenes</div>
+    <div class="paso" id="p3"><div class="num">3</div>Confirmar</div>
+  </div>
+
+  <!-- PASO 1: Datos del paciente -->
+  <div id="sec1">
+    <div class="tarjeta">
+      <h2>👤 Datos del paciente</h2>
+      <div class="aviso">Tu DNI es el identificador que usamos para buscar tu expediente y crear tu orden de trabajo. Escríbelo sin guiones o con guiones — lo aceptamos de las dos formas.</div>
+      <div class="fila">
+        <div class="campo">
+          <label>Nombre completo *</label>
+          <input id="f_nombre" type="text" placeholder="Como aparece en tu DNI" autocomplete="name">
+        </div>
+        <div class="campo">
+          <label>DNI (número de identidad) *</label>
+          <input id="f_dni" type="text" placeholder="1208-1990-00001" maxlength="15" oninput="formatDNI(this)">
+          <span class="ayuda">Formato: 0000-0000-00000</span>
+        </div>
+      </div>
+      <div class="fila">
+        <div class="campo">
+          <label>Fecha de nacimiento *</label>
+          <input id="f_fnac" type="date">
+        </div>
+        <div class="campo">
+          <label>Sexo *</label>
+          <select id="f_sexo">
+            <option value="">Seleccionar…</option>
+            <option value="M">Masculino</option>
+            <option value="F">Femenino</option>
+          </select>
+        </div>
+        <div class="campo">
+          <label>Teléfono / WhatsApp</label>
+          <input id="f_tel" type="tel" placeholder="+504 9999-9999">
+        </div>
+      </div>
+      <div class="campo">
+        <label>Médico que solicita los exámenes</label>
+        <input id="f_medico" type="text" placeholder="Nombre del médico (opcional)">
+      </div>
+    </div>
+    <div class="acciones">
+      <button class="btn btn-p" onclick="irPaso2()">Siguiente → Elegir exámenes</button>
+    </div>
+  </div>
+
+  <!-- PASO 2: Catálogo de exámenes -->
+  <div id="sec2" style="display:none">
+    <div class="tarjeta">
+      <h2>🔬 Selecciona los exámenes</h2>
+      <div class="busca-wrap">
+        <span class="busca-ico">🔍</span>
+        <input type="text" id="busca-examen" placeholder="Buscar por nombre del examen o área…" oninput="filtrarExamenes(this.value)">
+      </div>
+      <div class="lista-examenes" id="lista-examenes"><!-- se llena con JS --></div>
+    </div>
+    <div class="tarjeta" id="resumen-panel" style="display:none">
+      <h2>🧾 Resumen de lo seleccionado</h2>
+      <div id="resumen-items"></div>
+      <div class="resumen-total"><span>Total estimado</span><span id="total-txt">L 0.00</span></div>
+      <p style="font-size:11.5px;color:var(--gris);margin-top:10px">Los precios son referenciales. El laboratorio puede ajustarlos según tu convenio o descuentos aplicables.</p>
+    </div>
+    <div class="acciones">
+      <button class="btn btn-g" onclick="irPaso(1)">← Volver</button>
+      <button class="btn btn-p" id="btn-paso3" onclick="irPaso3()" disabled>Continuar → Confirmar</button>
+    </div>
+  </div>
+
+  <!-- PASO 3: Confirmación y envío -->
+  <div id="sec3" style="display:none">
+    <div class="tarjeta">
+      <h2>✅ Confirma tu cotización</h2>
+      <div class="fila" style="margin-bottom:16px">
+        <div><span class="ayuda">Nombre</span><div style="font-size:15px;font-weight:700;margin-top:2px" id="conf-nombre"></div></div>
+        <div><span class="ayuda">DNI</span><div style="font-size:15px;font-weight:700;margin-top:2px" id="conf-dni"></div></div>
+        <div><span class="ayuda">Teléfono</span><div style="font-size:15px;font-weight:700;margin-top:2px" id="conf-tel"></div></div>
+      </div>
+      <div id="conf-items"></div>
+      <div class="resumen-total" style="margin-top:16px"><span>Total estimado</span><span id="conf-total"></span></div>
+    </div>
+    <div class="aviso">
+      <b>¿Qué pasa después de enviar?</b><br>
+      El laboratorio recibe tu solicitud, la revisa y te contacta por WhatsApp para confirmarte la hora de toma de muestra, el precio final y si necesitas alguna preparación (ayuno, etc.).
+    </div>
+    <div class="campo">
+      <label>Observaciones adicionales (opcional)</label>
+      <input type="text" id="conf-obs" placeholder="Ej. Traigo orden médica, necesito resultado rápido…">
+    </div>
+    <div class="acciones">
+      <button class="btn btn-g" onclick="irPaso(2)">← Volver</button>
+      <button class="btn btn-v" id="btn-enviar" onclick="enviarCotizacion()">📤 Enviar cotización al laboratorio</button>
+    </div>
+  </div>
+
+  <!-- CONFIRMACIÓN FINAL -->
+  <div id="sec4" style="display:none">
+    <div class="tarjeta">
+      <div class="exito">
+        <div class="ico">🎉</div>
+        <h2>¡Cotización enviada!</h2>
+        <p>El laboratorio recibió tu solicitud y te contactará pronto por WhatsApp.</p>
+        <div class="codigo" id="num-cot"></div>
+        <p><b>Guarda ese código</b> — es el número de tu cotización.</p>
+        <p style="margin-top:14px">Mientras tanto, si tienes preguntas:<br>
+          📱 <a href="https://wa.me/50497589992" style="color:var(--azul);font-weight:700">WhatsApp: +504 9758-9992</a>
+        </p>
+        <button class="btn btn-g" style="margin-top:20px" onclick="location.reload()">Hacer otra cotización</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <b>Centro de Diagnóstico Integral Marcala</b><br>
+  Dr. Ronald Enrique Martínez Márquez · Microbiólogo y Químico Clínico · CMQCH 2023-2105<br>
+  Col. Melgar Castro, calle hacia el 21 de Octubre · Marcala, La Paz · Honduras
+</footer>
+
+<script>
+const EXAMENES=[{"id": "GLUCO", "nombre": "Glucosa", "precio": 171.43, "area": "Bioquímica Clínica", "entrega": "3 horas después de recepción de muestra"}, {"id": "COLES", "nombre": "Colesterol Total", "precio": 200.0, "area": "Bioquímica Clínica", "entrega": "3 horas después de recepción de muestra"}, {"id": "COLE2", "nombre": "Colesterol HDL", "precio": 200.0, "area": "Bioquímica Clínica", "entrega": "3 horas después de recepción de muestra"}, {"id": "COLE3", "nombre": "Colesterol LDL", "precio": 200.0, "area": "Bioquímica Clínica", "entrega": "3 horas después de recepción de muestra"}, {"id": "TRIGL", "nombre": "Triglicéridos", "precio": 200.0, "area": "Bioquímica Clínica", "entrega": "3 horas después de recepción de muestra"}, {"id": "ACIDO", "nombre": "Ácido Úrico", "precio": 200.0, "area": "Bioquímica Clínica", "entrega": "3 horas después de recepción de muestra"}, {"id": "CREAT", "nombre": "Creatinina", "precio": 200.0, "area": "Bioquímica Clínica", "entrega": "3 horas después de recepción de muestra"}, {"id": "ALBUM", "nombre": "Albúmina", "precio": 214.29, "area": "Bioquímica Clínica", "entrega": "3 horas después de recepción de muestra"}, {"id": "PROTE", "nombre": "Proteínas Totales", "precio": 214.29, "area": "Bioquímica Clínica", "entrega": "3 horas después de recepción de muestra"}, {"id": "FOSFA", "nombre": "Fosfatasa Alcalina", "precio": 221.43, "area": "Bioquímica Clínica", "entrega": "3 horas después de recepción de muestra"}, {"id": "UREA", "nombre": "Urea / Nitrógeno Ureico (BUN)", "precio": 200.0, "area": "Bioquímica Clínica", "entrega": "3 horas después de recepción de muestra"}, {"id": "TOAT", "nombre": "Transaminasa Oxalacética (AST) /TGO", "precio": 207.14, "area": "Bioquímica Clínica", "entrega": "3 horas después de recepción de muestra"}, {"id": "TPAT", "nombre": "Transaminasa Pirúvica (ALT) /TGP", "precio": 207.14, "area": "Bioquímica Clínica", "entrega": "3 horas después de recepción de muestra"}, {"id": "CALCI", "nombre": "Calcio", "precio": 714.29, "area": "Bioquímica Clínica", "entrega": "3 horas después de recepción de muestra"}, {"id": "LDL", "nombre": "Lactato Deshidrogenasa (LDH)", "precio": 251.43, "area": "Bioquímica Clínica", "entrega": "3 horas después de recepción de muestra"}, {"id": "BTDI", "nombre": "Bilirrubina Total / Directa / Indirecta", "precio": 642.86, "area": "Bioquímica Clínica", "entrega": "3 horas después de recepción de muestra"}, {"id": "AMILA", "nombre": "Amilasa", "precio": 357.14, "area": "Bioquímica Clínica", "entrega": "3 horas después de recepción de muestra"}, {"id": "FOSFO", "nombre": "Fósforo", "precio": 1000.0, "area": "Bioquímica Clínica", "entrega": "3 horas después de recepción de muestra"}, {"id": "AMONI", "nombre": "Amonio Sérico", "precio": 1571.43, "area": "Bioquímica Clínica", "entrega": "3 horas después de recepción de muestra"}, {"id": "MAGNE", "nombre": "Magnesio", "precio": 1351.43, "area": "Bioquímica Clínica", "entrega": "3 horas después de recepción de muestra"}, {"id": "LIPAS", "nombre": "Lipasa", "precio": 1428.57, "area": "Bioquímica Clínica", "entrega": "3 horas después de recepción de muestra"}, {"id": "GGG", "nombre": "Gamma-Glutamiltransferasa (GGT)", "precio": 1611.9, "area": "Bioquímica Clínica", "entrega": "3 horas después de recepción de muestra"}, {"id": "TROPO", "nombre": "Troponina I", "precio": 1611.9, "area": "Bioquímica Clínica", "entrega": "3 horas después de recepción de muestra"}, {"id": "CK", "nombre": "CK-MB", "precio": 1017.14, "area": "Bioquímica Clínica", "entrega": "3 horas después de recepción de muestra"}, {"id": "CPK", "nombre": "CPK", "precio": 1254.76, "area": "Bioquímica Clínica", "entrega": "3 horas después de recepción de muestra"}, {"id": "SPC", "nombre": "Sodio / Potasio / Cloro", "precio": 1785.71, "area": "Bioquímica Clínica", "entrega": "3 horas después de recepción de muestra"}, {"id": "VD2O", "nombre": "Vitamina D (25-OH)", "precio": 2428.57, "area": "Bioquímica Clínica", "entrega": "Entre 4:00 p.m. a 5:00 p.m. (L–V) · Entre 11:30 a.m. a 12:00 p.m. (Sáb)"}, {"id": "VITAM", "nombre": "Vitamina B12", "precio": 2500.0, "area": "Bioquímica Clínica", "entrega": "Entre 4:00 p.m. a 5:00 p.m."}, {"id": "FERRI", "nombre": "Ferritina", "precio": 1374.29, "area": "Bioquímica Clínica", "entrega": "Entre 4:00 p.m. a 5:00 p.m. (L–V) · Entre 11:30 a.m. a 12:00 p.m. (Sáb)"}, {"id": "HIERR", "nombre": "Hierro", "precio": 970.0, "area": "Bioquímica Clínica", "entrega": ""}, {"id": "PROCA", "nombre": "Procalcitonina", "precio": 2207.14, "area": "Bioquímica Clínica", "entrega": "3 horas después de recepción de muestra"}, {"id": "PUU", "nombre": "PCR-US Ultrasensible", "precio": 864.29, "area": "Bioquímica Clínica", "entrega": "Entre 4:00 p.m. a 5:00 p.m. (L–V) · Entre 11:30 a.m. a 12:00 p.m. (Sáb)"}, {"id": "PROBN", "nombre": "PROBNP *", "precio": 1348.57, "area": "Bioquímica Clínica", "entrega": "Entre 4:00 p.m. a 5:00 p.m. (L–V) · Entre 11:30 a.m. a 12:00 p.m. (Sáb)"}, {"id": "CALPR", "nombre": "Calprotectina *", "precio": 1347.14, "area": "Bioquímica Clínica", "entrega": "Entre 4:00 p.m. a 5:00 p.m. (L–V) · Entre 11:30 a.m. a 12:00 p.m. (Sáb)"}, {"id": "COLIN", "nombre": "Colinesterasa *", "precio": 1071.43, "area": "Bioquímica Clínica", "entrega": "Entre 4:00 p.m. a 5:00 p.m. (L–V) · Entre 11:30 a.m. a 12:00 p.m. (Sáb)"}, {"id": "FHFE", "nombre": "FSH (Hormona Folículo-Estimulante)", "precio": 1611.43, "area": "Hormonas", "entrega": "Entre 4:00 p.m. a 5:00 p.m."}, {"id": "LHL", "nombre": "LH (Hormona Luteinizante)", "precio": 1611.43, "area": "Hormonas", "entrega": "Entre 4:00 p.m. a 5:00 p.m."}, {"id": "INSUL", "nombre": "Insulina Basal", "precio": 1611.43, "area": "Hormonas", "entrega": "Entre 4:00 p.m. a 5:00 p.m. (L–V) · Entre 11:30 a.m. a 12:00 p.m. (Sáb)"}, {"id": "INSU2", "nombre": "Insulina postpandrial", "precio": 1611.43, "area": "Hormonas", "entrega": ""}, {"id": "PROLA", "nombre": "Prolactina", "precio": 1611.43, "area": "Hormonas", "entrega": "Entre 4:00 p.m. a 5:00 p.m."}, {"id": "TTTT", "nombre": "T3 Total (Triyodotironina Total)", "precio": 785.71, "area": "Hormonas", "entrega": "Entre 4:00 p.m. a 5:00 p.m. (L–V) · Entre 11:30 a.m. a 12:00 p.m. (Sáb)"}, {"id": "TLTL", "nombre": "T3 Libre (Triyodotironina Libre)", "precio": 1611.43, "area": "Hormonas", "entrega": "Entre 4:00 p.m. a 5:00 p.m. (L–V) · Entre 11:30 a.m. a 12:00 p.m. (Sáb)"}, {"id": "T4", "nombre": "T4 (Tiroxina)", "precio": 785.71, "area": "Hormonas", "entrega": "Entre 4:00 p.m. a 5:00 p.m. (L–V) · Entre 11:30 a.m. a 12:00 p.m. (Sáb)"}, {"id": "TLTL2", "nombre": "T4 Libre (Tiroxina Libre)", "precio": 928.57, "area": "Hormonas", "entrega": "Entre 4:00 p.m. a 5:00 p.m. (L–V) · Entre 11:30 a.m. a 12:00 p.m. (Sáb)"}, {"id": "THET", "nombre": "TSH (Hormona Estimulante Tiroides)", "precio": 785.71, "area": "Hormonas", "entrega": "Entre 4:00 p.m. a 5:00 p.m. (L–V) · Entre 11:30 a.m. a 12:00 p.m. (Sáb)"}, {"id": "HCG", "nombre": "β-hCG Cuantitativa", "precio": 857.14, "area": "Hormonas", "entrega": "3 horas después de recepción de muestra"}, {"id": "CORTI", "nombre": "Cortisol A.M.", "precio": 1611.43, "area": "Hormonas", "entrega": "Entre 4:00 p.m. a 5:00 p.m. (L–V) · Entre 11:30 a.m. a 12:00 p.m. (Sáb)"}, {"id": "CPM", "nombre": "Cortisol P.M.", "precio": 1611.43, "area": "Hormonas", "entrega": "Si muestra ingresa a las 4:00 p.m.: resultado al día siguiente a las 11:00 a.m. · Si muestra ingresa antes de las 9:00 a.m.: resultado el mismo día entre 11:30 a.m.–12:00 p.m."}, {"id": "CAC", "nombre": "CEA (Antígeno Carcinoembrionario)", "precio": 1611.43, "area": "Marcadores Tumorales", "entrega": "Entre 4:00 p.m. a 5:00 p.m."}, {"id": "PLPT", "nombre": "PSA Libre + PSA Total", "precio": 2571.43, "area": "Marcadores Tumorales", "entrega": "Entre 4:00 p.m. a 5:00 p.m."}, {"id": "PTAP", "nombre": "PSA Total (Antígeno Prostático Específico)", "precio": 928.57, "area": "Marcadores Tumorales", "entrega": "Entre 4:00 p.m. a 5:00 p.m. (L–V) · Entre 11:30 a.m. a 12:00 p.m. (Sáb)"}, {"id": "C13", "nombre": "CA 15-3", "precio": 1885.71, "area": "Marcadores Tumorales", "entrega": "Entre 4:00 p.m. a 5:00 p.m."}, {"id": "CA", "nombre": "CA-125", "precio": 1611.43, "area": "Marcadores Tumorales", "entrega": "Entre 4:00 p.m. a 5:00 p.m."}, {"id": "AFP", "nombre": "AFP", "precio": 1611.43, "area": "Marcadores Tumorales", "entrega": "Entre 4:00 p.m. a 5:00 p.m."}, {"id": "C19", "nombre": "CA 19-9", "precio": 2857.14, "area": "Marcadores Tumorales", "entrega": "Entre 4:00 p.m. a 5:00 p.m."}, {"id": "HEMOG", "nombre": "Hemoglobina A1C", "precio": 785.71, "area": "Hematología", "entrega": "3 horas después de recepción de muestra"}, {"id": "HEMO2", "nombre": "Hemograma", "precio": 285.71, "area": "Hematología", "entrega": "3 horas después de recepción de muestra"}, {"id": "VEV", "nombre": "Velocidad de Eritrosedimentación (VES)", "precio": 285.71, "area": "Hematología", "entrega": "3 horas después de recepción de muestra"}, {"id": "FSP", "nombre": "Frotis de Sangre Periferica", "precio": 285.71, "area": "Hematología", "entrega": "3 horas después de recepción de muestra"}, {"id": "GARD", "nombre": "Grupo ABO y Rh (D)", "precio": 285.71, "area": "Hematología", "entrega": "3 horas después de recepción de muestra"}, {"id": "PAA", "nombre": "Panel de Alergia a los Alimentos", "precio": 3285.71, "area": "Inmunología", "entrega": "Entre 4:30 p.m. a 5:00 p.m. (L–V) · Entre 11:30 a.m. a 12:00 p.m. (Sáb)"}, {"id": "PAI", "nombre": "Panel de Alergia a los Inhalantes", "precio": 3285.71, "area": "Inmunología", "entrega": "Entre 4:00 p.m. a 5:00 p.m. (L–V) · Entre 11:30 a.m. a 12:00 p.m. (Sáb)"}, {"id": "INMUN", "nombre": "Inmunoglobulina IgE", "precio": 1611.43, "area": "Inmunología", "entrega": "3 horas después de recepción de muestra"}, {"id": "IL", "nombre": "IL-6 *", "precio": 1535.71, "area": "Inmunología", "entrega": "Entre 4:00 p.m. a 5:00 p.m. (L–V) · Entre 11:00 a.m. a 12:00 p.m. (Sáb)"}, {"id": "TIIC", "nombre": "Toxoplasma IgG / IgM Cualitativo", "precio": 500.0, "area": "Serología", "entrega": "3 horas después de recepción de muestra"}, {"id": "MALAR", "nombre": "Malaria Ag", "precio": 799.99, "area": "Serología", "entrega": "3 horas después de recepción de muestra"}, {"id": "DNII", "nombre": "Dengue NS1-IgM-IgG", "precio": 500.0, "area": "Serología", "entrega": "3 horas después de recepción de muestra"}, {"id": "VIIC", "nombre": "Ac. Anti-VIH I/II Cualitatitvo", "precio": 714.29, "area": "Serología", "entrega": "3 horas después de recepción de muestra"}, {"id": "TRYPA", "nombre": "Ac. Anti-Trypanozoma Cruzi", "precio": 714.29, "area": "Serología", "entrega": "3 horas después de recepción de muestra"}, {"id": "HEPAT", "nombre": "AC. Anti-Hepatitis C", "precio": 714.29, "area": "Serología", "entrega": "3 horas después de recepción de muestra"}, {"id": "RPR", "nombre": "RPR /VDRL", "precio": 214.29, "area": "Serología", "entrega": "3 horas después de recepción de muestra"}, {"id": "TPC", "nombre": "Ac. Anti-Treponema pallidum cualitatitvo", "precio": 214.29, "area": "Serología", "entrega": "3 horas después de recepción de muestra"}, {"id": "HCS", "nombre": "β-hCG Cualitativo en Sangre", "precio": 201.33, "area": "Serología", "entrega": "3 horas después de recepción de muestra"}, {"id": "HPC", "nombre": "Ac. Anti-H. pylori Cualitativo", "precio": 639.99, "area": "Serología", "entrega": "3 horas después de recepción de muestra"}, {"id": "PBS", "nombre": "PCR baja sensibilidad", "precio": 285.71, "area": "Serología", "entrega": "3 horas después de recepción de muestra"}, {"id": "ANTIG", "nombre": "Antígeno SARS‑CoV‑2", "precio": 500.0, "area": "Serología", "entrega": "3 horas después de recepción de muestra"}, {"id": "DAIB", "nombre": "Detección de Antígeno Influenza A / B", "precio": 500.0, "area": "Serología", "entrega": "3 horas después de recepción de muestra"}, {"id": "DIMER", "nombre": "Dímero D", "precio": 1611.43, "area": "Coagulación", "entrega": "Entre 4:00 p.m. a 5:00 p.m. (L–V) · Entre 11:00 a.m. a 12:00 p.m. (Sáb)"}, {"id": "TTPT", "nombre": "TPT (Tiempo Parcial de Tromboplastina)", "precio": 285.71, "area": "Coagulación", "entrega": "3 horas después de recepción de muestra"}, {"id": "TEIT", "nombre": "TP e INR (Tiempo de Protrombina)", "precio": 285.71, "area": "Coagulación", "entrega": "3 horas después de recepción de muestra"}, {"id": "EGO", "nombre": "Examen General de Orina", "precio": 114.29, "area": "Uroanálisis", "entrega": "3 horas después de recepción de muestra"}, {"id": "HCO", "nombre": "β-hCG Cualitativo en Orina", "precio": 214.29, "area": "Uroanálisis", "entrega": "3 horas después de recepción de muestra"}, {"id": "EGH", "nombre": "Examen General de Heces", "precio": 150.0, "area": "Coproanálisis", "entrega": "3 horas después de recepción de muestra"}, {"id": "AHPC", "nombre": "Ag H. pylori Cualitativo en Heces", "precio": 442.86, "area": "Coproanálisis", "entrega": "3 horas después de recepción de muestra"}, {"id": "AG", "nombre": "Ag Rotavirus", "precio": 707.14, "area": "Coproanálisis", "entrega": "Entre 4:00 p.m. a 5:00 p.m. (L–V) · Entre 11:30 a.m. a 12:00 p.m. (Sáb)"}, {"id": "SOH", "nombre": "Sangre Oculta en Heces", "precio": 259.19, "area": "Coproanálisis", "entrega": "3 horas después de recepción de muestra"}, {"id": "TINCI", "nombre": "Tinción de Wright", "precio": 285.71, "area": "Coproanálisis", "entrega": "3 horas después de recepción de muestra"}, {"id": "UROCU", "nombre": "Urocultivo Cromogénico", "precio": 785.71, "area": "Microbiología", "entrega": "3 días"}, {"id": "UROC2", "nombre": "Urocultivo por Sonda", "precio": 986.66, "area": "Microbiología", "entrega": "3 días"}, {"id": "CULTI", "nombre": "Cultivo de Secreción", "precio": 986.66, "area": "Microbiología", "entrega": "3 días"}, {"id": "CSV", "nombre": "Cultivo de Secreción Vaginal", "precio": 933.31, "area": "Microbiología", "entrega": "3 días"}, {"id": "CSE", "nombre": "Cultivo de Secreción Espermática", "precio": 999.99, "area": "Microbiología", "entrega": "3 días"}, {"id": "COPRO", "nombre": "Coprocultivo", "precio": 714.29, "area": "Microbiología", "entrega": "3 días"}];
+const sel=new Set();
+let pasoActual=1;
+
+function formatDNI(el){
+  let v=el.value.replace(/\D/g,'').slice(0,13);
+  if(v.length>8)v=v.slice(0,4)+'-'+v.slice(4,8)+'-'+v.slice(8);
+  else if(v.length>4)v=v.slice(0,4)+'-'+v.slice(4);
+  el.value=v;
+}
+function irPaso(n){
+  pasoActual=n;
+  [1,2,3,4].forEach(i=>{
+    document.getElementById('sec'+i).style.display=i===n?'':'none';
+    const p=document.getElementById('p'+i);
+    if(p){p.classList.toggle('activo',i===n);p.classList.toggle('listo',i<n);}
+  });
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function irPaso2(){
+  const nom=document.getElementById('f_nombre').value.trim();
+  const dni=document.getElementById('f_dni').value.trim();
+  const fnac=document.getElementById('f_fnac').value;
+  const sexo=document.getElementById('f_sexo').value;
+  let err=false;
+  if(!nom){document.getElementById('f_nombre').classList.add('err');err=true;}
+  if(dni.length<13){document.getElementById('f_dni').classList.add('err');err=true;}
+  if(!fnac){document.getElementById('f_fnac').classList.add('err');err=true;}
+  if(!sexo){document.getElementById('f_sexo').classList.add('err');err=true;}
+  if(err){alert('Completa los campos obligatorios marcados en rojo.');return;}
+  filtrarExamenes('');irPaso(2);
+}
+function irPaso3(){
+  if(!sel.size){alert('Selecciona al menos un examen.');return;}
+  const data=datosForm();
+  document.getElementById('conf-nombre').textContent=data.nombre;
+  document.getElementById('conf-dni').textContent=data.dni;
+  document.getElementById('conf-tel').textContent=data.tel||'—';
+  const items=[...sel].map(id=>EXAMENES.find(e=>e.id===id));
+  document.getElementById('conf-items').innerHTML=items.map(e=>`
+    <div class="resumen-item">
+      <span class="resumen-nom">${e.nombre}</span>
+      <span class="resumen-precio">L ${e.precio.toFixed(2)}</span>
+    </div>`).join('');
+  const tot=items.reduce((a,e)=>a+e.precio,0);
+  document.getElementById('conf-total').textContent='L '+tot.toFixed(2);
+  irPaso(3);
+}
+function datosForm(){
+  return {
+    nombre:document.getElementById('f_nombre').value.trim(),
+    dni:document.getElementById('f_dni').value.trim(),
+    fnac:document.getElementById('f_fnac').value,
+    sexo:document.getElementById('f_sexo').value,
+    tel:document.getElementById('f_tel').value.trim(),
+    medico:document.getElementById('f_medico').value.trim(),
+  };
+}
+function filtrarExamenes(q){
+  const f=q.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 ]/g,' ');
+  const visibles=f?EXAMENES.filter(e=>
+    (e.nombre+' '+e.area).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 ]/g,' ').includes(f)
+  ):EXAMENES;
+  const cont=document.getElementById('lista-examenes');
+  if(!visibles.length){cont.innerHTML='<div class="vacío">Ningún examen coincide.</div>';return;}
+  const porArea={};
+  visibles.forEach(e=>{(porArea[e.area]=porArea[e.area]||[]).push(e);});
+  cont.innerHTML=Object.entries(porArea).sort((a,b)=>a[0].localeCompare(b[0])).map(([area,exs])=>`
+    <div class="area-header">${area}</div>
+    ${exs.map(e=>`<div class="ex-fila ${sel.has(e.id)?'sel':''}" onclick="toggleEx('${e.id}',this)">
+      <div class="ex-chk">${sel.has(e.id)?'✓':''}</div>
+      <div style="flex:1">
+        <div class="ex-nom">${e.nombre}</div>
+        <div class="ex-area">${e.area}${e.entrega?' · Entrega: '+e.entrega:''}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="ex-precio">L ${e.precio.toFixed(2)}</div>
+      </div>
+    </div>`).join('')}`).join('');
+}
+function toggleEx(id,el){
+  if(sel.has(id)){sel.delete(id);el.classList.remove('sel');el.querySelector('.ex-chk').textContent='';}
+  else{sel.add(id);el.classList.add('sel');el.querySelector('.ex-chk').textContent='✓';}
+  actualizarResumen();
+}
+function actualizarResumen(){
+  const panel=document.getElementById('resumen-panel');
+  const btn=document.getElementById('btn-paso3');
+  btn.disabled=sel.size===0;
+  if(!sel.size){panel.style.display='none';return;}
+  panel.style.display='';
+  const items=[...sel].map(id=>EXAMENES.find(e=>e.id===id)).filter(Boolean);
+  const tot=items.reduce((a,e)=>a+e.precio,0);
+  document.getElementById('resumen-items').innerHTML=items.map(e=>`
+    <div class="resumen-item">
+      <button class="quitar" onclick="quitarEx('${e.id}')">✕</button>
+      <span class="resumen-nom">${e.nombre}</span>
+      <span class="resumen-precio">L ${e.precio.toFixed(2)}</span>
+    </div>`).join('');
+  document.getElementById('total-txt').textContent='L '+tot.toFixed(2);
+}
+function quitarEx(id){
+  sel.delete(id);
+  filtrarExamenes(document.getElementById('busca-examen').value);
+  actualizarResumen();
+}
+function numCot(){
+  const d=new Date();
+  return 'COT-WEB-'+d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0')+
+    '-'+String(d.getHours()).padStart(2,'0')+String(d.getMinutes()).padStart(2,'0')+String(d.getSeconds()).padStart(2,'0');
+}
+function enviarCotizacion(){
+  const btn=document.getElementById('btn-enviar');
+  btn.disabled=true;btn.textContent='Enviando…';
+  const data=datosForm();
+  const items=[...sel].map(id=>{const e=EXAMENES.find(x=>x.id===id);return {id:e.id,nombre:e.nombre,precio:e.precio,descPct:0,cantidad:1};});
+  const tot=items.reduce((a,e)=>a+e.precio,0);
+  const obs=document.getElementById('conf-obs').value.trim();
+  const cot={
+    numero:numCot(),
+    fecha:new Date().toISOString().slice(0,10),
+    hora:new Date().toLocaleTimeString('es-HN',{hour:'2-digit',minute:'2-digit'}),
+    // Datos del paciente — el DNI es el campo diferenciador
+    nombre:data.nombre, idNumero:data.dni, fnac:data.fnac, sexo:data.sexo,
+    tel:data.tel, medico:data.medico, obs,
+    items, total:tot,
+    origen:'web',
+    estadoCot:'Pendiente',  // el operador debe aprobarla
+    descPct:0, condPago:'Contado', validez:7, elaboradoPor:'Portal web'
+  };
+  // Mensaje de WhatsApp como respaldo.
+  // OJO: esto va en un literal de plantilla (comillas invertidas `` ` ``), NO
+  // en comillas simples con saltos de línea sueltos adentro — eso último es
+  // un error de sintaxis en JavaScript (rompe TODO este <script>, no solo
+  // esta función: nada de lo definido aquí —ni siquiera irPaso2/irPaso3,
+  // filtrarExamenes, etc.— llegaba a ejecutarse en ningún navegador). Esta
+  // era la causa real de que la cotización nunca llegara al sistema.
+  const msg=`*Cotización en línea CDI Marcala*
+Número: ${cot.numero}
+Nombre: ${data.nombre}
+DNI: ${data.dni}
+Exámenes:
+${items.map(e=>'· '+e.nombre+' — L '+e.precio.toFixed(2)).join('\n')}
+Total estimado: L ${tot.toFixed(2)}${obs?'\nObservaciones: '+obs:''}`;
+  // Abrir WhatsApp YA, dentro del mismo clic — no con setTimeout() de por medio.
+  // Antes se abría 600ms después (para "dar tiempo" a guardar), pero eso hace
+  // que el navegador del celular ya no lo reconozca como resultado directo de
+  // un toque del usuario y BLOQUEE la ventana como si fuera publicidad — el
+  // paciente nunca la veía ni se enteraba de que falló.
+  try{ window.open('https://wa.me/50497589992?text='+encodeURIComponent(msg),'_blank'); }catch(e){}
+  // Respaldo local por si el celular está sin conexión en este instante
+  try{
+    const cola=JSON.parse(localStorage.getItem('LIS_CDIM_cotWeb')||'[]');
+    cola.push(cot);
+    localStorage.setItem('LIS_CDIM_cotWeb',JSON.stringify(cola));
+  }catch(e){}
+  // Envío real al laboratorio: esto es lo que hace que la cotización llegue
+  // al sistema (antes NO se enviaba nada al servidor — solo quedaba guardada
+  // en el celular del paciente, por eso nunca aparecía en el listado del LIS
+  // aunque el celular mostrara "cotización enviada"). Con timeout de 6 s para
+  // no dejar la pantalla de "Enviando…" colgada si el celular pierde señal.
+  const mostrarConfirmacion=()=>{
+    document.getElementById('num-cot').textContent=cot.numero;
+    irPaso(4);
+    document.getElementById('p3').classList.remove('activo');
+    document.getElementById('p3').classList.add('listo');
+  };
+  const ctrl=('AbortController' in window)?new AbortController():null;
+  const idTimeout=ctrl?setTimeout(()=>ctrl.abort(),6000):null;
+  fetch('/api/cotizacion-publica',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(cot), signal:ctrl?ctrl.signal:undefined})
+    .catch(()=>{ /* sin conexión: queda el respaldo local y el WhatsApp ya enviado */ })
+    .finally(()=>{ if(idTimeout)clearTimeout(idTimeout); mostrarConfirmacion(); });
+}
+</script>
+  <script>
+    if('serviceWorker' in navigator){
+      navigator.serviceWorker.register('./sw.js').catch(()=>{});
+    }
+    // Banner de instalación en Android
+    let deferredPrompt;
+    window.addEventListener('beforeinstallprompt',e=>{
+      e.preventDefault(); deferredPrompt=e;
+      const banner=document.getElementById('install-banner');
+      if(banner)banner.style.display='flex';
+    });
+    function instalarApp(){
+      if(!deferredPrompt)return;
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(()=>{deferredPrompt=null;});
+      const banner=document.getElementById('install-banner');
+      if(banner)banner.style.display='none';
+    }
+  </script>
+</body>
+</html>

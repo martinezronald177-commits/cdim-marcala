@@ -1,0 +1,16 @@
+{
+  "name": "CDI Marcala — Mis resultados",
+  "short_name": "CDI Marcala",
+  "description": "Consulta tus resultados de laboratorio y solicita cotizaciones",
+  "start_url": "./paciente.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#285068",
+  "theme_color": "#285068",
+  "orientation": "portrait-primary",
+  "lang": "es",
+  "icons": [
+    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ]
+}
