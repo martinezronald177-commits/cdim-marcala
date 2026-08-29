@@ -1563,6 +1563,21 @@ function fmtRTN(v){v=v.replace(/\D/g,'').slice(0,14);if(v.length>8)return v.slic
 function fmtId(tipo,v){if(tipo==='DNI')return fmtDNI(v);if(tipo==='RTN')return fmtRTN(v);return v.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,12);}
 function idPaciente(p){return p.idNumero?((p.idTipo||'DNI')+' '+p.idNumero):'—';}
 function nombreCompleto(p){return [p.nombre1,p.nombre2,p.apellido1,p.apellido2].filter(Boolean).join(' ')||p.nombre||'';}
+/* A diferencia del paciente (que guarda nombre1/nombre2/apellido1/apellido2
+   por separado), el usuario del sistema solo tiene un "nombre" de texto
+   libre (p. ej. "Dr. Ronald Enrique Martínez Márquez") -- para mostrar solo
+   "primer nombre + primer apellido" en un documento impreso (pedido del
+   usuario: "quien facturó" debajo de Términos de pago, sin ocupar tanto
+   espacio como el nombre completo con título), se quita cualquier título
+   profesional y, asumiendo la convención hondureña de dos apellidos al
+   final, se toma la primera palabra como nombre y la penúltima como primer
+   apellido. Con 1 o 2 palabras (sin segundo apellido) se devuelve tal cual. */
+function nombreCortoUsuario(nombreCompleto){
+  const TITULOS=/^(dr|dra|lic|licda|ing|msc|mba)\.?$/i;
+  const p=String(nombreCompleto||'').trim().split(/\s+/).filter(w=>w&&!TITULOS.test(w));
+  if(p.length<=2)return p.join(' ');
+  return p[0]+' '+p[p.length-2];
+}
 /* Deja solo los dígitos de un documento de identidad, para poder comparar
    "1201-1997-00953" con "12019970095 3" o cualquier otra forma de escribir
    el mismo número sin que un guion o espacio de más rompa la comparación. */
@@ -6667,6 +6682,7 @@ function pintarItemsFac(){
   // lo que ya se hubiera escrito aquí.
   const exoRegistroPrev=document.getElementById('f_exo_registro')?.value||'';
   const exoOrdenPrev=document.getElementById('f_exo_orden')?.value||'';
+  const exoSagPrev=document.getElementById('f_exo_sag')?.value||'';
   const t=calcFactura({items:itemsFac,descPct:Number(document.getElementById('f_desc')?.value)||0});
   cont.innerHTML=`<table>
     <thead><tr><th style="width:28px">#</th><th>Descripción</th><th style="width:58px">Cant.</th>
@@ -6701,12 +6717,14 @@ function pintarItemsFac(){
       <tr><td><b>Total</b></td><td style="text-align:right"><b style="font-size:17px;color:var(--azul)">${L(t.total)}</b></td></tr>
     </table></div>
   ${t.exonerado>0?`<div class="aviso" style="border-left-color:var(--ambar);margin-top:10px">
-    <b>Datos de la compra exonerada</b> — la SAR exige estos dos números en toda factura con importe exonerado.
-    <div class="rejilla c2" style="margin-top:8px">
-      <div class="campo"><label>No. de Constancia del Registro de Exonerados</label>
-        <input id="f_exo_registro" value="${esc(exoRegistroPrev)}" placeholder="RE-000000"></div>
-      <div class="campo"><label>No. de Orden de Compra Exenta (OCE)</label>
+    <b>Datos del adquiriente exonerado</b> — la SAR exige estos números en toda factura con importe exonerado.
+    <div class="rejilla c3" style="margin-top:8px">
+      <div class="campo"><label>N° Orden de Compra Exenta</label>
         <input id="f_exo_orden" value="${esc(exoOrdenPrev)}" placeholder="OCE-000000"></div>
+      <div class="campo"><label>N° Constancia de Registro de Exonerados</label>
+        <input id="f_exo_registro" value="${esc(exoRegistroPrev)}" placeholder="RE-000000"></div>
+      <div class="campo"><label>N° Registro SAG</label>
+        <input id="f_exo_sag" value="${esc(exoSagPrev)}" placeholder="SAG-000000"></div>
     </div></div>`:''}`;
 }
 /* Arma una factura "de mentira" con lo que hay AHORA en el formulario, sin
@@ -6735,6 +6753,7 @@ function construirBorradorFactura(){
     nota:g('f_nota'),cai:S.config.facCAI,
     exoRegistro:document.getElementById('f_exo_registro')?.value.trim()||'',
     exoOrden:document.getElementById('f_exo_orden')?.value.trim()||'',
+    exoSag:document.getElementById('f_exo_sag')?.value.trim()||'',
     emitidoPor:usuarioActivo().nombre,
     anulado:false,motivoAnulacion:'',
     borrador:true,
@@ -6809,6 +6828,7 @@ function volverAEditarFactura(){
   pintarItemsFac();
   if(f.exoRegistro)set('f_exo_registro',f.exoRegistro);
   if(f.exoOrden)set('f_exo_orden',f.exoOrden);
+  if(f.exoSag)set('f_exo_sag',f.exoSag);
 }
 function guardarFactura(){
   const c=S.config;
@@ -6833,14 +6853,15 @@ function guardarFactura(){
   if(!idNum&&tPrevio.total>100){
     toast('El cliente debe dar su identificación (DNI, RTN o Pasaporte): la factura supera L.100.00 (regla de la SAR)');return;
   }
-  // Compra exonerada: la SAR exige estos dos números en la factura -- sin
+  // Compra exonerada: la SAR exige estos números en la factura -- sin
   // ellos, el importe exonerado no tiene cómo sustentarse ante una revisión.
-  let exoRegistro='',exoOrden='';
+  let exoRegistro='',exoOrden='',exoSag='';
   if(tPrevio.exonerado>0){
-    exoRegistro=document.getElementById('f_exo_registro')?.value.trim()||'';
     exoOrden=document.getElementById('f_exo_orden')?.value.trim()||'';
-    if(!exoRegistro||!exoOrden){
-      toast('Hay conceptos marcados como Exonerados: la SAR exige el No. de Constancia del Registro de Exonerados y el No. de Orden de Compra Exenta');
+    exoRegistro=document.getElementById('f_exo_registro')?.value.trim()||'';
+    exoSag=document.getElementById('f_exo_sag')?.value.trim()||'';
+    if(!exoOrden||!exoRegistro||!exoSag){
+      toast('Hay conceptos marcados como Exonerados: la SAR exige el N° de Orden de Compra Exenta, el N° de Constancia de Registro de Exonerados y el N° de Registro SAG');
       return;
     }
   }
@@ -6857,7 +6878,7 @@ function guardarFactura(){
     pacienteNombre:pacNombre,pacienteIdTipo:pacIdTipo,pacienteId:pacId,
     terminoPago:document.getElementById('f_termpago').value,
     metodo:g('f_metodo'),ot:g('f_ot'),items:validos.map(i=>({...i,descPct:pctItem(i)})),
-    descPct,nota:g('f_nota'),cai:c.facCAI,exoRegistro,exoOrden,
+    descPct,nota:g('f_nota'),cai:c.facCAI,exoRegistro,exoOrden,exoSag,
     emitidoPor:usuarioActivo().nombre,
     anulado:false,motivoAnulacion:''};
   const t=calcFactura(f);
@@ -6945,6 +6966,11 @@ function renderizarFactura(f){
     // compartido con el informe de resultados.
     extra:[
       f.terminoPago?`<div><span class="et">Términos de pago:</span> <b>${esc(f.terminoPago)}</b></div>`:'',
+      // Justo debajo de Términos de pago (mismo renglón de 2 columnas, para
+      // aprovechar el espacio en vez de abrir uno nuevo): quién emitió la
+      // factura, con nombre corto (primer nombre + primer apellido) para que
+      // quepa sin ocupar tanto como el nombre completo con título.
+      f.emitidoPor?`<div><span class="et">Facturó:</span> <b>${esc(nombreCortoUsuario(f.emitidoPor))}</b></div>`:'',
       f.clienteDir?`<div class="ancho"><span class="et">Dirección:</span> <b>${esc(f.clienteDir)}</b></div>`:'',
       // Nombre e identificación (DNI/RTN/Pasaporte) de quien recibió el
       // servicio -- puede ser distinto de quien factura (una empresa por su
@@ -7010,8 +7036,9 @@ function renderizarFactura(f){
           <b>Fecha de emisión:</b> ${fmtFecha(f.fecha)} &nbsp; <b>Hora de emisión:</b> ${hora12(f.hora||'')}<br>
           <span style="font-size:6.6pt">LA FACTURA ES SU MEJOR GARANTÍA. EXÍJALA.</span></div>
         <div class="rv-sar" style="margin-top:5px"><b>Datos del adquiriente exonerado</b><br>
-          <b>No. Constancia de Registro de Exonerados:</b> ${esc(f.exoRegistro||'—')}<br>
-          <b>No. Orden de Compra Exenta (OCE):</b> ${esc(f.exoOrden||'—')}</div>
+          <b>N° Orden de Compra Exenta:</b> ${esc(f.exoOrden||'—')}<br>
+          <b>N° Constancia de Registro de Exonerados:</b> ${esc(f.exoRegistro||'—')}<br>
+          <b>N° Registro SAG:</b> ${esc(f.exoSag||'—')}</div>
       </div>
       <div class="rv-caja"><table>
         <tr><td class="lbl">Sub Total:</td><td class="val">${moneda(t.sub)}</td></tr>
@@ -9398,9 +9425,40 @@ function nombreDeOrden(o,prefijo){
    — es DOM puro (no toca S), y el PDF del portal web del paciente (Puppeteer,
    un Chromium real) también la necesita para paginar igual que el LIS. Ver
    ARQUITECTURA.md, "Fase 8". */
+/* Marca de agua del logo, de fondo, en todo documento impreso por el
+   sistema (pedido del usuario) -- se arma como FUNCIÓN (no una constante
+   más de cssBaseImpresion) porque necesita leer S.config.logo en el
+   momento de imprimir, no al cargar el script: cssBaseImpresion es un
+   string fijo que se evalúa antes de que exista ningún estado cargado.
+   Se dibuja como ::before de cada contenedor de "hoja" (uno por tipo de
+   documento: .rv el recibo/factura, .pagina la cotización, .hoja el informe
+   y los instructivos, .hoja-doc los documentos de almacén/SGC) en vez de un
+   único elemento fijo sobre <body>: así se repite automáticamente en cada
+   hoja de un documento de varias páginas, y al ser HIJO del propio
+   contenedor (con position:relative) queda SIEMPRE por encima del fondo
+   blanco de esa hoja aunque la vista previa en pantalla le ponga uno
+   propio -- un elemento aparte solo tras <body> quedaría tapado por él.
+   Etiquetas (.et, 57×32 mm) se excluyen a propósito: a ese tamaño el logo
+   de fondo no cabe sin volverse ilegible. */
+function cssMarcaAguaDoc(){
+  const logo=(S.config&&S.config.logo)||'';
+  if(!logo)return '';
+  return `
+ /* z-index:0 (no solo position:relative) es a propósito: SIN un z-index
+    numérico, .rv/.hoja/etc. no abren su propio contexto de apilamiento y el
+    z-index:-1 del ::before termina apilándose contra el documento COMPLETO
+    (el contexto raíz), donde queda tapado por el resto del contenido de la
+    misma hoja en vez de solo por su fondo -- el logo nunca llegaba a verse. */
+ .rv,.pagina,.hoja,.hoja-doc{position:relative;z-index:0}
+ .rv::before,.pagina::before,.hoja::before,.hoja-doc::before{
+   content:'';position:absolute;inset:0;
+   background-image:url("${logo}");
+   background-repeat:no-repeat;background-position:center;background-size:48%;
+   opacity:.06;z-index:-1;pointer-events:none}`;
+}
 function ventanaImpresion(html,css,nombre){
   volcarEstado();
-  css=cssBaseImpresion+'\n'+cssCabeceraDoc+'\n'+cssBloqueDatos+'\n'+css+(modoAplanado?'\n'+cssAplanado:'');   // base, encabezado y datos del paciente/cliente comunes
+  css=cssBaseImpresion+'\n'+cssCabeceraDoc+'\n'+cssBloqueDatos+'\n'+cssMarcaAguaDoc()+'\n'+css+(modoAplanado?'\n'+cssAplanado:'');   // base, encabezado y datos del paciente/cliente comunes
   if(capturaImp){capturaImp.html=html;capturaImp.css=css;capturaImp.nombre=nombre||'';return;}
   // Iframe oculto: evita bloqueadores de ventanas emergentes (popup blockers)
   const previo=document.getElementById('marco-imp');if(previo)previo.remove();
