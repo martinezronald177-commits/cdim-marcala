@@ -6555,6 +6555,43 @@ function alternarDatosPaciente(){
   const chk=document.getElementById('f_es_empresa').checked;
   document.getElementById('f_paciente_box').style.display=chk?'block':'none';
 }
+/* Buscador de "Cliente/Razón social" y del "Paciente que recibió el
+   servicio" contra la base de pacientes ya registrados -- mismo patrón que
+   el buscador de "Nueva orden de trabajo" (filtrarPacOrden, 23_ordenes.js):
+   un campo de texto filtra en vivo un <select>, y elegir una opción llena
+   los campos del formulario. Se busca por nombre, apellido, código y
+   DNI/RTN/Pasaporte a la vez -- no hace falta saber cuál de los tres trae
+   la persona para encontrarla. */
+function opcionesPacientesFactura(lista,filtrando){
+  if(filtrando&&!lista.length)return '<option value="">— Ningún paciente coincide —</option>';
+  return `<option value="">— Elegir de la lista o escribir los datos abajo —</option>`+
+    lista.map(p=>`<option value="${p.codigo}">${p.codigo} · ${esc(nombreCompleto(p))}`+
+      `${p.idNumero?' · '+esc(p.idTipo||'DNI')+' '+esc(p.idNumero):''}</option>`).join('');
+}
+function filtrarPacFactura(prefijo,filtro){
+  const sel=document.getElementById(prefijo+'_sel');if(!sel)return;
+  const f=normTxt(filtro);
+  const lista=f?S.pacientes.filter(p=>normTxt(nombreCompleto(p)+' '+(p.idNumero||'')+' '+p.codigo).includes(f)):S.pacientes;
+  sel.innerHTML=opcionesPacientesFactura(lista,!!f);
+}
+function elegirClienteFactura(){
+  const p=S.pacientes.find(x=>x.codigo===document.getElementById('f_cliente_sel').value);
+  if(!p)return;
+  document.getElementById('f_nombre').value=nombreCompleto(p);
+  document.getElementById('f_idtipo').value=p.idTipo||'DNI';
+  document.getElementById('f_id').value=p.idNumero||'';
+  document.getElementById('f_dir').value=p.dir||'';
+  document.getElementById('f_tel').value=p.tel||'';
+  toast('Datos cargados de '+nombreCompleto(p));
+}
+function elegirPacienteFactura(){
+  const p=S.pacientes.find(x=>x.codigo===document.getElementById('f_paciente_sel').value);
+  if(!p)return;
+  document.getElementById('f_pacnombre').value=nombreCompleto(p);
+  document.getElementById('f_pactipo').value=p.idTipo||'DNI';
+  document.getElementById('f_pacid').value=p.idNumero||'';
+  toast('Datos cargados de '+nombreCompleto(p));
+}
 function modalFactura(ot){
   const c=S.config;
   if(!facturaConfigLista()){toast('Configura el C.A.I. de la Factura en Configuración antes de emitir');return;}
@@ -6568,6 +6605,11 @@ function modalFactura(ot){
   <h3>Emitir factura</h3>
   <div class="aviso" style="margin-bottom:10px">Se asignará el número <b>${numeroFactura()}</b>${o?` para la orden <b>${esc(o.numero)}</b>`:''}.
     Quedan ${facturasRestantes()} de ${c.facHasta-c.facDesde+1} facturas en el rango autorizado.</div>
+  <div class="campo" style="margin-bottom:10px">
+    <label>Buscar en la base de datos (nombre, apellido, DNI, RTN o pasaporte)</label>
+    <input id="f_cliente_busca" placeholder="Escribe para buscar…" autocomplete="off" oninput="filtrarPacFactura('f_cliente',this.value)">
+    <select id="f_cliente_sel" onchange="elegirClienteFactura()" style="margin-top:5px">${opcionesPacientesFactura(S.pacientes)}</select>
+  </div>
   <div class="rejilla c3">
     <div class="campo" style="grid-column:span 2"><label>Cliente / Razón social *</label>
       <input id="f_nombre" value="${o?esc(o.pacienteNombre):''}" placeholder="Nombre o razón social"></div>
@@ -6593,6 +6635,11 @@ function modalFactura(ot){
     <div class="obs-seccion" style="border-left-color:var(--azul);background:#eaf2fa">
       <label style="color:var(--azul);margin-bottom:8px">Datos del paciente que recibió el servicio</label>
       <div class="ayuda" style="margin:-4px 0 10px">Se imprimen aparte de los datos del cliente, para dejar constancia de quién recibió el servicio aunque otro lo pague.</div>
+      <div class="campo" style="margin-bottom:10px">
+        <label>Buscar en la base de datos (nombre, apellido, DNI, RTN o pasaporte)</label>
+        <input id="f_paciente_busca" placeholder="Escribe para buscar…" autocomplete="off" oninput="filtrarPacFactura('f_paciente',this.value)">
+        <select id="f_paciente_sel" onchange="elegirPacienteFactura()" style="margin-top:5px">${opcionesPacientesFactura(S.pacientes)}</select>
+      </div>
       <div class="rejilla c3">
         <div class="campo" style="grid-column:span 1"><label>Nombre del paciente</label><input id="f_pacnombre" value="${esc(p.nombre||'')}" placeholder="Nombre completo"></div>
         <div class="campo"><label>Tipo de documento</label>
