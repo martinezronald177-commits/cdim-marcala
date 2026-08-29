@@ -4515,6 +4515,7 @@ function abrirMenuOrden(ev,n){
     <div class="acc-botones">
       ${!o.pagada?`<button class="btn btn-v" onclick="cerrarModal();modalCobro('${n}')">L Registrar cobro</button>`:''}
       <button class="btn btn-d" onclick="cerrarModal();modalRecibo('${n}')">₤ Recibo</button>
+      <button class="btn btn-d" onclick="cerrarModal();modalFactura('${n}')">🧾 Factura</button>
     </div>
   </div>
 
@@ -6305,16 +6306,61 @@ function numeroFactura(){
 // no depende de nada propio del Recibo, así que se reutiliza tal cual.
 function calcFactura(f){ return calcRecibo(f); }
 
-function vFacturas(filtro=''){
+/* Panel de histórico: mismo patrón que Órdenes/Cotizaciones (23_ordenes.js,
+   22_cotizaciones.js) -- por defecto solo el día de hoy, el buscador ignora
+   la fecha y busca en TODO el historial, "Ver todo el historial" quita el
+   filtro de fecha por completo. _facFecha/_facQ quedan en memoria (no se
+   guardan) para no perder el filtro si algo repinta la vista completa. */
+let _facFecha=hoy(), _facQ='';
+function facturasFiltradas(){
+  const f=normTxt(_facQ||'');
+  let lista=S.facturas.slice();
+  if(f){
+    lista=lista.filter(x=>normTxt(x.numero+' '+x.clienteNombre+' '+(x.clienteId||'')+' '+(x.ot||'')).includes(f));
+  }else if(_facFecha){
+    lista=lista.filter(x=>x.fecha===_facFecha);
+  }
+  return lista.slice().reverse();
+}
+function botonesExtraFacturas(){
+  const hy=hoy();
+  const enHoySinBusqueda=!_facQ&&_facFecha===hy;
+  const filtrandoOtroDia=!_facQ&&_facFecha&&_facFecha!==hy;
+  const n=facturasFiltradas().length;
+  return `${!enHoySinBusqueda?`<button class="btn btn-g btn-min" onclick="irFacturasHoy()">📅 Hoy</button>`:''}
+  ${filtrandoOtroDia?`<button class="btn btn-g btn-min" onclick="verTodoHistorialFacturas()">Ver todo el historial</button>`:''}
+  <span class="ord-conteo">${n} factura(s)</span>`;
+}
+/* Mismo "Ver más" que Órdenes: facturasFiltradas() se deja SIN recortar
+   (botonesExtraFacturas() necesita el total real para el contador); solo se
+   recorta lo que se dibuja, en contenidoListaFacturas(). tablaFacturas() no
+   se toca: sigue siendo un renderizador puro. */
+let _topeFac=150;
+function contenidoListaFacturas(){
+  const todos=facturasFiltradas();
+  const lista=todos.slice(0,_topeFac);
+  const resto=todos.length-lista.length;
+  return `${resto>0?`<div class="aviso" style="margin-bottom:8px">Mostrando ${lista.length} de ${todos.length} facturas.
+    <button class="btn btn-g btn-min" onclick="verMasFacturas()">Ver 150 más</button>
+    <span style="color:var(--gris)">· usa la fecha o el buscador para llegar directo a una</span></div>`:''}${tablaFacturas(lista)}`;
+}
+function verMasFacturas(){_topeFac+=150;const l=document.getElementById('lista_fac');if(l)l.innerHTML=contenidoListaFacturas();}
+function filtrarVistaFacturas(){
+  _facQ=document.getElementById('fac_q')?.value||'';
+  _facFecha=document.getElementById('fac_fecha')?.value||'';
+  _topeFac=150;
+  const l=document.getElementById('lista_fac');if(l)l.innerHTML=contenidoListaFacturas();
+  const eb=document.getElementById('fac_extra_btns');if(eb)eb.innerHTML=botonesExtraFacturas();
+}
+function irFacturasHoy(){_facFecha=hoy();_facQ='';_topeFac=150;vFacturas();}
+function verTodoHistorialFacturas(){_facFecha='';_facQ='';_topeFac=150;vFacturas();}
+
+function vFacturas(){
   const c=S.config;
   const restantes=facturasRestantes();
   vista.innerHTML=`
   <div class="cabecera"><h2>Facturas</h2>
-    <div style="display:flex;gap:10px">
-      <input class="busqueda" id="q_fac" placeholder="Buscar por número, cliente, orden o RTN…"
-        value="${esc(filtro)}" oninput="document.getElementById('lista_fac').innerHTML=filasFacturas(this.value)">
-      <button class="btn btn-p" onclick="modalFactura()">+ Nueva factura</button>
-    </div>
+    <button class="btn btn-p" onclick="modalFactura()">+ Nueva factura</button>
   </div>
   ${!facturaConfigLista()?`<div class="aviso" style="border-left-color:var(--rojo)">
     <b>Falta configurar el C.A.I.</b> Ve a Configuración → “C.A.I. de la Factura (autoimpresor SAR)” y completa
@@ -6338,16 +6384,24 @@ function vFacturas(filtro=''){
       <div class="kpi" style="border-left-color:var(--dorado)"><div class="n" style="color:var(--dorado)">${L(tot)}</div><div class="t">Facturado del mes</div></div>
       <div class="kpi" style="border-left-color:var(--rojo)"><div class="n" style="color:var(--rojo)">${anul}</div><div class="t">Anuladas del mes</div></div>
     </div>`;})()}
-  <div class="tarjeta" id="lista_fac">${filasFacturas(filtro)}</div>
+  <div class="tarjeta">
+    <div class="ord-filtros">
+      <input class="busqueda" id="fac_q" placeholder="Buscar por número, cliente, RTN u orden en todo el historial…"
+        value="${esc(_facQ)}" oninput="filtrarVistaFacturas()">
+      <label class="ord-fecha-lbl" title="Ver las facturas de otro día">📅
+        <input type="date" id="fac_fecha" value="${_facFecha}" onchange="filtrarVistaFacturas()">
+      </label>
+      <span id="fac_extra_btns">${botonesExtraFacturas()}</span>
+    </div>
+    <div id="lista_fac">${contenidoListaFacturas()}</div>
+  </div>
   ${facturaConfigLista()&&!facturaVencida()&&restantes>0?`<div class="aviso">Próximo número: <b>${numeroFactura()}</b> ·
     C.A.I. ${esc(c.facCAI)} · vence el ${fmtFecha(c.facLimite)}. Las facturas anuladas conservan su número y quedan
     registradas en la bitácora, como exige el control correlativo.</div>`:''}`;
-  const q=document.getElementById('q_fac');if(q&&filtro)q.focus();
+  if(_facQ){const q=document.getElementById('fac_q');if(q)q.focus();}
 }
-function filasFacturas(filtro=''){
-  const f=normTxt(filtro);
-  const lista=S.facturas.filter(x=>normTxt(x.numero+' '+x.clienteNombre+' '+(x.clienteId||'')+' '+(x.ot||'')).includes(f)).slice().reverse();
-  if(!lista.length)return `<div class="vacio">${filtro?'Ninguna factura coincide con “'+esc(filtro)+'”.':'Sin facturas emitidas. Crea la primera con “+ Nueva factura”.'}</div>`;
+function tablaFacturas(lista){
+  if(!lista.length)return `<div class="vacio">${_facQ?'Ninguna factura coincide con “'+esc(_facQ)+'”.':_facFecha?'Sin facturas de ese día.':'Sin facturas emitidas. Crea la primera con “+ Nueva factura”.'}</div>`;
   return `<table><thead><tr><th>No.</th><th>Fecha</th><th>Cliente</th><th>RTN</th><th>Concepto</th><th>Método</th><th style="text-align:right">Total</th><th>Estado</th><th></th></tr></thead><tbody>
     ${lista.map(x=>{const t=calcFactura(x);return `<tr class="${x.anulado?'fila-anulada':''}">
       <td><b>${x.numero}</b>${x.ot?`<div style="font-size:9.5px;color:var(--gris)">Orden ${x.ot}</div>`:''}</td>
