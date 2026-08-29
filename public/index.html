@@ -6335,6 +6335,7 @@ function imprimirReciboVenta(num){
       <div class="rv-num">
         <div class="n">No. ${esc(r.numero)}</div>
         <div class="f">${fmtFecha(r.fecha)} · ${hora12(r.hora||'')} · Forma de pago: <b>${esc(r.metodo)}</b></div>
+        ${r.emitidoPor?`<div class="f">Entregó: <b>${esc(nombreCortoUsuario(r.emitidoPor))}</b></div>`:''}
         ${r.ot?`<div class="f">Orden de trabajo: ${esc(r.ot)}</div>`:''}
       </div>
     </div>
