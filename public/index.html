@@ -1578,6 +1578,18 @@ function nombreCortoUsuario(nombreCompleto){
   if(p.length<=2)return p.join(' ');
   return p[0]+' '+p[p.length-2];
 }
+/* Un menor de edad no puede ser la parte que paga o a quien se le extiende
+   un recibo/factura -- si está registrado como menor (esMenor()) y ya tiene
+   un responsable/tutor en su ficha (20_pacientes.js, "Responsable / tutor
+   del menor"), el documento debe salir a nombre de ese responsable, con el
+   menor aparte como quien recibió el servicio (mismo mecanismo que ya
+   existe para "el cliente es una empresa u otra persona"). Devuelve null
+   si no aplica -- adulto, o menor sin responsable aún registrado -- para
+   que el llamador simplemente no cambie el comportamiento de siempre. */
+function responsableParaDocumento(p){
+  if(!p||!p.fnac||!esMenor(p.fnac)||!p.respNombre)return null;
+  return {nombre:p.respNombre,id:p.respId||'',tel:p.respTel||'',parentesco:p.respParentesco||''};
+}
 /* Deja solo los dígitos de un documento de identidad, para poder comparar
    "1201-1997-00953" con "12019970095 3" o cualquier otra forma de escribir
    el mismo número sin que un guion o espacio de más rompa la comparación. */
@@ -6180,19 +6192,25 @@ function alternarDatosPacienteRecibo(){
 function modalRecibo(ot){
   const o=ot?S.ordenes.find(x=>x.numero===ot):null;
   const p=o?(S.pacientes.find(x=>x.codigo===o.pacCodigo)||{}):{};
+  // Un menor no puede ser la parte que paga -- mismo criterio que la
+  // Factura (25_facturas.js): si ya tiene un responsable/tutor registrado,
+  // el Cliente parte precargado a su nombre en vez del propio menor.
+  const resp=responsableParaDocumento(p);
   itemsRec=o?o.examenes.map(e=>({desc:e.nombre,cantidad:1,precio:e.precio,descPct:pctItem(e),gravado:false}))
             :[{desc:'',cantidad:1,precio:0,descPct:0,gravado:false}];
   abrirModal(`
   <h3>Emitir recibo de venta</h3>
   <div class="aviso" style="margin-bottom:10px">Se asignará el número <b>${numeroRecibo()}</b>${o?` para la orden <b>${o.numero}</b>`:''}.</div>
+  ${resp?`<div class="aviso" style="border-left-color:var(--azul)">Paciente menor de edad: el recibo se precargó a nombre de su
+    responsable registrado${resp.parentesco?' ('+esc(resp.parentesco)+')':''}. Puedes cambiarlo si corresponde otra persona.</div>`:''}
   <div class="rejilla c3">
     <div class="campo" style="grid-column:span 2"><label>Cliente *</label>
-      <input id="r_nombre" value="${o?esc(o.pacienteNombre):''}" placeholder="Nombre o razón social"></div>
+      <input id="r_nombre" value="${resp?esc(resp.nombre):(o?esc(o.pacienteNombre):'')}" placeholder="Nombre o razón social"></div>
     <div class="campo"><label>Tipo de documento</label>
-      <select id="r_idtipo">${['DNI','RTN','Pasaporte'].map(t=>`<option ${(p.idTipo||'RTN')===t?'selected':''}>${t}</option>`).join('')}</select></div>
-    <div class="campo"><label>Número</label><input id="r_id" value="${esc(p.idNumero||'')}" placeholder="0000-0000-000000"></div>
+      <select id="r_idtipo">${['DNI','RTN','Pasaporte'].map(t=>`<option ${(resp?'DNI':(p.idTipo||'RTN'))===t?'selected':''}>${t}</option>`).join('')}</select></div>
+    <div class="campo"><label>Número</label><input id="r_id" value="${resp?esc(resp.id):esc(p.idNumero||'')}" placeholder="0000-0000-000000"></div>
     <div class="campo" style="grid-column:span 2"><label>Dirección</label><input id="r_dir" value="${esc(p.dir||'')}"></div>
-    <div class="campo"><label>Teléfono</label><input id="r_tel" value="${esc(p.tel||'')}"></div>
+    <div class="campo"><label>Teléfono</label><input id="r_tel" value="${resp?esc(resp.tel):esc(p.tel||'')}"></div>
     <div class="campo"><label>Términos de pago</label>
       <select id="r_termpago"><option value="Contado">Contado</option><option value="Crédito">Crédito</option></select></div>
     <div class="campo"><label>Forma de pago</label>
@@ -6201,10 +6219,10 @@ function modalRecibo(ot){
     <div class="campo"><label>Descuento global (%)</label><input type="number" id="r_desc" min="0" max="100" step="0.5" value="${o&&o.descPct?o.descPct:0}" oninput="pintarItemsRec()"></div>
   </div>
   <label style="display:flex;align-items:center;gap:6px;font-weight:400;font-size:12.5px;margin-bottom:10px;cursor:pointer">
-    <input type="checkbox" id="r_es_empresa" style="width:auto" onchange="alternarDatosPacienteRecibo()">
+    <input type="checkbox" id="r_es_empresa" style="width:auto" ${resp?'checked':''} onchange="alternarDatosPacienteRecibo()">
     El cliente que paga es una empresa u otra persona -- distinta de quien recibió el servicio
   </label>
-  <div id="r_paciente_box" style="display:none;margin-bottom:10px">
+  <div id="r_paciente_box" style="display:${resp?'block':'none'};margin-bottom:10px">
     <div class="obs-seccion" style="border-left-color:var(--azul);background:#eaf2fa">
       <label style="color:var(--azul);margin-bottom:8px">Datos del paciente que recibió el servicio</label>
       <div class="ayuda" style="margin:-4px 0 10px">Se imprimen aparte de los datos del cliente, para dejar constancia de quién recibió el servicio aunque otro lo pague.</div>
@@ -6680,12 +6698,19 @@ function modalFactura(ot){
   if(facturasRestantes()<=0){toast('Se agotó el rango autorizado de facturas. Solicita un nuevo rango a la SAR (SAR-927).');return;}
   const o=ot?S.ordenes.find(x=>x.numero===ot):null;
   const p=o?(S.pacientes.find(x=>x.codigo===o.pacCodigo)||{}):{};
+  // Un menor no puede ser la parte que factura -- si ya tiene un
+  // responsable/tutor registrado, el Cliente parte precargado a su nombre
+  // en vez del propio menor, con la casilla de "empresa u otra persona" ya
+  // marcada (el menor queda igual como "Paciente que recibió el servicio").
+  const resp=responsableParaDocumento(p);
   itemsFac=o?o.examenes.map(e=>({desc:e.nombre,cantidad:1,precio:e.precio,descPct:pctItem(e),condFiscal:'exento'}))
             :[{desc:'',cantidad:1,precio:0,descPct:0,condFiscal:'exento'}];
   abrirModal(`
   <h3>Emitir factura</h3>
   <div class="aviso" style="margin-bottom:10px">Se asignará el número <b>${numeroFactura()}</b>${o?` para la orden <b>${esc(o.numero)}</b>`:''}.
     Quedan ${facturasRestantes()} de ${c.facHasta-c.facDesde+1} facturas en el rango autorizado.</div>
+  ${resp?`<div class="aviso" style="border-left-color:var(--azul)">Paciente menor de edad: la factura se precargó a nombre de su
+    responsable registrado${resp.parentesco?' ('+esc(resp.parentesco)+')':''}. Puedes cambiarlo si corresponde otra persona.</div>`:''}
   <div class="campo" style="margin-bottom:10px">
     <label>Buscar en la base de datos (nombre, apellido, DNI, RTN o pasaporte)</label>
     <input id="f_cliente_busca" placeholder="Escribe para buscar…" autocomplete="off" oninput="filtrarPacFactura('f_cliente',this.value)">
@@ -6693,12 +6718,12 @@ function modalFactura(ot){
   </div>
   <div class="rejilla c3">
     <div class="campo" style="grid-column:span 2"><label>Cliente / Razón social *</label>
-      <input id="f_nombre" value="${o?esc(o.pacienteNombre):''}" placeholder="Nombre o razón social"></div>
+      <input id="f_nombre" value="${resp?esc(resp.nombre):(o?esc(o.pacienteNombre):'')}" placeholder="Nombre o razón social"></div>
     <div class="campo"><label>Tipo de documento</label>
-      <select id="f_idtipo">${['DNI','RTN','Pasaporte'].map(t=>`<option ${(p.idTipo||'RTN')===t?'selected':''}>${t}</option>`).join('')}</select></div>
-    <div class="campo"><label>Número</label><input id="f_id" value="${esc(p.idNumero||'')}" placeholder="0000-0000-000000"></div>
+      <select id="f_idtipo">${['DNI','RTN','Pasaporte'].map(t=>`<option ${(resp?'DNI':(p.idTipo||'RTN'))===t?'selected':''}>${t}</option>`).join('')}</select></div>
+    <div class="campo"><label>Número</label><input id="f_id" value="${resp?esc(resp.id):esc(p.idNumero||'')}" placeholder="0000-0000-000000"></div>
     <div class="campo" style="grid-column:span 2"><label>Dirección</label><input id="f_dir" value="${esc(p.dir||'')}"></div>
-    <div class="campo"><label>Teléfono</label><input id="f_tel" value="${esc(p.tel||'')}"></div>
+    <div class="campo"><label>Teléfono</label><input id="f_tel" value="${resp?esc(resp.tel):esc(p.tel||'')}"></div>
     <div class="campo"><label>Términos de pago</label>
       <select id="f_termpago"><option value="Contado">Contado</option><option value="Crédito">Crédito</option></select></div>
     <div class="campo"><label>Forma de pago</label>
@@ -6709,10 +6734,10 @@ function modalFactura(ot){
   <div class="ayuda" style="margin:6px 0 10px">Si el cliente no da su identificación, se factura como Consumidor Final —
     solo válido si el total no supera L.100.00 (regla de la SAR).</div>
   <label style="display:flex;align-items:center;gap:6px;font-weight:400;font-size:12.5px;margin-bottom:10px;cursor:pointer">
-    <input type="checkbox" id="f_es_empresa" style="width:auto" onchange="alternarDatosPaciente()">
+    <input type="checkbox" id="f_es_empresa" style="width:auto" ${resp?'checked':''} onchange="alternarDatosPaciente()">
     El cliente que factura es una empresa u otra persona -- distinta de quien recibió el servicio
   </label>
-  <div id="f_paciente_box" style="display:none;margin-bottom:10px">
+  <div id="f_paciente_box" style="display:${resp?'block':'none'};margin-bottom:10px">
     <div class="obs-seccion" style="border-left-color:var(--azul);background:#eaf2fa">
       <label style="color:var(--azul);margin-bottom:8px">Datos del paciente que recibió el servicio</label>
       <div class="ayuda" style="margin:-4px 0 10px">Se imprimen aparte de los datos del cliente, para dejar constancia de quién recibió el servicio aunque otro lo pague.</div>
