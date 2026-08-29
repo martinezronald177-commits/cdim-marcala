@@ -716,6 +716,7 @@ td,th,.ci-txt b,.ci-sub{overflow-wrap:anywhere}
     <button data-v="etiquetas" aria-label="Etiquetas 57×32"><span class="ico" aria-hidden="true">▤</span>Etiquetas 57×32</button>
     <button data-v="instructivos" aria-label="Instructivos de preparación"><span class="ico" aria-hidden="true">📋</span>Instructivos</button>
     <button data-v="recibos" aria-label="Recibos de Venta"><span class="ico" aria-hidden="true">₤</span>Recibos de Venta</button>
+    <button data-v="facturas" aria-label="Facturas"><span class="ico" aria-hidden="true">🧾</span>Facturas</button>
     <button data-v="calidad" aria-label="Control de Calidad"><span class="ico" aria-hidden="true">◎</span>Control de Calidad</button>
     <button data-v="almacen" aria-label="Almacén"><span class="ico" aria-hidden="true">▤</span>Almacén</button>
     <button data-v="sgc" aria-label="Sistema de Gestión de la Calidad"><span class="ico" aria-hidden="true">◈</span>Gestión de Calidad</button>
@@ -939,6 +940,7 @@ function migrarEstado(s){
       codigoDocCot:'F-CDIM-COT-01',revisionDoc:'Rev. 001',validezCot:30,condicionesCot:null,
       elaborador:'Ronald Martínez',
       reciboPrefijo:'RV',reciboCopia:true,facturaSerie:'',facturaCAI:'',facturaRango:'',facturaLimite:'',
+      facCAI:'',facSerie:'',facDesde:0,facHasta:0,facLimite:'',facCopia:true,
       sobreAncho:216,sobreAlto:279,obsFrecuentes:null
     },s.config);
     if(s.config.profesionalTitulo==='Microbiología y Química Clínica')s.config.profesionalTitulo='Microbiólogo y Químico Clínico';
@@ -946,6 +948,13 @@ function migrarEstado(s){
     if(!s.config.elaborador)s.config.elaborador='Ronald Martínez';
     if(!s.config.razonSocial)s.config.razonSocial='Inversiones Martínez Márquez';
     if(!s.config.rtn)s.config.rtn='12011997009532';
+    // C.A.I. de Factura asignado por la SAR (SAR-927, solicitud 28/04/2026):
+    // punto de emisión 001, documento "01 - Factura", 100 correlativos.
+    if(!s.config.facCAI)s.config.facCAI='508AE4-D307F2-365FE0-63BE03-09094D-0D';
+    if(!s.config.facSerie)s.config.facSerie='000-001-01-';
+    if(!s.config.facDesde)s.config.facDesde=1;
+    if(!s.config.facHasta)s.config.facHasta=100;
+    if(!s.config.facLimite)s.config.facLimite='2027-04-28';
     if(s.config.sobreAncho===250&&s.config.sobreAlto===350){s.config.sobreAncho=216;s.config.sobreAlto=279;}
     (s.cotizaciones||[]).forEach(c=>{if(/ronald.*mart[ií]nez/i.test(c.elaboradoPor||''))c.elaboradoPor=s.config.elaborador;});
     if(!s.config.ladaDefecto)s.config.ladaDefecto='+504';
@@ -965,6 +974,8 @@ function migrarEstado(s){
     if(!s.config.sello)s.config.sello=SELLO_CDIM;
     // Sello reprocesado a 508 dpi desde el original de alta calidad
     if(!s.recibos)s.recibos=[];
+    if(!s.facturas)s.facturas=[];
+    if(s.seq.fac===undefined)s.seq.fac=s.config.facDesde||1;
     if(!s.cc)s.cc={controles:[],datos:[]};
     if(!s.almacen)s.almacen={insumos:[],movs:[]};
     if(!s.sgc)s.sgc={documentos:[],nc:[],personal:[],equipos:[],riesgos:[],revisiones:[]};
@@ -1390,7 +1401,7 @@ function estadoInicial(){
         diasEntrega:1,avisoEntrega:true,avisoStock:true,recordarRespaldo:7,
         notificacionObligatoria:NOTIF_OBLIGATORIA_DEFAULT}
     },
-    seq:{pac:1,cot:1,ot:1,mov:1,rec:1,perfil:1,medico:1},
+    seq:{pac:1,cot:1,ot:1,mov:1,rec:1,fac:1,perfil:1,medico:1},
     pacientes:[],
     examenes:semillaExamenes(),
     cotizaciones:[],
@@ -1398,6 +1409,7 @@ function estadoInicial(){
     caja:{abierta:false,fecha:'',hora:'',responsable:'',fondo:0,conteo:{}},
     cortes:[],
     recibos:[],
+    facturas:[],
     cc:{controles:[],datos:[]},
     almacen:{insumos:[],movs:[]},
     sgc:{documentos:[],nc:[],personal:[],equipos:[],riesgos:[],revisiones:[]},
@@ -1833,6 +1845,7 @@ function render(v,arg){
   if(v==='conta'&&!puede('contabilidad')){toast('No tienes permiso para ver Contabilidad');v='inicio';}
   if(v==='estadisticas'&&!puede('contabilidad')){toast('No tienes permiso para ver Estadísticas');v='inicio';}
   if(v==='caja'&&!puede('cobrar')){toast('No tienes permiso para manejar la caja');v='inicio';}
+  if(v==='facturas'&&!puede('cobrar')){toast('No tienes permiso para emitir facturas');v='inicio';}
   if(v==='examenes'&&!puede('examenes')){toast('No tienes permiso para modificar el catálogo');v='inicio';}
   if(v==='perfiles'&&!puede('examenes')){toast('No tienes permiso para administrar combos');v='inicio';}
   if((v==='calidad'||v==='sgc')&&!puede('calidad')){toast('No tienes permiso para el módulo de calidad');v='inicio';}
@@ -1852,6 +1865,7 @@ function render(v,arg){
   else if(v==='ordenes')vOrdenes(arg);
   else if(v==='etiquetas')vEtiquetas();
   else if(v==='recibos')vRecibos();
+  else if(v==='facturas')vFacturas();
   else if(v==='calidad')vCalidad();
   else if(v==='almacen')vAlmacen();
   else if(v==='sgc')vSGC();
@@ -6105,8 +6119,11 @@ function guardarRecibo(){
     anulado:false,motivoAnulacion:''};
   const t=calcRecibo(r);
   const o=r.ot?S.ordenes.find(x=>x.numero===r.ot):null;
-  // Solo se registra el ingreso si esa venta no fue cobrada ya en la orden
-  if(!o||!o.pagada){
+  // Solo se registra el ingreso si esa venta no fue cobrada ya en la orden,
+  // NI ya facturada (25_facturas.js) -- comparten la misma orden y sin este
+  // cruce, emitir recibo y factura para la misma venta duplicaba el ingreso.
+  const yaFacturado=o&&(S.facturas||[]).some(x=>x.ot===o.numero&&!x.anulado);
+  if(!o||!(o.pagada||yaFacturado)){
     // Antes se armaba este movimiento a mano, sin el campo `turno` que sí
     // ponía registrarMovimiento() — una venta en efectivo emitida como
     // recibo podía no aparecer en el arqueo del turno (ago. 2026, ver
@@ -6252,6 +6269,309 @@ function imprimirReciboVenta(num){
   ventanaImpresion(html,cssReciboVenta,nombreArchivo('Recibo',r.numero,r.cliente,r.fecha));
 }
 
+/* =============== FACTURAS (Régimen de Facturación SAR · Autoimpresor) ===============
+   Documento fiscal propiamente dicho -- distinto del Recibo de Venta (22_recibos.js):
+   la SAR autoriza un C.A.I. y un rango de correlativos POR TIPO de documento
+   (Acuerdo 481-2017, trámite SAR-926/SAR-927), así que Factura y Recibo comparten
+   formato pero nunca numeración ni C.A.I.
+
+   No se emite nada si falta el C.A.I., si venció su fecha límite, o si ya se
+   agotó el rango autorizado: emitir fuera de esas condiciones es justo lo que
+   este régimen existe para impedir, y el correlativo es la prueba de que no
+   se saltó ningún número. */
+
+function facturaConfigLista(){
+  const c=S.config;
+  return !!(c.facCAI&&c.facSerie&&c.facDesde&&c.facHasta);
+}
+function facturaVencida(){
+  const c=S.config;
+  return !!(c.facLimite&&hoy()>c.facLimite);
+}
+function facturasRestantes(){
+  const c=S.config;
+  if(!facturaConfigLista())return 0;
+  return Math.max(0,c.facHasta-(S.seq.fac||c.facDesde)+1);
+}
+function numeroFactura(){
+  const c=S.config;
+  return (c.facSerie||'')+String(S.seq.fac||c.facDesde||1).padStart(8,'0');
+}
+// Misma matemática de descuentos/ISV que el recibo de venta (24_recibos.js):
+// no depende de nada propio del Recibo, así que se reutiliza tal cual.
+function calcFactura(f){ return calcRecibo(f); }
+
+function vFacturas(filtro=''){
+  const c=S.config;
+  const restantes=facturasRestantes();
+  vista.innerHTML=`
+  <div class="cabecera"><h2>Facturas</h2>
+    <div style="display:flex;gap:10px">
+      <input class="busqueda" id="q_fac" placeholder="Buscar por número, cliente, orden o RTN…"
+        value="${esc(filtro)}" oninput="document.getElementById('lista_fac').innerHTML=filasFacturas(this.value)">
+      <button class="btn btn-p" onclick="modalFactura()">+ Nueva factura</button>
+    </div>
+  </div>
+  ${!facturaConfigLista()?`<div class="aviso" style="border-left-color:var(--rojo)">
+    <b>Falta configurar el C.A.I.</b> Ve a Configuración → “C.A.I. de la Factura (autoimpresor SAR)” y completa
+    el C.A.I., la serie y el rango autorizado antes de emitir facturas.</div>`
+   :facturaVencida()?`<div class="aviso" style="border-left-color:var(--rojo)">
+    <b>El rango autorizado venció</b> el ${fmtFecha(c.facLimite)}. Solicita uno nuevo a la SAR (SAR-927) antes de
+    seguir emitiendo.</div>`
+   :restantes<=0?`<div class="aviso" style="border-left-color:var(--rojo)">
+    <b>Se agotó el rango autorizado</b> (${c.facDesde}–${c.facHasta}). Solicita un nuevo rango a la SAR (SAR-927)
+    antes de seguir emitiendo.</div>`
+   :restantes<=10?`<div class="aviso" style="border-left-color:var(--ambar)">
+    Quedan <b>${restantes}</b> de ${c.facHasta-c.facDesde+1} facturas autorizadas en este rango. Es buen momento
+    para tramitar el siguiente.</div>`:''}
+  ${(()=>{const mes=hoy().slice(0,7);
+    const delMes=S.facturas.filter(x=>x.fecha.startsWith(mes)&&!x.anulado);
+    const tot=delMes.reduce((a,x)=>a+calcFactura(x).total,0);
+    const anul=S.facturas.filter(x=>x.fecha.startsWith(mes)&&x.anulado).length;
+    return `<div class="kpis" style="grid-template-columns:repeat(4,1fr)">
+      <div class="kpi"><div class="n">${S.facturas.length}</div><div class="t">Facturas emitidas</div></div>
+      <div class="kpi" style="border-left-color:var(--verde)"><div class="n" style="color:var(--verde)">${delMes.length}</div><div class="t">Este mes</div></div>
+      <div class="kpi" style="border-left-color:var(--dorado)"><div class="n" style="color:var(--dorado)">${L(tot)}</div><div class="t">Facturado del mes</div></div>
+      <div class="kpi" style="border-left-color:var(--rojo)"><div class="n" style="color:var(--rojo)">${anul}</div><div class="t">Anuladas del mes</div></div>
+    </div>`;})()}
+  <div class="tarjeta" id="lista_fac">${filasFacturas(filtro)}</div>
+  ${facturaConfigLista()&&!facturaVencida()&&restantes>0?`<div class="aviso">Próximo número: <b>${numeroFactura()}</b> ·
+    C.A.I. ${esc(c.facCAI)} · vence el ${fmtFecha(c.facLimite)}. Las facturas anuladas conservan su número y quedan
+    registradas en la bitácora, como exige el control correlativo.</div>`:''}`;
+  const q=document.getElementById('q_fac');if(q&&filtro)q.focus();
+}
+function filasFacturas(filtro=''){
+  const f=normTxt(filtro);
+  const lista=S.facturas.filter(x=>normTxt(x.numero+' '+x.clienteNombre+' '+(x.clienteId||'')+' '+(x.ot||'')).includes(f)).slice().reverse();
+  if(!lista.length)return `<div class="vacio">${filtro?'Ninguna factura coincide con “'+esc(filtro)+'”.':'Sin facturas emitidas. Crea la primera con “+ Nueva factura”.'}</div>`;
+  return `<table><thead><tr><th>No.</th><th>Fecha</th><th>Cliente</th><th>RTN</th><th>Concepto</th><th>Método</th><th style="text-align:right">Total</th><th>Estado</th><th></th></tr></thead><tbody>
+    ${lista.map(x=>{const t=calcFactura(x);return `<tr class="${x.anulado?'fila-anulada':''}">
+      <td><b>${x.numero}</b>${x.ot?`<div style="font-size:9.5px;color:var(--gris)">Orden ${x.ot}</div>`:''}</td>
+      <td>${fmtFecha(x.fecha)}<div style="font-size:9.5px;color:var(--gris)">${hora12(x.hora||'')}</div></td>
+      <td>${esc(x.clienteNombre)}</td>
+      <td style="font-family:ui-monospace,monospace;font-size:11px">${esc(x.clienteId||'Consumidor Final')}</td>
+      <td style="font-size:11.5px">${x.items.length} concepto(s)<div style="font-size:9.5px;color:var(--gris)">${esc(x.items[0]?x.items[0].desc:'')}${x.items.length>1?'…':''}</div></td>
+      <td><span class="chip chip-az">${esc(x.metodo)}</span></td>
+      <td style="text-align:right"><b>${L(t.total)}</b>${t.descuento?`<div style="font-size:9.5px;color:var(--gris)">desc. ${t.pctTotal} %</div>`:''}</td>
+      <td>${x.anulado?'<span class="chip chip-rj">Anulada</span>':'<span class="chip chip-vd">Emitida</span>'}</td>
+      <td style="text-align:right;white-space:nowrap">
+        <button class="btn btn-p btn-min" onclick="previsualizar(()=>imprimirFactura('${x.numero}'),'Factura ${x.numero}','Imprimir factura')">Ver</button>
+        <button class="btn btn-g btn-min" onclick="modalPDF('factura','${x.numero}')">⬇ PDF</button>
+        <button class="btn btn-v btn-min" onclick="modalCompartir('factura','${x.numero}')">✆ Enviar</button>
+        ${!x.anulado?`<button class="btn btn-r btn-min" onclick="anularFactura('${x.numero}')">Anular</button>`:''}
+      </td></tr>`;}).join('')}
+  </tbody></table>`;
+}
+
+let itemsFac=[];
+function modalFactura(ot){
+  const c=S.config;
+  if(!facturaConfigLista()){toast('Configura el C.A.I. de la Factura en Configuración antes de emitir');return;}
+  if(facturaVencida()){toast('El rango autorizado venció el '+fmtFecha(c.facLimite)+'. Solicita uno nuevo a la SAR.');return;}
+  if(facturasRestantes()<=0){toast('Se agotó el rango autorizado de facturas. Solicita un nuevo rango a la SAR (SAR-927).');return;}
+  const o=ot?S.ordenes.find(x=>x.numero===ot):null;
+  const p=o?(S.pacientes.find(x=>x.codigo===o.pacCodigo)||{}):{};
+  itemsFac=o?o.examenes.map(e=>({desc:e.nombre,cantidad:1,precio:e.precio,descPct:pctItem(e),gravado:false}))
+            :[{desc:'',cantidad:1,precio:0,descPct:0,gravado:false}];
+  abrirModal(`
+  <h3>Emitir factura</h3>
+  <div class="aviso" style="margin-bottom:10px">Se asignará el número <b>${numeroFactura()}</b>${o?` para la orden <b>${esc(o.numero)}</b>`:''}.
+    Quedan ${facturasRestantes()} de ${c.facHasta-c.facDesde+1} facturas en el rango autorizado.</div>
+  <div class="rejilla c3">
+    <div class="campo" style="grid-column:span 2"><label>Cliente / Razón social *</label>
+      <input id="f_nombre" value="${o?esc(o.pacienteNombre):''}" placeholder="Nombre o razón social"></div>
+    <div class="campo"><label>R.T.N.</label><input id="f_id" value="${esc(p.idNumero||'')}" placeholder="0000-0000-000000"></div>
+    <div class="campo" style="grid-column:span 2"><label>Dirección</label><input id="f_dir" value="${esc(p.dir||'')}"></div>
+    <div class="campo"><label>Teléfono</label><input id="f_tel" value="${esc(p.tel||'')}"></div>
+    <div class="campo"><label>Forma de pago</label>
+      <select id="f_metodo">${['Efectivo','Transferencia','Tarjeta','Cheque','Depósito','Crédito'].map(m=>`<option ${o&&o.pagoMetodo===m?'selected':''}>${m}</option>`).join('')}</select></div>
+    <div class="campo"><label>Orden de trabajo</label><input id="f_ot" value="${o?o.numero:''}" placeholder="Opcional" readonly style="background:#f2f5f7"></div>
+    <div class="campo"><label>Descuento global (%)</label><input type="number" id="f_desc" min="0" max="100" step="0.5" value="${o&&o.descPct?o.descPct:0}" oninput="pintarItemsFac()"></div>
+  </div>
+  <div class="ayuda" style="margin:6px 0 10px">Si el cliente no da su R.T.N., se factura como Consumidor Final —
+    solo válido si el total no supera L.100.00 (regla de la SAR).</div>
+  <label>Conceptos</label>
+  <div id="f_items"></div>
+  <div class="campo" style="margin-top:8px"><label>Nota / concepto general</label>
+    <input id="f_nota" placeholder="Ej. Servicios de laboratorio clínico prestados"></div>
+  ${o&&o.pagada?'<div class="aviso">Esta orden ya fue cobrada y registrada en contabilidad; la factura <b>no volverá a sumar</b> el ingreso, solo documenta la venta.</div>':''}
+  <div class="modal-pie">
+    <button class="btn btn-g" onclick="cerrarModal()">Cancelar</button>
+    <button class="btn btn-p" onclick="guardarFactura()">✓ Emitir factura</button>
+  </div>`,true);
+  pintarItemsFac();
+}
+function pintarItemsFac(){
+  const cont=document.getElementById('f_items');if(!cont)return;
+  const t=calcFactura({items:itemsFac,descPct:Number(document.getElementById('f_desc')?.value)||0});
+  cont.innerHTML=`<table>
+    <thead><tr><th style="width:28px">#</th><th>Descripción</th><th style="width:58px">Cant.</th>
+      <th style="width:88px">Precio</th><th style="width:64px">Desc. %</th><th style="width:52px">ISV</th>
+      <th style="width:92px;text-align:right">Subtotal</th><th style="width:28px"></th></tr></thead><tbody>
+    ${itemsFac.map((i,x)=>`<tr>
+      <td>${x+1}</td>
+      <td><input value="${esc(i.desc)}" placeholder="Descripción del servicio" onchange="itemsFac[${x}].desc=this.value"></td>
+      <td><input type="number" min="1" step="1" value="${i.cantidad}" onchange="itemsFac[${x}].cantidad=Math.max(1,parseInt(this.value)||1);pintarItemsFac()"></td>
+      <td><input type="number" min="0" step="0.01" value="${i.precio}" onchange="itemsFac[${x}].precio=Number(this.value)||0;pintarItemsFac()"></td>
+      <td><input class="in-desc" type="number" min="0" max="100" step="0.5" value="${pctItem(i)}" onchange="itemsFac[${x}].descPct=Math.min(100,Math.max(0,Number(this.value)||0));pintarItemsFac()"></td>
+      <td style="text-align:center"><input type="checkbox" ${i.gravado?'checked':''} title="Marcar si el concepto paga ISV 15 %" onchange="itemsFac[${x}].gravado=this.checked;pintarItemsFac()" style="width:auto"></td>
+      <td style="text-align:right;font-weight:700">${L((i.precio-descItem(i))*i.cantidad)}</td>
+      <td><button class="btn btn-r btn-min" onclick="itemsFac.splice(${x},1);pintarItemsFac()">✕</button></td></tr>`).join('')}
+  </tbody></table>
+  <button class="btn btn-g btn-min" style="margin-top:6px" onclick="itemsFac.push({desc:'',cantidad:1,precio:0,descPct:0,gravado:false});pintarItemsFac()">+ Agregar concepto</button>
+  <div style="display:flex;justify-content:flex-end;margin-top:8px">
+    <table style="width:330px">
+      <tr><td>Sub Total</td><td style="text-align:right">${L(t.sub)}</td></tr>
+      <tr><td>Descuento (${t.pctTotal} %)</td><td style="text-align:right;color:var(--rojo)">${t.descuento?'− '+L(t.descuento):'—'}</td></tr>
+      <tr><td>Importe exento</td><td style="text-align:right">${L(t.exento)}</td></tr>
+      <tr><td>Importe gravado</td><td style="text-align:right">${L(t.gravado)}</td></tr>
+      <tr><td>ISV 15 %</td><td style="text-align:right">${L(t.isv)}</td></tr>
+      <tr><td><b>Total</b></td><td style="text-align:right"><b style="font-size:17px;color:var(--azul)">${L(t.total)}</b></td></tr>
+    </table></div>`;
+}
+function guardarFactura(){
+  const c=S.config;
+  // Se revalida aquí (no solo al abrir el modal): pudo pasar tiempo, o
+  // agotarse el rango en otra pestaña/dispositivo antes de guardar.
+  if(!facturaConfigLista()){toast('Configura el C.A.I. de la Factura antes de emitir');return;}
+  if(facturaVencida()){toast('El rango autorizado venció el '+fmtFecha(c.facLimite));return;}
+  if(facturasRestantes()<=0){toast('Se agotó el rango autorizado de facturas');return;}
+  const g=id=>document.getElementById(id).value.trim();
+  if(!g('f_nombre')){toast('Escribe el nombre o razón social del cliente');return;}
+  const validos=itemsFac.filter(i=>i.desc.trim()&&i.precio>=0);
+  if(!validos.length){toast('Agrega al menos un concepto con descripción');return;}
+  const rtn=g('f_id');
+  const descPct=Number(g('f_desc'))||0;
+  const tPrevio=calcFactura({items:validos,descPct});
+  // La SAR exige R.T.N. del comprador cuando la compra supera L.100; por
+  // debajo de ese monto se admite facturar a "Consumidor Final" sin R.T.N.
+  if(!rtn&&tPrevio.total>100){
+    toast('El cliente debe dar su R.T.N.: la factura supera L.100.00 (regla de la SAR)');return;
+  }
+  const f={numero:numeroFactura(),fecha:hoy(),hora:ahoraHora(),
+    clienteNombre:g('f_nombre'),clienteId:rtn,clienteDir:g('f_dir'),clienteTel:g('f_tel'),
+    metodo:g('f_metodo'),ot:g('f_ot'),items:validos.map(i=>({...i,descPct:pctItem(i)})),
+    descPct,nota:g('f_nota'),cai:c.facCAI,
+    emitidoPor:usuarioActivo().nombre,
+    anulado:false,motivoAnulacion:''};
+  const t=calcFactura(f);
+  const o=f.ot?S.ordenes.find(x=>x.numero===f.ot):null;
+  // Ni la factura ni el recibo (24_recibos.js) deben sumar el ingreso dos
+  // veces por la misma orden: además de o.pagada, cada uno revisa si el
+  // OTRO documento ya la cubrió. Sin este cruce, emitir recibo y factura
+  // para la misma venta duplicaba el ingreso en contabilidad.
+  const yaRegistrado=o&&(o.pagada||(S.recibos||[]).some(x=>x.ot===o.numero&&!x.anulado));
+  if(!yaRegistrado){
+    registrarMovimiento({tipo:'Ingreso',metodo:f.metodo,categoria:'Servicios de laboratorio',
+      concepto:'Factura '+f.numero+' · '+f.clienteNombre,monto:t.total,ref:f.numero});
+    f.movRef=true;
+  } else f.movRef=false;
+  S.facturas.push(f);S.seq.fac=(S.seq.fac||c.facDesde)+1;
+  S.bitacora.push({fecha:hoy(),hora:ahoraHora(),responsable:usuarioActivo().nombre,tipo:'Actividad de rutina',
+    descripcion:'Emisión de la factura '+f.numero+' (C.A.I. '+c.facCAI+') a '+f.clienteNombre+' por '+L(t.total)+
+      (f.ot?' (orden '+f.ot+')':'')+(f.movRef?'. Ingreso registrado en contabilidad.':'. Sin registro contable: la orden ya estaba cobrada.')});
+  itemsFac=[];guardar(true);cerrarModal();irA('facturas');
+  toast(f.numero+' emitida · '+L(t.total));
+  previsualizar(()=>imprimirFactura(f.numero),'Factura '+f.numero,'Imprimir factura');
+}
+function anularFactura(num){
+  if(!esAdmin()){toast('Solo un Admin puede anular una factura');return;}
+  const f=S.facturas.find(x=>x.numero===num);if(!f)return;
+  const motivo=prompt('Motivo de la anulación de la factura '+num+':');
+  if(!motivo||!motivo.trim()){toast('Se requiere un motivo para anular');return;}
+  const t=calcFactura(f);
+  f.anulado=true;f.motivoAnulacion=motivo.trim();f.fechaAnulacion=hoy();f.horaAnulacion=ahoraHora();
+  if(f.movRef){
+    registrarMovimiento({tipo:'Egreso',metodo:f.metodo,categoria:'Anulaciones',
+      concepto:'Anulación de la factura '+f.numero+' · '+motivo.trim(),monto:t.total,ref:f.numero});
+  }
+  S.bitacora.push({fecha:hoy(),hora:ahoraHora(),responsable:usuarioActivo().nombre,tipo:'No conformidad',
+    descripcion:'ANULACIÓN de la factura '+f.numero+' por '+L(t.total)+'. Motivo: '+motivo.trim()+
+      (f.movRef?' Se registró el egreso de contrapartida.':'')+
+      ' El número queda anulado y no se reutiliza, según el control correlativo del C.A.I.'});
+  guardar(true);vFacturas();toast(num+' anulada');
+}
+
+/* ---- Impresión de la factura -----------------------------------------
+   Mismo diseño que el Recibo de Venta (misma hoja carta, mismas clases
+   .rv-*): son el mismo tipo de documento de venta, solo cambia el título,
+   el R.T.N. del cliente pasa a primer plano, y el recuadro del C.A.I. es
+   obligatorio (nunca condicional, a diferencia del recibo). Se reutiliza
+   cssReciboVenta de 24_recibos.js en vez de duplicar ~35 líneas de CSS. */
+function imprimirFactura(num){
+  const f=S.facturas.find(x=>x.numero===num);
+  if(!f){toast('Factura no encontrada');return;}
+  const c=S.config, t=calcFactura(f);
+  const cuerpo=(copia,pag)=>`
+  <div class="rv">
+    ${f.anulado?'<div class="rv-anulado">ANULADA</div>':''}
+    ${bloqueCab(c,{razonSocial:true,claseContacto:''})}
+    <div class="rv-tit">
+      <div>
+        <div class="rv-t1">FACTURA</div>
+        <div style="font-size:8.6pt;color:#333">${esc(copia)}${pag?' · Página '+pag:''}</div>
+      </div>
+      <div class="rv-num">
+        <div class="n">No. ${esc(f.numero)}</div>
+        <div class="f">${fmtFecha(f.fecha)} · ${hora12(f.hora||'')} · Forma de pago: <b>${esc(f.metodo)}</b></div>
+        ${f.ot?`<div class="f">Orden de trabajo: ${esc(f.ot)}</div>`:''}
+      </div>
+    </div>
+    <div class="rv-cli">
+      <div><span class="et">Cliente / Razón social:</span> ${esc(f.clienteNombre)}</div>
+      <div><span class="et">R.T.N.:</span> ${esc(f.clienteId||'Consumidor Final')}</div>
+      <div><span class="et">Teléfono:</span> ${esc(f.clienteTel||'—')}</div>
+      <div style="grid-column:1/-1"><span class="et">Dirección:</span> ${esc(f.clienteDir||'—')}</div>
+    </div>
+    <table class="rv-it">
+      <thead><tr><th style="width:26px">#</th><th>Descripción</th>
+        <th style="width:26px;text-align:center" title="Exento / Gravado del ISV">E/G</th>
+        <th style="width:48px" class="num">Cant.</th>
+        <th style="width:74px" class="num">Precio</th><th style="width:56px" class="num">Desc.%</th>
+        <th style="width:82px" class="num">Importe</th></tr></thead>
+      <tbody>${f.items.map((i,x)=>`<tr>
+        <td>${x+1}</td><td>${esc(i.desc)}</td>
+        <td style="text-align:center;font-weight:800">${i.gravado?'G':'E'}</td>
+        <td class="num">${Number(i.cantidad||1).toFixed(2)}</td>
+        <td class="num">${moneda(i.precio)}</td>
+        <td class="num">${pctItem(i)?pctItem(i)+' %':'—'}</td>
+        <td class="num">${moneda((i.precio-descItem(i))*(i.cantidad||1))}</td>
+      </tr>`).join('')}</tbody>
+    </table>
+    <div class="rv-tot">
+      <div class="rv-letras">
+        <b>Son:</b> ${esc(enLetras(t.total))}
+        ${f.nota?`<div style="margin-top:3mm"><b>Concepto:</b> ${esc(f.nota)}</div>`:''}
+        ${f.anulado?`<div style="margin-top:3mm;color:#cc0000"><b>ANULADA</b> el ${fmtFecha(f.fechaAnulacion)} · ${esc(f.motivoAnulacion)}</div>`:''}
+        <div class="rv-sar"><b>C.A.I.:</b> ${esc(c.facCAI)}<br>
+          <b>Rango autorizado:</b> ${esc(c.facSerie)}${String(c.facDesde).padStart(8,'0')} al ${esc(c.facSerie)}${String(c.facHasta).padStart(8,'0')}<br>
+          <b>Fecha límite de emisión:</b> ${fmtFecha(c.facLimite)}<br>
+          <span style="font-size:6.6pt">LA FACTURA ES SU MEJOR GARANTÍA. EXÍJALA.</span></div>
+      </div>
+      <div class="rv-caja"><table>
+        <tr><td class="lbl">Sub Total:</td><td class="val">${moneda(t.sub)}</td></tr>
+        <tr><td class="lbl">Descuento (${t.pctTotal} %):</td><td class="val">${moneda(t.descuento)}</td></tr>
+        <tr><td class="lbl">Importe exento:</td><td class="val">${moneda(t.exento)}</td></tr>
+        <tr><td class="lbl">Importe gravado:</td><td class="val">${moneda(t.gravado)}</td></tr>
+        <tr><td class="lbl">I.S.V. 15 %:</td><td class="val">${moneda(t.isv)}</td></tr>
+        <tr class="fila-total"><td class="lbl">TOTAL ${esc(c.moneda||'L')}:</td><td class="val">${moneda(t.total)}</td></tr>
+      </table></div>
+    </div>
+    <div class="rv-firmas">
+      <div class="rv-linea">${esc(f.emitidoPor)}<br><span style="font-size:7pt">Entregado por</span></div>
+      <div class="rv-linea">Recibí conforme<br><span style="font-size:7pt">Nombre y firma del cliente</span></div>
+    </div>
+    <div class="rv-pie">
+      ${esc(c.nombre)} · ${esc(c.horario)}<br>
+      ${esc(c.anclaSGC)} · Conserve esta factura como comprobante fiscal de su compra.
+    </div>
+  </div>`;
+  const conCopia=c.facCopia!==false;
+  const html=conCopia
+    ? cuerpo('Original — Cliente','1 de 2')+cuerpo('Copia — Archivo del laboratorio','2 de 2')
+    : cuerpo('Original — Cliente','1 de 1');
+  ventanaImpresion(html,cssReciboVenta,nombreArchivo('Factura',f.numero,f.clienteNombre,f.fecha));
+}
 /* =============== CONTROL DE CALIDAD INTERNO =============== */
 /* Cada material control tiene su media y desviación estándar (del inserto o
    establecidas por el laboratorio con ≥20 corridas). Cada valor se grafica en
@@ -8325,6 +8645,7 @@ const PLANTILLAS={
   resultadoAdjunto:'Buenos días {paciente}. Le saluda {lab}.\n\nAdjunto encontrará el informe de resultados de su orden {orden}, con fecha {fecha}.\n\nLe recomendamos presentar este informe a su médico tratante para su interpretación. Quedamos atentos a cualquier consulta.\n\n{regente}\n{colegiacion}\n{whatsapp}',
   cotizacion:'Buenos días {paciente}. Le saluda {lab}.\n\nLe comparto la cotización {orden} por los análisis solicitados, con un total de {total}. Tiene una validez de {validez} días.\n\nQuedamos atentos para agendar su toma de muestra.\n{whatsapp}',
   recibo:'Buenos días {paciente}. Le saluda {lab}.\n\nAdjunto el recibo {orden} por {total}, correspondiente a los servicios prestados el {fecha}.\n\nGracias por su preferencia.\n{lab}',
+  factura:'Buenos días {paciente}. Le saluda {lab}.\n\nAdjunto la factura {orden} por {total}, correspondiente a los servicios prestados el {fecha}.\n\nGracias por su preferencia.\n{lab}',
   recordatorio:'Buenos días {paciente}. Le saluda {lab}.\n\nLe recordamos que sus resultados de la orden {orden} están listos desde el {fecha} y aún no han sido retirados.\n\nHorario de atención: {horario}\n{direccion}'
 };
 function rellenarPlantilla(txt,d){
@@ -8358,6 +8679,12 @@ function modalCompartir(tipo,id){
     titulo='Cotización '+c.numero;
     asunto='Cotización '+c.numero+' · '+S.config.nombre;
     plantilla=PLANTILLAS.cotizacion;
+  } else if(tipo==='factura'){
+    const f=S.facturas.find(x=>x.numero===id);const t=calcFactura(f);
+    d={paciente:f.clienteNombre,orden:f.numero,fecha:fmtFecha(f.fecha),total:L(t.total)};
+    tel=f.clienteTel;titulo='Factura '+f.numero;
+    asunto='Factura '+f.numero+' · '+S.config.nombre;
+    plantilla=PLANTILLAS.factura;
   } else {
     const r=S.recibos.find(x=>x.numero===id);const t=calcRecibo(r);
     d={paciente:r.clienteNombre,orden:r.numero,fecha:fmtFecha(r.fecha),total:L(t.total)};
@@ -8498,6 +8825,7 @@ function modalPDF(tipo,id){
   const gen=tipo==='cotizacion'?(()=>imprimirCotizacion(id))
           :tipo==='informe'?(()=>imprimirResultados(id))
           :tipo==='recibo'?(()=>imprimirReciboVenta(id))
+          :tipo==='factura'?(()=>imprimirFactura(id))
           :tipo==='instructivo'?(()=>imprimirInstructivos(id))
           :tipo==='instructivoCot'?(()=>imprimirInstructivosCotizacion(id))
           :tipo==='instructivoUno'?(()=>imprimirInstructivoSuelto(id))
@@ -11354,10 +11682,22 @@ function vConfig(){
         <select id="cf_reccopia"><option value="si" ${c.reciboCopia!==false?'selected':''}>Sí — imprime original y copia</option>
         <option value="no" ${c.reciboCopia===false?'selected':''}>No — solo el original</option></select></div>
       <div class="campo"><label>Prefijo del recibo de venta</label><input id="cf_recpre" value="${esc(c.reciboPrefijo||'RV')}" placeholder="RV"></div>
-      <div class="campo"><label>Serie autorizada SAR (opcional)</label><input id="cf_facser" value="${esc(c.facturaSerie||'')}" placeholder="000-001-01-"></div>
-      <div class="campo"><label>C.A.I. (opcional)</label><input id="cf_cai" value="${esc(c.facturaCAI||'')}" placeholder="ABCDEF-123456-…"></div>
-      <div class="campo"><label>Rango autorizado</label><input id="cf_frango" value="${esc(c.facturaRango||'')}" placeholder="000-001-01-00000001 al 00005000"></div>
-      <div class="campo"><label>Fecha límite de emisión</label><input type="date" id="cf_flim" value="${esc(c.facturaLimite||'')}"></div>
+      <div class="campo"><label>Serie autorizada SAR del Recibo (opcional)</label><input id="cf_facser" value="${esc(c.facturaSerie||'')}" placeholder="000-001-01-"></div>
+      <div class="campo"><label>C.A.I. del Recibo (opcional)</label><input id="cf_cai" value="${esc(c.facturaCAI||'')}" placeholder="ABCDEF-123456-…"></div>
+      <div class="campo"><label>Rango autorizado del Recibo</label><input id="cf_frango" value="${esc(c.facturaRango||'')}" placeholder="000-001-01-00000001 al 00005000"></div>
+      <div class="campo"><label>Fecha límite de emisión del Recibo</label><input type="date" id="cf_flim" value="${esc(c.facturaLimite||'')}"></div>
+      <div class="campo" style="grid-column:1/-1"><h3 style="color:var(--azul);margin:10px 0 2px">C.A.I. de la Factura (autoimpresor SAR)</h3>
+        <span class="ayuda">La SAR autoriza un C.A.I. y un rango de correlativos por TIPO de documento —
+        el de Factura es distinto del de Recibo, aunque venga en la misma solicitud SAR-927.
+        Sin estos datos completos, el módulo de Facturas no deja emitir.</span></div>
+      <div class="campo"><label>C.A.I. de la Factura</label><input id="cf_facCAI" value="${esc(c.facCAI||'')}" placeholder="XXXXXX-XXXXXX-XXXXXX-XXXXXX-XXXXXX-XX"></div>
+      <div class="campo"><label>Serie / punto de emisión</label><input id="cf_facSerie" value="${esc(c.facSerie||'')}" placeholder="000-001-01-"></div>
+      <div class="campo"><label>Rango autorizado — desde</label><input type="number" id="cf_facDesde" min="1" value="${c.facDesde||''}" placeholder="1"></div>
+      <div class="campo"><label>Rango autorizado — hasta</label><input type="number" id="cf_facHasta" min="1" value="${c.facHasta||''}" placeholder="100"></div>
+      <div class="campo"><label>Fecha límite de emisión de la Factura</label><input type="date" id="cf_facLimite" value="${esc(c.facLimite||'')}"></div>
+      <div class="campo"><label>Copia de archivo de la factura</label>
+        <select id="cf_facCopia"><option value="si" ${c.facCopia!==false?'selected':''}>Sí — imprime original y copia</option>
+        <option value="no" ${c.facCopia===false?'selected':''}>No — solo el original</option></select></div>
       <div class="campo"><label>Razón social (cotización y recibo)</label><input id="cf_razon" value="${esc(c.razonSocial||'')}" placeholder="Inversiones Martínez Márquez"></div>
       <div class="campo"><label>R.T.N. del laboratorio</label><input id="cf_rtn" value="${esc(c.rtn||'')}" placeholder="00000000000000"></div>
       <div class="campo"><label>Código del formato de cotización</label><input id="cf_codcot" value="${esc(c.codigoDocCot||'F-CDIM-COT-01')}"></div>
@@ -11575,6 +11915,8 @@ function guardarConfig(){
     rtn:g('cf_rtn'),razonSocial:g('cf_razon'),codigoDocCot:g('cf_codcot'),revisionDoc:g('cf_rev'),
     reciboPrefijo:g('cf_recpre')||'RV',reciboCopia:g('cf_reccopia')!=='no',facturaSerie:g('cf_facser'),facturaCAI:g('cf_cai'),
     facturaRango:g('cf_frango'),facturaLimite:g('cf_flim'),
+    facCAI:g('cf_facCAI'),facSerie:g('cf_facSerie'),facDesde:Number(g('cf_facDesde'))||0,
+    facHasta:Number(g('cf_facHasta'))||0,facLimite:g('cf_facLimite'),facCopia:g('cf_facCopia')!=='no',
     validezCot:Number(g('cf_valcot'))||30,
     sobreAncho:Number(g('cf_sobreA'))||216,sobreAlto:Number(g('cf_sobreH'))||279,
     condicionesCot:document.getElementById('cf_condcot').value.split('\n').map(x=>x.trim()).filter(Boolean),
@@ -12262,8 +12604,9 @@ function crearCorte(corte){
    registrarMovimiento() se reubicó aquí desde 70_contabilidad.js: es lógica
    de negocio (arma el movimiento con sus banderas caja/turno/corte), no una
    pantalla. Conserva su nombre exacto porque no es un envoltorio de UI sino
-   un helper interno que YA llaman confirmarCobro() (en este mismo archivo)
-   y, desde esta fase, guardarRecibo()/anularRecibo() en 24_recibos.js. */
+   un helper interno que YA llaman confirmarCobro() (en este mismo archivo),
+   guardarRecibo()/anularRecibo() en 24_recibos.js, y guardarFactura()/
+   anularFactura() en 25_facturas.js. */
 function registrarMovimiento({tipo,metodo,categoria,concepto,monto,ref}){
   const m=crearMovimiento({fecha:hoy(),hora:ahoraHora(),
     tipo,metodo,categoria,concepto,monto:Math.round(monto*100)/100,ref:ref||'',
