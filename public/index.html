@@ -2079,7 +2079,7 @@ function filasPacientes(filtro=''){
         ${(menor&&p.respNombre)?`<div style="font-size:9.5px;color:var(--gris)">Resp.: ${esc(p.respNombre)}${p.respParentesco?' · '+esc(p.respParentesco):''}</div>`:''}
         ${(menor&&!p.respNombre)?'<div style="font-size:9.5px;color:var(--ambar);font-weight:700">Sin responsable registrado</div>':''}</td>
       <td>${p.idNumero?`<span class="chip chip-az">${p.idTipo||'DNI'}</span> ${p.idNumero}`:'—'}</td>
-      <td style="font-size:12px">${edadDetallada(p.fnac)}</td><td>${sexoTexto(p.sexo)}</td><td>${p.tel||'—'}</td>
+      <td style="font-size:12px">${edadDetallada(p.fnac)}${p.fnacAproximada?' <span style="color:var(--gris)" title="Fecha de nacimiento calculada a partir de la edad, no un dato exacto">(aprox.)</span>':''}</td><td>${sexoTexto(p.sexo)}</td><td>${p.tel||'—'}</td>
       <td style="text-align:right;white-space:nowrap">
         <button class="btn btn-d btn-min" onclick="modalHistorial('${p.codigo}')">☰ Historial</button>
         <button class="btn btn-g btn-min" onclick="modalPaciente('${p.codigo}')">Editar</button>
@@ -2141,8 +2141,16 @@ function pintarModalPaciente(cod){
   <label style="margin-bottom:6px;color:var(--azul)">Datos generales</label>
   <div class="rejilla c2">
     <div class="campo"><label>Fecha de nacimiento</label>
-      <input type="date" id="p_fnac" value="${p.fnac||''}" onchange="revisarMenor()" ${ro}>
-      <div id="p_edadmsg" class="ayuda">${p.fnac?edadDetallada(p.fnac)+(esMenor(p.fnac)?' · menor de edad':''):''}</div></div>
+      <input type="date" id="p_fnac" value="${p.fnac||''}" onchange="revisarMenor()" ${ro} style="${p.fnacAproximada?'display:none':''}">
+      <div id="p_edad_manual" style="display:${p.fnacAproximada?'flex':'none'};gap:5px">
+        <input type="number" id="p_edad_anios" min="0" max="120" placeholder="Años" value="${p.fnacAproximada?_edadAniosMeses(p.fnac).anios:''}" oninput="calcularFnacDesdeEdad()" ${ro}>
+        <input type="number" id="p_edad_meses" min="0" max="11" placeholder="Meses" value="${p.fnacAproximada?_edadAniosMeses(p.fnac).meses:''}" oninput="calcularFnacDesdeEdad()" ${ro}>
+      </div>
+      <label style="display:flex;align-items:center;gap:5px;font-weight:400;font-size:11.5px;margin-top:4px;cursor:pointer">
+        <input type="checkbox" id="p_fnac_desconocida" style="width:auto" ${p.fnacAproximada?'checked':''} onchange="alternarModoFnac()" ${dis}>
+        No sé la fecha exacta, solo la edad
+      </label>
+      <div id="p_edadmsg" class="ayuda">${p.fnac?edadDetallada(p.fnac)+(esMenor(p.fnac)?' · menor de edad':'')+(p.fnacAproximada?' · edad aproximada, no fecha exacta':''):''}</div></div>
     <div class="campo"><label>Sexo</label><select id="p_sexo" ${dis}><option value="F" ${p.sexo==='F'?'selected':''}>Femenino</option><option value="M" ${p.sexo==='M'?'selected':''}>Masculino</option></select></div>
     <div class="campo"><label>Teléfono</label>
       <div style="display:flex;gap:5px">${selectLada('p_lada',partirTel(p.tel).lada,bloq)}
@@ -2203,6 +2211,46 @@ function revisarDniPaciente(){
     <button class="btn btn-g btn-min" style="margin-left:8px" onclick="cerrarModal();modalPaciente('${dup.codigo}')">Editar ${esc(dup.codigo)}</button>
   </div>`:'';
 }
+/* Cuando no se conoce la fecha de nacimiento pero sí la edad (caso común:
+   paciente de edad avanzada, o que simplemente no la trae consigo), se
+   calcula una fecha de nacimiento aproximada a partir de años+meses y se
+   guarda en p_fnac como cualquier otra -- así todo lo que ya depende de
+   fnac (edadDetallada, esMenor, los rangos de referencia pediátricos por
+   edad en meses) sigue funcionando sin tocar ningún otro archivo. Se marca
+   fnacAproximada:true para que quien vuelva a abrir la ficha sepa que esa
+   fecha es un cálculo, no un dato real. */
+function fnacDesdeEdad(anios,meses){
+  const h=new Date();
+  let anio=h.getFullYear()-(anios||0), mes=(h.getMonth()+1)-(meses||0), dia=h.getDate();
+  while(mes<1){mes+=12;anio--;}
+  const diasMes=new Date(anio,mes,0).getDate();   // ej.: hoy 31 y el mes destino solo tiene 30/28
+  if(dia>diasMes)dia=diasMes;
+  return String(anio).padStart(4,'0')+'-'+String(mes).padStart(2,'0')+'-'+String(dia).padStart(2,'0');
+}
+/* Camino inverso, solo para precargar años/meses al reabrir una ficha que
+   ya se guardó con fnacAproximada:true. Mismo cálculo de años/meses que
+   edadDetallada(), sin la parte de días (aquí no hace falta). */
+function _edadAniosMeses(fnac){
+  if(!fnac)return {anios:0,meses:0};
+  const n=new Date(fnac+'T12:00:00'),h=new Date();
+  let a=h.getFullYear()-n.getFullYear(), m=h.getMonth()-n.getMonth();
+  if(h.getDate()<n.getDate())m--;
+  if(m<0){a--;m+=12;}
+  return {anios:Math.max(0,a),meses:Math.max(0,m)};
+}
+function calcularFnacDesdeEdad(){
+  const anios=parseInt(document.getElementById('p_edad_anios').value)||0;
+  const meses=Math.min(11,parseInt(document.getElementById('p_edad_meses').value)||0);
+  document.getElementById('p_fnac').value=fnacDesdeEdad(anios,meses);
+  revisarMenor();
+}
+function alternarModoFnac(){
+  const manual=document.getElementById('p_fnac_desconocida').checked;
+  document.getElementById('p_fnac').style.display=manual?'none':'';
+  document.getElementById('p_edad_manual').style.display=manual?'flex':'none';
+  if(manual)calcularFnacDesdeEdad();
+  else revisarMenor();
+}
 /* esMenor() se movió a 10b_formato_compartido.js (Fase 6). */
 function revisarMenor(){
   const f=document.getElementById('p_fnac').value;
@@ -2224,7 +2272,8 @@ function guardarPaciente(cod){
   const g=id=>document.getElementById(id).value.trim();
   const datos={nombre1:g('p_n1'),nombre2:g('p_n2'),apellido1:g('p_a1'),apellido2:g('p_a2'),
     idTipo:g('p_idtipo'),idNumero:g('p_idnum'),
-    fnac:g('p_fnac'),sexo:g('p_sexo'),tel:unirTel('p_lada','p_tel'),correo:g('p_correo'),dir:g('p_dir'),medico:g('p_medico'),obs:g('p_obs'),
+    fnac:g('p_fnac'),fnacAproximada:document.getElementById('p_fnac_desconocida').checked,
+    sexo:g('p_sexo'),tel:unirTel('p_lada','p_tel'),correo:g('p_correo'),dir:g('p_dir'),medico:g('p_medico'),obs:g('p_obs'),
     respNombre:g('p_rnombre'),respId:g('p_rid'),respParentesco:g('p_rparen'),
     respTel:unirTel('p_rlada','p_rtel'),respCorreo:g('p_rcorreo')};
   const r=srvGuardarPaciente(cod, datos, {bloqueado:_pacBloqueado});
