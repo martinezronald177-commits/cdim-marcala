@@ -1401,6 +1401,10 @@ function estadoInicial(){
       firma:'',
       portalPaciente:'',        // dirección del portal; vacío = no se imprime el QR
       logo:LOGO_CDIM,
+      // C.A.I. de Factura asignado por la SAR (SAR-927, solicitud 28/04/2026):
+      // punto de emisión 001, documento "01 - Factura", 100 correlativos.
+      facCAI:'508AE4-D307F2-365FE0-63BE03-09094D-0D',
+      facSerie:'000-001-01-',facDesde:1,facHasta:100,facLimite:'2027-04-28',facCopia:true,
       alertas:{criticos:true,delta:true,deltaPct:30,bloquearPDF:true,validacionDoble:false,
         diasEntrega:1,avisoEntrega:true,avisoStock:true,recordarRespaldo:7,
         notificacionObligatoria:NOTIF_OBLIGATORIA_DEFAULT}
