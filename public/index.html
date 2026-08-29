@@ -7009,9 +7009,9 @@ function renderizarFactura(f){
           <b>Fecha límite de emisión:</b> ${fmtFecha(c.facLimite)}<br>
           <b>Fecha de emisión:</b> ${fmtFecha(f.fecha)} &nbsp; <b>Hora de emisión:</b> ${hora12(f.hora||'')}<br>
           <span style="font-size:6.6pt">LA FACTURA ES SU MEJOR GARANTÍA. EXÍJALA.</span></div>
-        ${t.exonerado>0?`<div class="rv-sar" style="margin-top:5px"><b>Compra exonerada</b><br>
+        <div class="rv-sar" style="margin-top:5px"><b>Datos del adquiriente exonerado</b><br>
           <b>No. Constancia de Registro de Exonerados:</b> ${esc(f.exoRegistro||'—')}<br>
-          <b>No. Orden de Compra Exenta (OCE):</b> ${esc(f.exoOrden||'—')}</div>`:''}
+          <b>No. Orden de Compra Exenta (OCE):</b> ${esc(f.exoOrden||'—')}</div>
       </div>
       <div class="rv-caja"><table>
         <tr><td class="lbl">Sub Total:</td><td class="val">${moneda(t.sub)}</td></tr>
