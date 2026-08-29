@@ -6072,6 +6072,15 @@ function numeroRecibo(){
   }
   return (c.reciboPrefijo||'RV')+'-'+hoy().slice(0,4)+'-'+String(n).padStart(4,'0');
 }
+/* Condición fiscal de un concepto: 'exento' | 'gravado' | 'exonerado'.
+   El Recibo solo conoce el booleano `gravado` (su editor no cambió); la
+   Factura (25_facturas.js) sí distingue las tres, con su propio selector
+   -- de ahí que se lea primero `condFiscal` y solo se caiga al booleano
+   como compatibilidad para lo que ya usaba el Recibo. */
+function condicionItem(i){
+  if(i.condFiscal)return i.condFiscal;
+  return i.gravado?'gravado':'exento';
+}
 function calcRecibo(r){
   const sub=r.items.reduce((a,i)=>a+((Number(i.precio)||0)*(i.cantidad||1)),0);
   const descLineas=r.items.reduce((a,i)=>a+(descItem(i)*(i.cantidad||1)),0);
@@ -6080,12 +6089,17 @@ function calcRecibo(r){
   const descGlobal=round2(neto*pctG/100);
   const descuento=round2(descLineas+descGlobal);
   const base=Math.max(0,sub-descuento);
-  const gravado=r.items.filter(i=>i.gravado)
+  const gravado=r.items.filter(i=>condicionItem(i)==='gravado')
     .reduce((a,i)=>a+((Number(i.precio)-descItem(i))*(i.cantidad||1)),0)*(1-pctG/100);
-  const exento=Math.max(0,base-gravado);
+  // Compra exonerada: el comprador tiene una constancia de la SAR que lo
+  // exime del ISV -- distinto de "exento" (el servicio en sí no paga ISV
+  // para nadie). La SAR exige mostrar los dos subtotales por separado.
+  const exonerado=r.items.filter(i=>condicionItem(i)==='exonerado')
+    .reduce((a,i)=>a+((Number(i.precio)-descItem(i))*(i.cantidad||1)),0)*(1-pctG/100);
+  const exento=Math.max(0,base-gravado-exonerado);
   const isv=round2(gravado*0.15);
   return {sub:round2(sub),descuento,pctTotal:sub?round2(descuento/sub*100):0,
-    gravado:round2(gravado),exento:round2(exento),isv,total:round2(base+isv)};
+    gravado:round2(gravado),exonerado:round2(exonerado),exento:round2(exento),isv,total:round2(base+isv)};
 }
 
 function vRecibos(filtro=''){
@@ -6484,12 +6498,12 @@ function vFacturas(){
 }
 function tablaFacturas(lista){
   if(!lista.length)return `<div class="vacio">${_facQ?'Ninguna factura coincide con “'+esc(_facQ)+'”.':_facFecha?'Sin facturas de ese día.':'Sin facturas emitidas. Crea la primera con “+ Nueva factura”.'}</div>`;
-  return `<table><thead><tr><th>No.</th><th>Fecha</th><th>Cliente</th><th>RTN</th><th>Concepto</th><th>Método</th><th style="text-align:right">Total</th><th>Estado</th><th></th></tr></thead><tbody>
+  return `<table><thead><tr><th>No.</th><th>Fecha</th><th>Cliente</th><th>Identificación</th><th>Concepto</th><th>Método</th><th style="text-align:right">Total</th><th>Estado</th><th></th></tr></thead><tbody>
     ${lista.map(x=>{const t=calcFactura(x);return `<tr class="${x.anulado?'fila-anulada':''}">
       <td><b>${x.numero}</b>${x.ot?`<div style="font-size:9.5px;color:var(--gris)">Orden ${x.ot}</div>`:''}</td>
       <td>${fmtFecha(x.fecha)}<div style="font-size:9.5px;color:var(--gris)">${hora12(x.hora||'')}</div></td>
       <td>${esc(x.clienteNombre)}</td>
-      <td style="font-family:ui-monospace,monospace;font-size:11px">${esc(x.clienteId||'Consumidor Final')}</td>
+      <td style="font-family:ui-monospace,monospace;font-size:11px">${x.clienteId?esc(x.clienteIdTipo||'RTN')+' '+esc(x.clienteId):'Consumidor Final'}</td>
       <td style="font-size:11.5px">${x.items.length} concepto(s)<div style="font-size:9.5px;color:var(--gris)">${esc(x.items[0]?x.items[0].desc:'')}${x.items.length>1?'…':''}</div></td>
       <td><span class="chip chip-az">${esc(x.metodo)}</span></td>
       <td style="text-align:right"><b>${L(t.total)}</b>${t.descuento?`<div style="font-size:9.5px;color:var(--gris)">desc. ${t.pctTotal} %</div>`:''}</td>
@@ -6511,8 +6525,8 @@ function modalFactura(ot){
   if(facturasRestantes()<=0){toast('Se agotó el rango autorizado de facturas. Solicita un nuevo rango a la SAR (SAR-927).');return;}
   const o=ot?S.ordenes.find(x=>x.numero===ot):null;
   const p=o?(S.pacientes.find(x=>x.codigo===o.pacCodigo)||{}):{};
-  itemsFac=o?o.examenes.map(e=>({desc:e.nombre,cantidad:1,precio:e.precio,descPct:pctItem(e),gravado:false}))
-            :[{desc:'',cantidad:1,precio:0,descPct:0,gravado:false}];
+  itemsFac=o?o.examenes.map(e=>({desc:e.nombre,cantidad:1,precio:e.precio,descPct:pctItem(e),condFiscal:'exento'}))
+            :[{desc:'',cantidad:1,precio:0,descPct:0,condFiscal:'exento'}];
   abrirModal(`
   <h3>Emitir factura</h3>
   <div class="aviso" style="margin-bottom:10px">Se asignará el número <b>${numeroFactura()}</b>${o?` para la orden <b>${esc(o.numero)}</b>`:''}.
@@ -6520,7 +6534,9 @@ function modalFactura(ot){
   <div class="rejilla c3">
     <div class="campo" style="grid-column:span 2"><label>Cliente / Razón social *</label>
       <input id="f_nombre" value="${o?esc(o.pacienteNombre):''}" placeholder="Nombre o razón social"></div>
-    <div class="campo"><label>R.T.N.</label><input id="f_id" value="${esc(p.idNumero||'')}" placeholder="0000-0000-000000"></div>
+    <div class="campo"><label>Tipo de documento</label>
+      <select id="f_idtipo">${['DNI','RTN','Pasaporte'].map(t=>`<option ${(p.idTipo||'RTN')===t?'selected':''}>${t}</option>`).join('')}</select></div>
+    <div class="campo"><label>Número</label><input id="f_id" value="${esc(p.idNumero||'')}" placeholder="0000-0000-000000"></div>
     <div class="campo" style="grid-column:span 2"><label>Dirección</label><input id="f_dir" value="${esc(p.dir||'')}"></div>
     <div class="campo"><label>Teléfono</label><input id="f_tel" value="${esc(p.tel||'')}"></div>
     <div class="campo"><label>Forma de pago</label>
@@ -6528,7 +6544,7 @@ function modalFactura(ot){
     <div class="campo"><label>Orden de trabajo</label><input id="f_ot" value="${o?o.numero:''}" placeholder="Opcional" readonly style="background:#f2f5f7"></div>
     <div class="campo"><label>Descuento global (%)</label><input type="number" id="f_desc" min="0" max="100" step="0.5" value="${o&&o.descPct?o.descPct:0}" oninput="pintarItemsFac()"></div>
   </div>
-  <div class="ayuda" style="margin:6px 0 10px">Si el cliente no da su R.T.N., se factura como Consumidor Final —
+  <div class="ayuda" style="margin:6px 0 10px">Si el cliente no da su identificación, se factura como Consumidor Final —
     solo válido si el total no supera L.100.00 (regla de la SAR).</div>
   <label>Conceptos</label>
   <div id="f_items"></div>
@@ -6543,10 +6559,15 @@ function modalFactura(ot){
 }
 function pintarItemsFac(){
   const cont=document.getElementById('f_items');if(!cont)return;
+  // Se leen ANTES de reescribir el innerHTML: si no se reinyectan, escribir
+  // en el descuento global (oninput, dispara este mismo repintado) borraba
+  // lo que ya se hubiera escrito aquí.
+  const exoRegistroPrev=document.getElementById('f_exo_registro')?.value||'';
+  const exoOrdenPrev=document.getElementById('f_exo_orden')?.value||'';
   const t=calcFactura({items:itemsFac,descPct:Number(document.getElementById('f_desc')?.value)||0});
   cont.innerHTML=`<table>
     <thead><tr><th style="width:28px">#</th><th>Descripción</th><th style="width:58px">Cant.</th>
-      <th style="width:88px">Precio</th><th style="width:64px">Desc. %</th><th style="width:52px">ISV</th>
+      <th style="width:88px">Precio</th><th style="width:64px">Desc. %</th><th style="width:118px">Condición</th>
       <th style="width:92px;text-align:right">Subtotal</th><th style="width:28px"></th></tr></thead><tbody>
     ${itemsFac.map((i,x)=>`<tr>
       <td>${x+1}</td>
@@ -6554,20 +6575,33 @@ function pintarItemsFac(){
       <td><input type="number" min="1" step="1" value="${i.cantidad}" onchange="itemsFac[${x}].cantidad=Math.max(1,parseInt(this.value)||1);pintarItemsFac()"></td>
       <td><input type="number" min="0" step="0.01" value="${i.precio}" onchange="itemsFac[${x}].precio=Number(this.value)||0;pintarItemsFac()"></td>
       <td><input class="in-desc" type="number" min="0" max="100" step="0.5" value="${pctItem(i)}" onchange="itemsFac[${x}].descPct=Math.min(100,Math.max(0,Number(this.value)||0));pintarItemsFac()"></td>
-      <td style="text-align:center"><input type="checkbox" ${i.gravado?'checked':''} title="Marcar si el concepto paga ISV 15 %" onchange="itemsFac[${x}].gravado=this.checked;pintarItemsFac()" style="width:auto"></td>
+      <td><select onchange="itemsFac[${x}].condFiscal=this.value;pintarItemsFac()">
+        <option value="exento" ${condicionItem(i)==='exento'?'selected':''}>Exento</option>
+        <option value="gravado" ${condicionItem(i)==='gravado'?'selected':''}>Gravado 15 %</option>
+        <option value="exonerado" ${condicionItem(i)==='exonerado'?'selected':''}>Exonerado</option>
+      </select></td>
       <td style="text-align:right;font-weight:700">${L((i.precio-descItem(i))*i.cantidad)}</td>
       <td><button class="btn btn-r btn-min" onclick="itemsFac.splice(${x},1);pintarItemsFac()">✕</button></td></tr>`).join('')}
   </tbody></table>
-  <button class="btn btn-g btn-min" style="margin-top:6px" onclick="itemsFac.push({desc:'',cantidad:1,precio:0,descPct:0,gravado:false});pintarItemsFac()">+ Agregar concepto</button>
+  <button class="btn btn-g btn-min" style="margin-top:6px" onclick="itemsFac.push({desc:'',cantidad:1,precio:0,descPct:0,condFiscal:'exento'});pintarItemsFac()">+ Agregar concepto</button>
   <div style="display:flex;justify-content:flex-end;margin-top:8px">
     <table style="width:330px">
       <tr><td>Sub Total</td><td style="text-align:right">${L(t.sub)}</td></tr>
       <tr><td>Descuento (${t.pctTotal} %)</td><td style="text-align:right;color:var(--rojo)">${t.descuento?'− '+L(t.descuento):'—'}</td></tr>
       <tr><td>Importe exento</td><td style="text-align:right">${L(t.exento)}</td></tr>
+      <tr><td>Importe exonerado</td><td style="text-align:right">${L(t.exonerado)}</td></tr>
       <tr><td>Importe gravado</td><td style="text-align:right">${L(t.gravado)}</td></tr>
       <tr><td>ISV 15 %</td><td style="text-align:right">${L(t.isv)}</td></tr>
       <tr><td><b>Total</b></td><td style="text-align:right"><b style="font-size:17px;color:var(--azul)">${L(t.total)}</b></td></tr>
-    </table></div>`;
+    </table></div>
+  ${t.exonerado>0?`<div class="aviso" style="border-left-color:var(--ambar);margin-top:10px">
+    <b>Datos de la compra exonerada</b> — la SAR exige estos dos números en toda factura con importe exonerado.
+    <div class="rejilla c2" style="margin-top:8px">
+      <div class="campo"><label>No. de Constancia del Registro de Exonerados</label>
+        <input id="f_exo_registro" value="${esc(exoRegistroPrev)}" placeholder="RE-000000"></div>
+      <div class="campo"><label>No. de Orden de Compra Exenta (OCE)</label>
+        <input id="f_exo_orden" value="${esc(exoOrdenPrev)}" placeholder="OCE-000000"></div>
+    </div></div>`:''}`;
 }
 function guardarFactura(){
   const c=S.config;
@@ -6580,18 +6614,33 @@ function guardarFactura(){
   if(!g('f_nombre')){toast('Escribe el nombre o razón social del cliente');return;}
   const validos=itemsFac.filter(i=>i.desc.trim()&&i.precio>=0);
   if(!validos.length){toast('Agrega al menos un concepto con descripción');return;}
-  const rtn=g('f_id');
+  const idTipo=document.getElementById('f_idtipo').value;
+  const idNum=g('f_id');
   const descPct=Number(g('f_desc'))||0;
   const tPrevio=calcFactura({items:validos,descPct});
-  // La SAR exige R.T.N. del comprador cuando la compra supera L.100; por
-  // debajo de ese monto se admite facturar a "Consumidor Final" sin R.T.N.
-  if(!rtn&&tPrevio.total>100){
-    toast('El cliente debe dar su R.T.N.: la factura supera L.100.00 (regla de la SAR)');return;
+  // La SAR exige identificación del comprador cuando la compra supera L.100;
+  // por debajo de ese monto se admite facturar a "Consumidor Final" sin ella.
+  // No se exige que sea RTN específicamente: un extranjero puede no tener
+  // uno y dar su Pasaporte, o un paciente su DNI -- lo que la regla protege
+  // es que quede algún documento, no cuál tipo exactamente.
+  if(!idNum&&tPrevio.total>100){
+    toast('El cliente debe dar su identificación (DNI, RTN o Pasaporte): la factura supera L.100.00 (regla de la SAR)');return;
+  }
+  // Compra exonerada: la SAR exige estos dos números en la factura -- sin
+  // ellos, el importe exonerado no tiene cómo sustentarse ante una revisión.
+  let exoRegistro='',exoOrden='';
+  if(tPrevio.exonerado>0){
+    exoRegistro=document.getElementById('f_exo_registro')?.value.trim()||'';
+    exoOrden=document.getElementById('f_exo_orden')?.value.trim()||'';
+    if(!exoRegistro||!exoOrden){
+      toast('Hay conceptos marcados como Exonerados: la SAR exige el No. de Constancia del Registro de Exonerados y el No. de Orden de Compra Exenta');
+      return;
+    }
   }
   const f={numero:numeroFactura(),fecha:hoy(),hora:ahoraHora(),
-    clienteNombre:g('f_nombre'),clienteId:rtn,clienteDir:g('f_dir'),clienteTel:g('f_tel'),
+    clienteNombre:g('f_nombre'),clienteIdTipo:idTipo,clienteId:idNum,clienteDir:g('f_dir'),clienteTel:g('f_tel'),
     metodo:g('f_metodo'),ot:g('f_ot'),items:validos.map(i=>({...i,descPct:pctItem(i)})),
-    descPct,nota:g('f_nota'),cai:c.facCAI,
+    descPct,nota:g('f_nota'),cai:c.facCAI,exoRegistro,exoOrden,
     emitidoPor:usuarioActivo().nombre,
     anulado:false,motivoAnulacion:''};
   const t=calcFactura(f);
@@ -6660,7 +6709,7 @@ function imprimirFactura(num){
   const datosPersona={
     etiquetaNombre:'Cliente',
     nombre:f.clienteNombre,
-    identificacion:f.clienteId?('R.T.N. '+f.clienteId):'Consumidor Final',
+    identificacion:f.clienteId?((f.clienteIdTipo||'RTN')+' '+f.clienteId):'Consumidor Final',
     medico:medicoMostrado,
     expediente:pac.codigo||'',
     fnac:pac.fnac||'',
@@ -6693,18 +6742,18 @@ function imprimirFactura(num){
     ${bloqueDatosPersona(datosPersona)}
     <table class="rv-it">
       <thead><tr><th style="width:26px">#</th><th>Descripción</th>
-        <th style="width:26px;text-align:center" title="Exento / Gravado del ISV">E/G</th>
+        <th style="width:30px;text-align:center" title="Exento / Gravado / Exonerado del ISV">E/G/Ex</th>
         <th style="width:48px" class="num">Cant.</th>
         <th style="width:74px" class="num">Precio</th><th style="width:56px" class="num">Desc.%</th>
         <th style="width:82px" class="num">Importe</th></tr></thead>
-      <tbody>${f.items.map((i,x)=>`<tr>
+      <tbody>${f.items.map((i,x)=>{const cond=condicionItem(i);return `<tr>
         <td>${x+1}</td><td>${esc(i.desc)}</td>
-        <td style="text-align:center;font-weight:800">${i.gravado?'G':'E'}</td>
+        <td style="text-align:center;font-weight:800">${cond==='gravado'?'G':cond==='exonerado'?'Ex':'E'}</td>
         <td class="num">${Number(i.cantidad||1).toFixed(2)}</td>
         <td class="num">${moneda(i.precio)}</td>
         <td class="num">${pctItem(i)?pctItem(i)+' %':'—'}</td>
         <td class="num">${moneda((i.precio-descItem(i))*(i.cantidad||1))}</td>
-      </tr>`).join('')}</tbody>
+      </tr>`;}).join('')}</tbody>
     </table>
     <div class="rv-tot">
       <div class="rv-letras">
@@ -6715,11 +6764,15 @@ function imprimirFactura(num){
           <b>Rango autorizado:</b> ${esc(c.facSerie)}${String(c.facDesde).padStart(8,'0')} al ${esc(c.facSerie)}${String(c.facHasta).padStart(8,'0')}<br>
           <b>Fecha límite de emisión:</b> ${fmtFecha(c.facLimite)}<br>
           <span style="font-size:6.6pt">LA FACTURA ES SU MEJOR GARANTÍA. EXÍJALA.</span></div>
+        ${t.exonerado>0?`<div class="rv-sar" style="margin-top:5px"><b>Compra exonerada</b><br>
+          <b>No. Constancia de Registro de Exonerados:</b> ${esc(f.exoRegistro||'—')}<br>
+          <b>No. Orden de Compra Exenta (OCE):</b> ${esc(f.exoOrden||'—')}</div>`:''}
       </div>
       <div class="rv-caja"><table>
         <tr><td class="lbl">Sub Total:</td><td class="val">${moneda(t.sub)}</td></tr>
         <tr><td class="lbl">Descuento (${t.pctTotal} %):</td><td class="val">${moneda(t.descuento)}</td></tr>
         <tr><td class="lbl">Importe exento:</td><td class="val">${moneda(t.exento)}</td></tr>
+        <tr><td class="lbl">Importe exonerado:</td><td class="val">${moneda(t.exonerado)}</td></tr>
         <tr><td class="lbl">Importe gravado:</td><td class="val">${moneda(t.gravado)}</td></tr>
         <tr><td class="lbl">I.S.V. 15 %:</td><td class="val">${moneda(t.isv)}</td></tr>
         <tr class="fila-total"><td class="lbl">TOTAL ${esc(c.moneda||'L')}:</td><td class="val">${moneda(t.total)}</td></tr>
