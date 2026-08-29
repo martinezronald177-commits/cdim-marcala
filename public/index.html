@@ -3433,7 +3433,17 @@ function modalCotizacion(num){
       </select></div>
     <div class="campo"><label>Nombre en la cotización *</label><input id="c_nombre" value="${ed?esc(ed.nombre):''}"></div>
     <div class="campo"><label>Identificación</label><input id="c_id" value="${ed?esc(ed.identificacion||''):''}" placeholder="DNI / RTN / Pasaporte" onblur="revisarDniCot()"></div>
-    <div class="campo"><label>Fecha de nacimiento</label><input type="date" id="c_fnac" value="${ed?esc(ed.fnac||''):''}" onchange="refEdadCot()"></div>
+    <div class="campo"><label>Fecha de nacimiento</label>
+      <input type="date" id="c_fnac" value="${ed?esc(ed.fnac||''):''}" onchange="refEdadCot()" style="${ed&&ed.fnacAproximada?'display:none':''}">
+      <div id="c_edad_manual" style="display:${ed&&ed.fnacAproximada?'flex':'none'};gap:5px">
+        <input type="number" id="c_edad_anios" min="0" max="120" placeholder="Años" value="${ed&&ed.fnacAproximada?_edadAniosMeses(ed.fnac).anios:''}" oninput="calcularFnacDesdeEdadCot()">
+        <input type="number" id="c_edad_meses" min="0" max="11" placeholder="Meses" value="${ed&&ed.fnacAproximada?_edadAniosMeses(ed.fnac).meses:''}" oninput="calcularFnacDesdeEdadCot()">
+      </div>
+      <label style="display:flex;align-items:center;gap:5px;font-weight:400;font-size:11.5px;margin-top:4px;cursor:pointer">
+        <input type="checkbox" id="c_fnac_desconocida" style="width:auto" ${ed&&ed.fnacAproximada?'checked':''} onchange="alternarModoFnacCot()">
+        No sé la fecha exacta, solo la edad
+      </label>
+    </div>
     <div class="campo"><label>Edad</label><input id="c_edad" value="${ed?esc(ed.edad||''):''}" readonly style="background:#f2f5f7"></div>
     <div class="campo"><label>Sexo</label>
       <select id="c_sexo">${['','Femenino','Masculino'].map(s=>`<option value="${s}" ${ed&&ed.sexo===s?'selected':''}>${s||'— No indicado —'}</option>`).join('')}</select></div>
@@ -3516,6 +3526,24 @@ function autoCliente(cod){
 function refEdadCot(){
   const f=document.getElementById('c_fnac');const e=document.getElementById('c_edad');
   if(f&&e)e.value=f.value?edadDetallada(f.value):'';
+}
+/* Mismo patrón que en Pacientes (20_pacientes.js: fnacDesdeEdad(),
+   _edadAniosMeses()) para cuando no se sabe la fecha de nacimiento exacta
+   del cliente de la cotización, solo su edad. Se reutilizan esas mismas
+   funciones -- ya cargadas antes que este archivo (ver _orden.json) -- en
+   vez de duplicarlas. */
+function calcularFnacDesdeEdadCot(){
+  const anios=parseInt(document.getElementById('c_edad_anios').value)||0;
+  const meses=Math.min(11,parseInt(document.getElementById('c_edad_meses').value)||0);
+  document.getElementById('c_fnac').value=fnacDesdeEdad(anios,meses);
+  refEdadCot();
+}
+function alternarModoFnacCot(){
+  const manual=document.getElementById('c_fnac_desconocida').checked;
+  document.getElementById('c_fnac').style.display=manual?'none':'';
+  document.getElementById('c_edad_manual').style.display=manual?'flex':'none';
+  if(manual)calcularFnacDesdeEdadCot();
+  else refEdadCot();
 }
 let itemsCotTmp=[];
 let ultimaBusquedaCot=[];
@@ -3631,7 +3659,8 @@ function guardarCotizacion(num){
   const g=id=>document.getElementById(id).value.trim();
   const datos={pacCodigo:document.getElementById('c_pac').value||'',
     nombre:g('c_nombre'),identificacion:g('c_id'),idNumero:g('c_id'),tel:unirTel('c_lada','c_tel'),dir:g('c_dir'),
-    fnac:g('c_fnac'),edad:g('c_edad'),sexo:g('c_sexo'),medico:g('c_medico'),
+    fnac:g('c_fnac'),fnacAproximada:document.getElementById('c_fnac_desconocida').checked,
+    edad:g('c_edad'),sexo:g('c_sexo'),medico:g('c_medico'),
     condPago:g('c_cond'),validez:Number(g('c_val'))||30,elaboradoPor:g('c_elab')||usuarioActivo().nombre,
     sucursal:String(S.config.sucursal||'1'),
     items:itemsCotTmp.map(i=>({...i,descPct:pctItem(i),descuento:descItem(i)})),
@@ -3822,7 +3851,7 @@ function srvAprobarCotWeb(numero){
     const nombre1=partes.join(' ')||c.nombre;
     pac=crearPaciente({nombre1,nombre2,apellido1,apellido2,
       nombre:c.nombre,idTipo:'DNI',idNumero:c.idNumero||'',
-      fnac:c.fnac||'',sexo:c.sexo||'',
+      fnac:c.fnac||'',fnacAproximada:c.fnacAproximada||false,sexo:c.sexo||'',
       tel:c.tel?'+504 '+c.tel.replace(/^\+504\s*/,''):c.tel||'',
       dir:'',medico:c.medico||'',obs:'Registrado desde portal web',correo:''});
     _bitacora('Actividad de rutina', 'Paciente "'+pac.nombre+'" creado desde cotización web '+numero+' · DNI: '+(pac.idNumero||'—')+'.');
