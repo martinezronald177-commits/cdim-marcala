@@ -6593,9 +6593,11 @@ function modalFactura(ot){
     <div class="obs-seccion" style="border-left-color:var(--azul);background:#eaf2fa">
       <label style="color:var(--azul);margin-bottom:8px">Datos del paciente que recibió el servicio</label>
       <div class="ayuda" style="margin:-4px 0 10px">Se imprimen aparte de los datos del cliente, para dejar constancia de quién recibió el servicio aunque otro lo pague.</div>
-      <div class="rejilla c2">
-        <div class="campo"><label>Nombre del paciente</label><input id="f_pacnombre" value="${esc(p.nombre||'')}" placeholder="Nombre completo"></div>
-        <div class="campo"><label>DNI del paciente</label><input id="f_pacid" value="${esc(p.idNumero||'')}" placeholder="0000-0000-00000"></div>
+      <div class="rejilla c3">
+        <div class="campo" style="grid-column:span 1"><label>Nombre del paciente</label><input id="f_pacnombre" value="${esc(p.nombre||'')}" placeholder="Nombre completo"></div>
+        <div class="campo"><label>Tipo de documento</label>
+          <select id="f_pactipo">${['DNI','RTN','Pasaporte'].map(t=>`<option ${(p.idTipo||'DNI')===t?'selected':''}>${t}</option>`).join('')}</select></div>
+        <div class="campo"><label>Número</label><input id="f_pacid" value="${esc(p.idNumero||'')}" placeholder="0000-0000-00000"></div>
       </div>
     </div>
   </div>
@@ -6699,10 +6701,11 @@ function guardarFactura(){
   // (ocultos) pueden traer un prellenado de la orden que no vino a cuento.
   const esEmpresa=document.getElementById('f_es_empresa').checked;
   const pacNombre=esEmpresa?g('f_pacnombre'):'';
+  const pacIdTipo=esEmpresa?document.getElementById('f_pactipo').value:'';
   const pacId=esEmpresa?g('f_pacid'):'';
   const f={numero:numeroFactura(),fecha:hoy(),hora:ahoraHora(),
     clienteNombre:g('f_nombre'),clienteIdTipo:idTipo,clienteId:idNum,clienteDir:g('f_dir'),clienteTel:g('f_tel'),
-    pacienteNombre:pacNombre,pacienteId:pacId,
+    pacienteNombre:pacNombre,pacienteIdTipo:pacIdTipo,pacienteId:pacId,
     terminoPago:document.getElementById('f_termpago').value,
     metodo:g('f_metodo'),ot:g('f_ot'),items:validos.map(i=>({...i,descPct:pctItem(i)})),
     descPct,nota:g('f_nota'),cai:c.facCAI,exoRegistro,exoOrden,
@@ -6787,18 +6790,20 @@ function imprimirFactura(num){
     extra:[
       f.terminoPago?`<div><span class="et">Términos de pago:</span> <b>${esc(f.terminoPago)}</b></div>`:'',
       f.clienteDir?`<div class="ancho"><span class="et">Dirección:</span> <b>${esc(f.clienteDir)}</b></div>`:'',
-      // Nombre y DNI de quien recibió el servicio -- puede ser distinto de
-      // quien factura (una empresa por su RTN, un familiar por su propio
-      // DNI…). Se omite si termina siendo la MISMA persona que ya aparece
-      // como "Cliente"/"Identificación": mostrarlo dos veces no aporta nada.
+      // Nombre e identificación (DNI/RTN/Pasaporte) de quien recibió el
+      // servicio -- puede ser distinto de quien factura (una empresa por su
+      // RTN, un extranjero por su propio pasaporte…). Se omite si termina
+      // siendo la MISMA persona que ya aparece como "Cliente"/"Identificación":
+      // mostrarlo dos veces no aporta nada.
       (()=>{
         const pnom=(f.pacienteNombre||'').trim();
         const pid=f.pacienteId||pac.idNumero||'';
+        const pidTipo=f.pacienteIdTipo||pac.idTipo||'DNI';
         const nombreDistinto=pnom&&normTxt(pnom)!==normTxt(f.clienteNombre||'');
         const idDistinto=pid&&pid!==f.clienteId;
         if(!nombreDistinto&&!idDistinto)return '';
         const nombreMostrado=nombreDistinto?pnom:(pnom||f.clienteNombre||'');
-        return `<div class="ancho"><span class="et">Paciente:</span> <b>${esc(nombreMostrado)}</b>${idDistinto?' · DNI '+esc(pid):''}</div>`;
+        return `<div class="ancho"><span class="et">Paciente:</span> <b>${esc(nombreMostrado)}</b>${idDistinto?' · '+esc(pidTipo)+' '+esc(pid):''}</div>`;
       })(),
     ],
     conCasillaQR:!!o,
