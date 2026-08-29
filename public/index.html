@@ -6173,6 +6173,10 @@ function filasRecibos(filtro=''){
 }
 
 let itemsRec=[];
+function alternarDatosPacienteRecibo(){
+  const chk=document.getElementById('r_es_empresa').checked;
+  document.getElementById('r_paciente_box').style.display=chk?'block':'none';
+}
 function modalRecibo(ot){
   const o=ot?S.ordenes.find(x=>x.numero===ot):null;
   const p=o?(S.pacientes.find(x=>x.codigo===o.pacCodigo)||{}):{};
@@ -6184,13 +6188,33 @@ function modalRecibo(ot){
   <div class="rejilla c3">
     <div class="campo" style="grid-column:span 2"><label>Cliente *</label>
       <input id="r_nombre" value="${o?esc(o.pacienteNombre):''}" placeholder="Nombre o razón social"></div>
-    <div class="campo"><label>RTN / Identificación</label><input id="r_id" value="${esc(p.idNumero||'')}"></div>
+    <div class="campo"><label>Tipo de documento</label>
+      <select id="r_idtipo">${['DNI','RTN','Pasaporte'].map(t=>`<option ${(p.idTipo||'RTN')===t?'selected':''}>${t}</option>`).join('')}</select></div>
+    <div class="campo"><label>Número</label><input id="r_id" value="${esc(p.idNumero||'')}" placeholder="0000-0000-000000"></div>
     <div class="campo" style="grid-column:span 2"><label>Dirección</label><input id="r_dir" value="${esc(p.dir||'')}"></div>
     <div class="campo"><label>Teléfono</label><input id="r_tel" value="${esc(p.tel||'')}"></div>
+    <div class="campo"><label>Términos de pago</label>
+      <select id="r_termpago"><option value="Contado">Contado</option><option value="Crédito">Crédito</option></select></div>
     <div class="campo"><label>Forma de pago</label>
       <select id="r_metodo">${['Efectivo','Transferencia','Tarjeta','Cheque','Depósito','Crédito'].map(m=>`<option ${o&&o.pagoMetodo===m?'selected':''}>${m}</option>`).join('')}</select></div>
     <div class="campo"><label>Orden de trabajo</label><input id="r_ot" value="${o?o.numero:''}" placeholder="Opcional" readonly style="background:#f2f5f7"></div>
     <div class="campo"><label>Descuento global (%)</label><input type="number" id="r_desc" min="0" max="100" step="0.5" value="${o&&o.descPct?o.descPct:0}" oninput="pintarItemsRec()"></div>
+  </div>
+  <label style="display:flex;align-items:center;gap:6px;font-weight:400;font-size:12.5px;margin-bottom:10px;cursor:pointer">
+    <input type="checkbox" id="r_es_empresa" style="width:auto" onchange="alternarDatosPacienteRecibo()">
+    El cliente que paga es una empresa u otra persona -- distinta de quien recibió el servicio
+  </label>
+  <div id="r_paciente_box" style="display:none;margin-bottom:10px">
+    <div class="obs-seccion" style="border-left-color:var(--azul);background:#eaf2fa">
+      <label style="color:var(--azul);margin-bottom:8px">Datos del paciente que recibió el servicio</label>
+      <div class="ayuda" style="margin:-4px 0 10px">Se imprimen aparte de los datos del cliente, para dejar constancia de quién recibió el servicio aunque otro lo pague.</div>
+      <div class="rejilla c3">
+        <div class="campo" style="grid-column:span 1"><label>Nombre del paciente</label><input id="r_pacnombre" value="${esc(p.nombre||'')}" placeholder="Nombre completo"></div>
+        <div class="campo"><label>Tipo de documento</label>
+          <select id="r_pactipo">${['DNI','RTN','Pasaporte'].map(t=>`<option ${(p.idTipo||'DNI')===t?'selected':''}>${t}</option>`).join('')}</select></div>
+        <div class="campo"><label>Número</label><input id="r_pacid" value="${esc(p.idNumero||'')}" placeholder="0000-0000-00000"></div>
+      </div>
+    </div>
   </div>
   <label>Conceptos</label>
   <div id="r_items"></div>
@@ -6236,8 +6260,18 @@ function guardarRecibo(){
   if(!g('r_nombre')){toast('Escribe el nombre del cliente');return;}
   const validos=itemsRec.filter(i=>i.desc.trim()&&i.precio>=0);
   if(!validos.length){toast('Agrega al menos un concepto con descripción');return;}
+  // Nombre y DNI de quien recibió el servicio, independientes de quién paga
+  // -- mismo criterio que la Factura (25_facturas.js): solo se guardan si
+  // la casilla está marcada.
+  const esEmpresa=document.getElementById('r_es_empresa').checked;
+  const pacNombre=esEmpresa?g('r_pacnombre'):'';
+  const pacIdTipo=esEmpresa?document.getElementById('r_pactipo').value:'';
+  const pacId=esEmpresa?g('r_pacid'):'';
   const r={numero:numeroRecibo(),fecha:hoy(),hora:ahoraHora(),
-    clienteNombre:g('r_nombre'),clienteId:g('r_id'),clienteDir:g('r_dir'),clienteTel:g('r_tel'),
+    clienteNombre:g('r_nombre'),clienteIdTipo:document.getElementById('r_idtipo').value,clienteId:g('r_id'),
+    clienteDir:g('r_dir'),clienteTel:g('r_tel'),
+    pacienteNombre:pacNombre,pacienteIdTipo:pacIdTipo,pacienteId:pacId,
+    terminoPago:document.getElementById('r_termpago').value,
     metodo:g('r_metodo'),ot:g('r_ot'),items:validos.map(i=>({...i,descPct:pctItem(i)})),
     descPct:Number(g('r_desc'))||0,nota:g('r_nota'),
     emitidoPor:usuarioActivo().nombre,
@@ -6297,9 +6331,6 @@ const cssReciboVenta=`
  .rv-num{text-align:right}
  .rv-num .n{font-size:17pt;font-weight:800;letter-spacing:.5px}
  .rv-num .f{font-size:8.6pt;color:#333}
- .rv-cli{background:#f2f2f2;border-radius:5px;padding:9px 14px;margin-top:9px;
-   display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:4px 16px;font-size:9.6pt}
- .rv-cli .et{font-weight:800;color:#333}
  table.rv-it{width:100%;border-collapse:collapse;margin-top:11px}
  table.rv-it th{border-bottom:1.4px solid #111;font-size:9pt;font-weight:800;text-align:left;padding:6px 6px}
  table.rv-it td{padding:5.5px 6px;font-size:9.4pt;border-bottom:.4px solid #e6e6e6}
@@ -6323,6 +6354,45 @@ function imprimirReciboVenta(num){
   const r=S.recibos.find(x=>x.numero===num);
   if(!r){toast('Recibo no encontrado');return;}
   const c=S.config, t=calcRecibo(r);
+  // Mismos datos del cliente/paciente que la Factura (25_facturas.js) --
+  // médico, fecha de nacimiento, género, edad, QR a resultados, términos
+  // de pago, dirección, y el nombre/documento de quien recibió el servicio
+  // cuando el que paga es otra persona. Lo único que NO trae el Recibo es
+  // el recuadro del C.A.I. de la Factura (más abajo, en rv-tot, sigue el
+  // C.A.I. propio y opcional del Recibo, sin relación con este bloque).
+  const o=r.ot?S.ordenes.find(x=>x.numero===r.ot):null;
+  const pac=o?(S.pacientes.find(x=>x.codigo===o.pacCodigo)||{}):{};
+  const medicoOrden=o?(S.medicos||[]).find(m=>m.id===o.medicoId):null;
+  const medicoMostrado=(medicoOrden&&medicoOrden.nombre)||pac.medico||'';
+  const urlQR=o?urlInforme(o):'';
+  const datosPersona={
+    etiquetaNombre:'Cliente',
+    nombre:r.clienteNombre,
+    identificacion:r.clienteId?((r.clienteIdTipo||'RTN')+' '+r.clienteId):'Consumidor Final',
+    medico:medicoMostrado,
+    expediente:pac.codigo||'',
+    fnac:pac.fnac||'',
+    sexo:pac.sexo||'',
+    tel:r.clienteTel||pac.tel||'',
+    extra:[
+      r.terminoPago?`<div><span class="et">Términos de pago:</span> <b>${esc(r.terminoPago)}</b></div>`:'',
+      r.clienteDir?`<div class="ancho"><span class="et">Dirección:</span> <b>${esc(r.clienteDir)}</b></div>`:'',
+      (()=>{
+        const pnom=(r.pacienteNombre||'').trim();
+        const pid=r.pacienteId||pac.idNumero||'';
+        const pidTipo=r.pacienteIdTipo||pac.idTipo||'DNI';
+        const nombreDistinto=pnom&&normTxt(pnom)!==normTxt(r.clienteNombre||'');
+        const idDistinto=pid&&pid!==r.clienteId;
+        if(!nombreDistinto&&!idDistinto)return '';
+        const nombreMostrado=nombreDistinto?pnom:(pnom||r.clienteNombre||'');
+        return `<div class="ancho"><span class="et">Paciente:</span> <b>${esc(nombreMostrado)}</b>${idDistinto?' · '+esc(pidTipo)+' '+esc(pid):''}</div>`;
+      })(),
+    ],
+    conCasillaQR:!!o,
+    qrHTML:(urlQR&&!r.anulado)?`
+      ${qrSVG(urlQR,74,1)}
+      <div class="qr-pie">Escanea este QR para<br>ver los resultados en línea</div>`:'',
+  };
   const cuerpo=(copia,pag)=>`
   <div class="rv">
     ${r.anulado?'<div class="rv-anulado">ANULADO</div>':''}
@@ -6339,12 +6409,7 @@ function imprimirReciboVenta(num){
         ${r.ot?`<div class="f">Orden de trabajo: ${esc(r.ot)}</div>`:''}
       </div>
     </div>
-    <div class="rv-cli">
-      <div><span class="et">Cliente:</span> ${esc(r.clienteNombre)}</div>
-      <div><span class="et">RTN / Identidad:</span> ${esc(r.clienteId||'—')}</div>
-      <div><span class="et">Teléfono:</span> ${esc(r.clienteTel||'—')}</div>
-      <div style="grid-column:1/-1"><span class="et">Dirección:</span> ${esc(r.clienteDir||'—')}</div>
-    </div>
+    ${bloqueDatosPersona(datosPersona)}
     <table class="rv-it">
       <thead><tr><th style="width:26px">#</th><th>Descripción</th>
         <th style="width:26px;text-align:center" title="Exento / Gravado del ISV">E/G</th>
