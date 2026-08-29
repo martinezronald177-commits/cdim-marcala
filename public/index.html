@@ -6072,14 +6072,17 @@ function numeroRecibo(){
   }
   return (c.reciboPrefijo||'RV')+'-'+hoy().slice(0,4)+'-'+String(n).padStart(4,'0');
 }
-/* Condición fiscal de un concepto: 'exento' | 'gravado' | 'exonerado'.
-   El Recibo solo conoce el booleano `gravado` (su editor no cambió); la
-   Factura (25_facturas.js) sí distingue las tres, con su propio selector
-   -- de ahí que se lea primero `condFiscal` y solo se caiga al booleano
-   como compatibilidad para lo que ya usaba el Recibo. */
+/* Condición fiscal de un concepto: 'exento' | 'gravado15' | 'gravado18' | 'exonerado'.
+   El Recibo solo conoce el booleano `gravado` (su editor no cambió, y nunca
+   distinguió tasa -- toda su vida solo existió el 15%); la Factura
+   (25_facturas.js) sí distingue las cuatro, con su propio selector -- de
+   ahí que se lea primero `condFiscal` y solo se caiga al booleano como
+   compatibilidad para lo que ya usaba el Recibo. Un `condFiscal:'gravado'`
+   suelto (facturas emitidas antes de separar 15%/18%) también cae a 15%,
+   la única tasa que existía entonces. */
 function condicionItem(i){
-  if(i.condFiscal)return i.condFiscal;
-  return i.gravado?'gravado':'exento';
+  if(i.condFiscal)return i.condFiscal==='gravado'?'gravado15':i.condFiscal;
+  return i.gravado?'gravado15':'exento';
 }
 function calcRecibo(r){
   const sub=r.items.reduce((a,i)=>a+((Number(i.precio)||0)*(i.cantidad||1)),0);
@@ -6089,17 +6092,23 @@ function calcRecibo(r){
   const descGlobal=round2(neto*pctG/100);
   const descuento=round2(descLineas+descGlobal);
   const base=Math.max(0,sub-descuento);
-  const gravado=r.items.filter(i=>condicionItem(i)==='gravado')
+  const montoCond=cond=>r.items.filter(i=>condicionItem(i)===cond)
     .reduce((a,i)=>a+((Number(i.precio)-descItem(i))*(i.cantidad||1)),0)*(1-pctG/100);
+  const gravado15=montoCond('gravado15');
+  const gravado18=montoCond('gravado18');
   // Compra exonerada: el comprador tiene una constancia de la SAR que lo
   // exime del ISV -- distinto de "exento" (el servicio en sí no paga ISV
-  // para nadie). La SAR exige mostrar los dos subtotales por separado.
-  const exonerado=r.items.filter(i=>condicionItem(i)==='exonerado')
-    .reduce((a,i)=>a+((Number(i.precio)-descItem(i))*(i.cantidad||1)),0)*(1-pctG/100);
-  const exento=Math.max(0,base-gravado-exonerado);
-  const isv=round2(gravado*0.15);
+  // para nadie). La SAR exige mostrar los subtotales por separado.
+  const exonerado=montoCond('exonerado');
+  const exento=Math.max(0,base-gravado15-gravado18-exonerado);
+  const isv15=round2(gravado15*0.15);
+  const isv18=round2(gravado18*0.18);
+  const isv=round2(isv15+isv18);
   return {sub:round2(sub),descuento,pctTotal:sub?round2(descuento/sub*100):0,
-    gravado:round2(gravado),exonerado:round2(exonerado),exento:round2(exento),isv,total:round2(base+isv)};
+    gravado:round2(gravado15+gravado18),   // suma total gravada, compatibilidad con lo que ya leía t.gravado
+    gravado15:round2(gravado15),gravado18:round2(gravado18),
+    exonerado:round2(exonerado),exento:round2(exento),
+    isv15,isv18,isv,total:round2(base+isv)};
 }
 
 function vRecibos(filtro=''){
@@ -6539,6 +6548,8 @@ function modalFactura(ot){
     <div class="campo"><label>Número</label><input id="f_id" value="${esc(p.idNumero||'')}" placeholder="0000-0000-000000"></div>
     <div class="campo" style="grid-column:span 2"><label>Dirección</label><input id="f_dir" value="${esc(p.dir||'')}"></div>
     <div class="campo"><label>Teléfono</label><input id="f_tel" value="${esc(p.tel||'')}"></div>
+    <div class="campo"><label>Términos de pago</label>
+      <select id="f_termpago"><option value="Contado">Contado</option><option value="Crédito">Crédito</option></select></div>
     <div class="campo"><label>Forma de pago</label>
       <select id="f_metodo">${['Efectivo','Transferencia','Tarjeta','Cheque','Depósito','Crédito'].map(m=>`<option ${o&&o.pagoMetodo===m?'selected':''}>${m}</option>`).join('')}</select></div>
     <div class="campo"><label>Orden de trabajo</label><input id="f_ot" value="${o?o.numero:''}" placeholder="Opcional" readonly style="background:#f2f5f7"></div>
@@ -6577,7 +6588,8 @@ function pintarItemsFac(){
       <td><input class="in-desc" type="number" min="0" max="100" step="0.5" value="${pctItem(i)}" onchange="itemsFac[${x}].descPct=Math.min(100,Math.max(0,Number(this.value)||0));pintarItemsFac()"></td>
       <td><select onchange="itemsFac[${x}].condFiscal=this.value;pintarItemsFac()">
         <option value="exento" ${condicionItem(i)==='exento'?'selected':''}>Exento</option>
-        <option value="gravado" ${condicionItem(i)==='gravado'?'selected':''}>Gravado 15 %</option>
+        <option value="gravado15" ${condicionItem(i)==='gravado15'?'selected':''}>Gravado 15 %</option>
+        <option value="gravado18" ${condicionItem(i)==='gravado18'?'selected':''}>Gravado 18 %</option>
         <option value="exonerado" ${condicionItem(i)==='exonerado'?'selected':''}>Exonerado</option>
       </select></td>
       <td style="text-align:right;font-weight:700">${L((i.precio-descItem(i))*i.cantidad)}</td>
@@ -6590,8 +6602,10 @@ function pintarItemsFac(){
       <tr><td>Descuento (${t.pctTotal} %)</td><td style="text-align:right;color:var(--rojo)">${t.descuento?'− '+L(t.descuento):'—'}</td></tr>
       <tr><td>Importe exento</td><td style="text-align:right">${L(t.exento)}</td></tr>
       <tr><td>Importe exonerado</td><td style="text-align:right">${L(t.exonerado)}</td></tr>
-      <tr><td>Importe gravado</td><td style="text-align:right">${L(t.gravado)}</td></tr>
-      <tr><td>ISV 15 %</td><td style="text-align:right">${L(t.isv)}</td></tr>
+      <tr><td>Importe gravado 15 %</td><td style="text-align:right">${L(t.gravado15)}</td></tr>
+      <tr><td>I.S.V. 15 %</td><td style="text-align:right">${L(t.isv15)}</td></tr>
+      <tr><td>Importe gravado 18 %</td><td style="text-align:right">${L(t.gravado18)}</td></tr>
+      <tr><td>I.S.V. 18 %</td><td style="text-align:right">${L(t.isv18)}</td></tr>
       <tr><td><b>Total</b></td><td style="text-align:right"><b style="font-size:17px;color:var(--azul)">${L(t.total)}</b></td></tr>
     </table></div>
   ${t.exonerado>0?`<div class="aviso" style="border-left-color:var(--ambar);margin-top:10px">
@@ -6639,6 +6653,7 @@ function guardarFactura(){
   }
   const f={numero:numeroFactura(),fecha:hoy(),hora:ahoraHora(),
     clienteNombre:g('f_nombre'),clienteIdTipo:idTipo,clienteId:idNum,clienteDir:g('f_dir'),clienteTel:g('f_tel'),
+    terminoPago:document.getElementById('f_termpago').value,
     metodo:g('f_metodo'),ot:g('f_ot'),items:validos.map(i=>({...i,descPct:pctItem(i)})),
     descPct,nota:g('f_nota'),cai:c.facCAI,exoRegistro,exoOrden,
     emitidoPor:usuarioActivo().nombre,
@@ -6715,7 +6730,12 @@ function imprimirFactura(num){
     fnac:pac.fnac||'',
     sexo:pac.sexo||'',
     tel:f.clienteTel||pac.tel||'',
+    // Términos de pago primero en `extra`: en el orden fijo de campos que
+    // arma bloqueDatosPersona() (…Teléfono, Edad, extra…) es lo más cerca
+    // que queda de "debajo del teléfono" sin reestructurar ese componente
+    // compartido con el informe de resultados.
     extra:[
+      f.terminoPago?`<div><span class="et">Términos de pago:</span> <b>${esc(f.terminoPago)}</b></div>`:'',
       f.clienteDir?`<div class="ancho"><span class="et">Dirección:</span> <b>${esc(f.clienteDir)}</b></div>`:'',
       pac.idNumero?`<div><span class="et">${esc(pac.idTipo||'DNI')} del paciente:</span> <b>${esc(pac.idNumero)}</b></div>`:'',
     ],
@@ -6742,17 +6762,17 @@ function imprimirFactura(num){
     ${bloqueDatosPersona(datosPersona)}
     <table class="rv-it">
       <thead><tr><th style="width:26px">#</th><th>Descripción</th>
-        <th style="width:30px;text-align:center" title="Exento / Gravado / Exonerado del ISV">E/G/Ex</th>
         <th style="width:48px" class="num">Cant.</th>
         <th style="width:74px" class="num">Precio</th><th style="width:56px" class="num">Desc.%</th>
-        <th style="width:82px" class="num">Importe</th></tr></thead>
-      <tbody>${f.items.map((i,x)=>{const cond=condicionItem(i);return `<tr>
+        <th style="width:98px" class="num" title="Al final de cada importe: E = Exento, G15/G18 = Gravado 15 %/18 %, Ex = Exonerado">Importe</th></tr></thead>
+      <tbody>${f.items.map((i,x)=>{const cond=condicionItem(i);
+        const codigo=cond==='gravado15'?'G15':cond==='gravado18'?'G18':cond==='exonerado'?'Ex':'E';
+        return `<tr>
         <td>${x+1}</td><td>${esc(i.desc)}</td>
-        <td style="text-align:center;font-weight:800">${cond==='gravado'?'G':cond==='exonerado'?'Ex':'E'}</td>
         <td class="num">${Number(i.cantidad||1).toFixed(2)}</td>
         <td class="num">${moneda(i.precio)}</td>
         <td class="num">${pctItem(i)?pctItem(i)+' %':'—'}</td>
-        <td class="num">${moneda((i.precio-descItem(i))*(i.cantidad||1))}</td>
+        <td class="num">${moneda((i.precio-descItem(i))*(i.cantidad||1))} <b style="font-size:7.6pt">(${codigo})</b></td>
       </tr>`;}).join('')}</tbody>
     </table>
     <div class="rv-tot">
@@ -6761,8 +6781,10 @@ function imprimirFactura(num){
         ${f.nota?`<div style="margin-top:3mm"><b>Concepto:</b> ${esc(f.nota)}</div>`:''}
         ${f.anulado?`<div style="margin-top:3mm;color:#cc0000"><b>ANULADA</b> el ${fmtFecha(f.fechaAnulacion)} · ${esc(f.motivoAnulacion)}</div>`:''}
         <div class="rv-sar"><b>C.A.I.:</b> ${esc(c.facCAI)}<br>
-          <b>Rango autorizado:</b> ${esc(c.facSerie)}${String(c.facDesde).padStart(8,'0')} al ${esc(c.facSerie)}${String(c.facHasta).padStart(8,'0')}<br>
+          <b>Número inicial:</b> ${esc(c.facSerie)}${String(c.facDesde).padStart(8,'0')}<br>
+          <b>Número final:</b> ${esc(c.facSerie)}${String(c.facHasta).padStart(8,'0')}<br>
           <b>Fecha límite de emisión:</b> ${fmtFecha(c.facLimite)}<br>
+          <b>Fecha de emisión:</b> ${fmtFecha(f.fecha)} &nbsp; <b>Hora de emisión:</b> ${hora12(f.hora||'')}<br>
           <span style="font-size:6.6pt">LA FACTURA ES SU MEJOR GARANTÍA. EXÍJALA.</span></div>
         ${t.exonerado>0?`<div class="rv-sar" style="margin-top:5px"><b>Compra exonerada</b><br>
           <b>No. Constancia de Registro de Exonerados:</b> ${esc(f.exoRegistro||'—')}<br>
@@ -6773,8 +6795,10 @@ function imprimirFactura(num){
         <tr><td class="lbl">Descuento (${t.pctTotal} %):</td><td class="val">${moneda(t.descuento)}</td></tr>
         <tr><td class="lbl">Importe exento:</td><td class="val">${moneda(t.exento)}</td></tr>
         <tr><td class="lbl">Importe exonerado:</td><td class="val">${moneda(t.exonerado)}</td></tr>
-        <tr><td class="lbl">Importe gravado:</td><td class="val">${moneda(t.gravado)}</td></tr>
-        <tr><td class="lbl">I.S.V. 15 %:</td><td class="val">${moneda(t.isv)}</td></tr>
+        <tr><td class="lbl">Importe gravado 15%:</td><td class="val">${moneda(t.gravado15)}</td></tr>
+        <tr><td class="lbl">I.S.V. 15 %:</td><td class="val">${moneda(t.isv15)}</td></tr>
+        <tr><td class="lbl">Importe gravado 18%:</td><td class="val">${moneda(t.gravado18)}</td></tr>
+        <tr><td class="lbl">I.S.V. 18 %:</td><td class="val">${moneda(t.isv18)}</td></tr>
         <tr class="fila-total"><td class="lbl">TOTAL ${esc(c.moneda||'L')}:</td><td class="val">${moneda(t.total)}</td></tr>
       </table></div>
     </div>
