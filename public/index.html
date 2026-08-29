@@ -6655,6 +6655,7 @@ function modalFactura(ot){
   ${o&&o.pagada?'<div class="aviso">Esta orden ya fue cobrada y registrada en contabilidad; la factura <b>no volverá a sumar</b> el ingreso, solo documenta la venta.</div>':''}
   <div class="modal-pie">
     <button class="btn btn-g" onclick="cerrarModal()">Cancelar</button>
+    <button class="btn btn-d" onclick="previsualizarBorradorFactura()">👁 Ver factura</button>
     <button class="btn btn-p" onclick="guardarFactura()">✓ Emitir factura</button>
   </div>`,true);
   pintarItemsFac();
@@ -6707,6 +6708,107 @@ function pintarItemsFac(){
       <div class="campo"><label>No. de Orden de Compra Exenta (OCE)</label>
         <input id="f_exo_orden" value="${esc(exoOrdenPrev)}" placeholder="OCE-000000"></div>
     </div></div>`:''}`;
+}
+/* Arma una factura "de mentira" con lo que hay AHORA en el formulario, sin
+   tocar S ni el correlativo -- para el botón "Ver factura" del modal: el
+   usuario quiere ver cómo va a quedar el documento impreso ANTES de gastar
+   un número del rango autorizado. Es deliberadamente permisiva (no exige
+   nombre ni identificación como sí hace guardarFactura()): es solo un
+   vistazo, no un intento real de emitir. */
+function construirBorradorFactura(){
+  const g=id=>document.getElementById(id)?.value.trim()||'';
+  const esEmpresa=!!document.getElementById('f_es_empresa')?.checked;
+  return {
+    numero:numeroFactura(),fecha:hoy(),hora:ahoraHora(),
+    ot:g('f_ot'),
+    clienteNombre:g('f_nombre')||'(sin nombre aún)',
+    clienteIdTipo:document.getElementById('f_idtipo')?.value||'DNI',
+    clienteId:g('f_id'),clienteDir:g('f_dir'),clienteTel:g('f_tel'),
+    esEmpresa,
+    pacienteNombre:esEmpresa?g('f_pacnombre'):'',
+    pacienteIdTipo:esEmpresa?(document.getElementById('f_pactipo')?.value||''):'',
+    pacienteId:esEmpresa?g('f_pacid'):'',
+    terminoPago:document.getElementById('f_termpago')?.value||'Contado',
+    metodo:document.getElementById('f_metodo')?.value||'Efectivo',
+    items:itemsFac.filter(i=>i.desc.trim()).map(i=>({...i,descPct:pctItem(i)})),
+    descPct:Number(g('f_desc'))||0,
+    nota:g('f_nota'),cai:S.config.facCAI,
+    exoRegistro:document.getElementById('f_exo_registro')?.value.trim()||'',
+    exoOrden:document.getElementById('f_exo_orden')?.value.trim()||'',
+    emitidoPor:usuarioActivo().nombre,
+    anulado:false,motivoAnulacion:'',
+    borrador:true,
+  };
+}
+/* Vista previa de solo lectura: a propósito NO reutiliza previsualizar()
+   (50_impresion.js) porque ese modal trae un botón "Imprimir" que reemitiría
+   el documento -- imprimir un borrador dejaría en circulación un papel con
+   un número de factura que nunca quedó registrado como emitido, rompiendo el
+   correlativo que exige la SAR. Aquí solo se puede ver y volver a editar;
+   para imprimir de verdad hay que "Emitir factura" primero.
+
+   "Volver a editar" no puede simplemente reabrir modalFactura(ot): esa
+   función reconstruye el formulario desde cero (y resetea itemsFac) usando
+   los datos de la orden, así que perdería cualquier edición manual que el
+   usuario ya hubiera hecho antes de pedir la vista previa. Por eso el
+   borrador (incluida una copia aparte de itemsFac) se guarda en
+   window.__borradorFactura/__itemsBorradorFactura y, al volver, se
+   reinyecta campo por campo en el formulario recién reconstruido -- mismo
+   patrón de "guardar antes de re-renderizar" que ya usa pintarItemsFac()
+   con los campos de exonerado. */
+function previsualizarBorradorFactura(){
+  const borrador=construirBorradorFactura();
+  const itemsSnapshot=itemsFac.slice();
+  capturaImp={};
+  let doc=null;
+  try{ renderizarFactura(borrador); doc=capturaImp; }
+  catch(e){ capturaImp=null; toast('No se pudo generar la vista previa'); return; }
+  capturaImp=null;
+  if(!doc||!doc.html){toast('No se pudo generar la vista previa');return;}
+  window.__borradorFactura=borrador;
+  window.__itemsBorradorFactura=itemsSnapshot;
+  const srcdoc=('<!DOCTYPE html><html><head><meta charset="UTF-8">'+
+    '<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">'+
+    '<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>'+
+    '<style>body{margin:0;background:#e8ecef}'+doc.css+
+    '@media screen{.hoja,.pagina,.rv{background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.18);margin:8px auto;padding:10mm 9mm;width:216mm;box-sizing:border-box}}'+
+    '</style></head><body>'+doc.html+
+    '<script>window.onload=function(){try{document.querySelectorAll("svg.codigo").forEach(function(s){'+
+    'if(window.JsBarcode)JsBarcode(s,s.dataset.valor,{format:"CODE128",displayValue:false,height:28,margin:0,width:1.4});});}catch(e){}};<\/script>'+
+    '</body></html>').replace(/"/g,'&quot;');
+  abrirModal(`
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <h3 style="margin:0">Vista previa de la factura</h3>
+    <button class="btn btn-g btn-min" onclick="volverAEditarFactura()">← Volver a editar</button>
+  </div>
+  <div class="aviso" style="border-left:4px solid var(--dorado);background:#fff8e6;padding:7px 11px;margin-bottom:8px;font-size:12.5px">
+    <b>Esto es un borrador.</b> El número <b>${esc(borrador.numero)}</b> todavía no se ha emitido ni impreso;
+    para eso, vuelve a editar y presiona “Emitir factura”.
+  </div>
+  <div class="marco-previa"><iframe srcdoc="${srcdoc}"></iframe></div>`,true);
+}
+function volverAEditarFactura(){
+  const f=window.__borradorFactura;
+  if(!f){cerrarModal();return;}
+  modalFactura(f.ot||undefined);
+  itemsFac=window.__itemsBorradorFactura||[];
+  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=String(v??'');};
+  set('f_nombre',f.clienteNombre==='(sin nombre aún)'?'':f.clienteNombre);
+  const selIdTipo=document.getElementById('f_idtipo');if(selIdTipo)selIdTipo.value=f.clienteIdTipo;
+  set('f_id',f.clienteId);set('f_dir',f.clienteDir);set('f_tel',f.clienteTel);
+  const selTerm=document.getElementById('f_termpago');if(selTerm)selTerm.value=f.terminoPago;
+  const selMetodo=document.getElementById('f_metodo');if(selMetodo)selMetodo.value=f.metodo;
+  set('f_desc',f.descPct);set('f_nota',f.nota);
+  const chk=document.getElementById('f_es_empresa');
+  if(chk){chk.checked=!!f.esEmpresa;alternarDatosPaciente();}
+  if(f.esEmpresa){
+    set('f_pacnombre',f.pacienteNombre);
+    const selPacTipo=document.getElementById('f_pactipo');if(selPacTipo&&f.pacienteIdTipo)selPacTipo.value=f.pacienteIdTipo;
+    set('f_pacid',f.pacienteId);
+  }
+  pintarItemsFac();
+  if(f.exoRegistro)set('f_exo_registro',f.exoRegistro);
+  if(f.exoOrden)set('f_exo_orden',f.exoOrden);
 }
 function guardarFactura(){
   const c=S.config;
@@ -6815,6 +6917,13 @@ function anularFactura(num){
 function imprimirFactura(num){
   const f=S.facturas.find(x=>x.numero===num);
   if(!f){toast('Factura no encontrada');return;}
+  renderizarFactura(f);
+}
+/* Recibe la factura ya armada -- un registro guardado en S.facturas (desde
+   imprimirFactura) o un borrador construido en memoria sin guardar (desde
+   previsualizarBorradorFactura, para el botón "Ver factura" del modal antes
+   de emitir). Nunca lee ni escribe S directamente más que para leer S.config. */
+function renderizarFactura(f){
   const c=S.config, t=calcFactura(f);
   const o=f.ot?S.ordenes.find(x=>x.numero===f.ot):null;
   const pac=o?(S.pacientes.find(x=>x.codigo===o.pacCodigo)||{}):{};
@@ -6860,7 +6969,7 @@ function imprimirFactura(num){
   };
   const cuerpo=(copia,pag)=>`
   <div class="rv">
-    ${f.anulado?'<div class="rv-anulado">ANULADA</div>':''}
+    ${f.anulado?'<div class="rv-anulado">ANULADA</div>':f.borrador?'<div class="rv-anulado" style="color:rgba(184,151,74,.35)">VISTA PREVIA</div>':''}
     ${bloqueCab(c,{razonSocial:true,claseContacto:''})}
     <div class="rv-tit">
       <div>
