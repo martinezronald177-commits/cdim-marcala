@@ -682,6 +682,231 @@ app.get('/api/estado/ts', auth, (req, res) => {
 });
 
 // ════════════════════════════════════════════════════════════
+// DOCUMENTOS FISCALES: FACTURAS Y RECIBOS (correlativo atómico)
+// ════════════════════════════════════════════════════════════
+/* El resto del estado del LIS (pacientes, órdenes, resultados…) se
+   sincroniza como un solo bloque en /api/estado, con un control de
+   conflictos por timestamp que es correcto para eso: si dos personas
+   editan casi a la vez, se acepta el último y punto.
+
+   El NÚMERO de una factura (o de un recibo con C.A.I. propio) no puede
+   tratarse así. La SAR exige que el correlativo autorizado por un C.A.I.
+   nunca se salte ni se repita — y con la sincronización de "todo el
+   estado", dos personas emitiendo casi al mismo tiempo desde equipos
+   distintos pueden terminar con el MISMO número calculado en su propio
+   navegador (ambos partieron del mismo S.seq.fac todavía no sincronizado),
+   o peor: una de las dos, al perder el conflicto de sincronización, ve
+   desaparecer en silencio una factura que ya imprimió y entregó, con un
+   número que quedó reservado en el papel pero sin ningún registro.
+
+   Por eso emitir/anular un documento fiscal y ajustar su correlativo
+   pasan por estos tres endpoints, que hacen TODO su trabajo —leer el
+   estado, decidir el número, escribirlo— dentro de un solo bloque
+   síncrono, sin ningún await de por medio. Node.js ejecuta un handler de
+   ruta hasta el primer punto de espera asíncrona antes de atender la
+   siguiente petición; sin await no hay dónde intercalarse, así que dos
+   peticiones que lleguen "al mismo tiempo" de todas formas se procesan
+   una completa y luego la otra — nunca a medias entre sí. Es la misma
+   garantía que ya usa escribirDB() para no dejar el archivo a medio
+   escribir, aplicada ahora también a la LÓGICA de negocio, no solo al
+   archivo. */
+
+// Fecha/hora en el huso horario de Honduras — igual que ahoraHN() del
+// cliente (lis/src/10_nucleo.js): así "venció el C.A.I." se decide con la
+// fecha de Honduras sin importar en qué huso horario esté físicamente el
+// servidor (Render corre en UTC).
+const _fmtHN = new Intl.DateTimeFormat('en-CA', {timeZone:'America/Tegucigalpa',
+  year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hourCycle:'h23'});
+function ahoraHN(){
+  const p = _fmtHN.formatToParts(new Date());
+  const g = t => (p.find(x => x.type===t)||{}).value || '';
+  return {fecha: g('year')+'-'+g('month')+'-'+g('day'), hora: g('hour')+':'+g('minute')};
+}
+
+function emitirFactura(datos, usuario){
+  const estado = leerDB('estado');
+  if(!estado) return {status:409, body:{error:'No se pudo leer el estado del servidor'}};
+  const c = estado.config || {};
+  if(!c.facCAI || !c.facSerie || !c.facDesde || !c.facHasta)
+    return {status:409, body:{error:'Configura el C.A.I. de la Factura en Configuración antes de emitir'}};
+  const {fecha, hora} = ahoraHN();
+  if(c.facLimite && fecha > c.facLimite)
+    return {status:409, body:{error:'El rango autorizado venció el '+c.facLimite+'. Solicita uno nuevo a la SAR.'}};
+  const seqActual = estado.seq.fac || c.facDesde;
+  if(seqActual > c.facHasta)
+    return {status:409, body:{error:'Se agotó el rango autorizado de facturas. Solicita un nuevo rango a la SAR (SAR-927).'}};
+  const numero = c.facSerie + String(seqActual).padStart(8,'0');
+  const factura = {...datos, numero, fecha, hora, cai:c.facCAI,
+    emitidoPor:usuario.nombre, anulado:false, motivoAnulacion:''};
+  estado.facturas = estado.facturas || [];
+  estado.facturas.push(factura);
+  estado.seq.fac = seqActual + 1;
+  estado._ts = Date.now();
+  estado._por = usuario.nombre;
+  escribirDB('estado', estado);
+  respaldoDiario(estado);
+  return {status:200, body:{ok:true, factura, seqFac:estado.seq.fac}};
+}
+app.post('/api/facturas', auth, (req, res) => {
+  const r = emitirFactura(req.body||{}, req.user);
+  res.status(r.status).json(r.body);
+});
+
+function anularFactura(numero, motivo, usuario){
+  const estado = leerDB('estado');
+  if(!estado) return {status:409, body:{error:'No se pudo leer el estado del servidor'}};
+  if(usuario.rol !== 'Admin') return {status:403, body:{error:'Solo un Admin puede anular una factura'}};
+  const f = (estado.facturas||[]).find(x => x.numero===numero);
+  if(!f) return {status:404, body:{error:'Factura no encontrada'}};
+  if(f.anulado) return {status:409, body:{error:'Esa factura ya estaba anulada'}};
+  if(!motivo || !motivo.trim()) return {status:400, body:{error:'Se requiere un motivo para anular'}};
+  const {fecha, hora} = ahoraHN();
+  f.anulado = true; f.motivoAnulacion = motivo.trim();
+  f.fechaAnulacion = fecha; f.horaAnulacion = hora;
+  estado._ts = Date.now();
+  estado._por = usuario.nombre;
+  escribirDB('estado', estado);
+  respaldoDiario(estado);
+  return {status:200, body:{ok:true, factura:f}};
+}
+app.post('/api/facturas/:numero/anular', auth, (req, res) => {
+  const r = anularFactura(req.params.numero, (req.body||{}).motivo, req.user);
+  res.status(r.status).json(r.body);
+});
+
+/* Ajustar el correlativo a mano — para migrar facturas ya emitidas en
+   otro sistema autoimpresor (el próximo número debe continuar donde se
+   quedó el otro sistema, no repetir), o para corregir el contador si
+   alguna vez queda desalineado. Nunca se permite un valor que ya esté en
+   uso: el mínimo aceptado es uno más que el número más alto que ya exista
+   en S.facturas, para que ajustar el correlativo no pueda, él mismo,
+   crear un duplicado futuro. */
+function ajustarCorrelativoFactura(nuevoValor, motivo, usuario){
+  const estado = leerDB('estado');
+  if(!estado) return {status:409, body:{error:'No se pudo leer el estado del servidor'}};
+  if(usuario.rol !== 'Admin') return {status:403, body:{error:'Solo un Admin puede ajustar el correlativo'}};
+  if(!motivo || !motivo.trim()) return {status:400, body:{error:'Se requiere un motivo para ajustar el correlativo'}};
+  const c = estado.config || {};
+  const n = Number(nuevoValor);
+  if(!Number.isInteger(n) || n < 1) return {status:400, body:{error:'El número debe ser un entero positivo'}};
+  if(c.facDesde && n < c.facDesde)
+    return {status:400, body:{error:'No puede ser menor que el inicio del rango autorizado ('+c.facDesde+')'}};
+  if(c.facHasta && n > c.facHasta + 1)
+    return {status:400, body:{error:'No puede superar el final del rango autorizado + 1 ('+(c.facHasta+1)+')'}};
+  const maxUsado = (estado.facturas||[]).reduce((m,f) => {
+    const suf = String(f.numero||'').slice(-8);
+    const v = /^\d{8}$/.test(suf) ? Number(suf) : 0;
+    return Math.max(m, v);
+  }, 0);
+  if(n <= maxUsado)
+    return {status:400, body:{error:'Ese número ya está en uso (la última factura registrada usa el '+maxUsado+'). Debe ser mayor.'}};
+  const anterior = estado.seq.fac || c.facDesde || 1;
+  estado.seq.fac = n;
+  estado.bitacora = estado.bitacora || [];
+  const {fecha, hora} = ahoraHN();
+  estado.bitacora.push({fecha, hora, responsable:usuario.nombre, tipo:'No conformidad',
+    descripcion:'Ajuste manual del correlativo de Facturas: de '+anterior+' a '+n+'. Motivo: '+motivo.trim()});
+  estado._ts = Date.now();
+  estado._por = usuario.nombre;
+  escribirDB('estado', estado);
+  respaldoDiario(estado);
+  return {status:200, body:{ok:true, seqFac:n}};
+}
+app.post('/api/facturas/ajustar-correlativo', auth, (req, res) => {
+  const {nuevoValor, motivo} = req.body||{};
+  const r = ajustarCorrelativoFactura(nuevoValor, motivo, req.user);
+  res.status(r.status).json(r.body);
+});
+
+/* ---- Mismo mecanismo para Recibos de Venta -----------------------------
+   El Recibo puede o no tener su propio C.A.I. (opcional, 60_config.js:
+   "C.A.I. del Recibo"). Si lo tiene, numera con esa serie igual que la
+   Factura (pero sin el chequeo de rango agotado: ese C.A.I. legado guarda
+   el rango como texto libre, no como desde/hasta numéricos). Si no lo
+   tiene, numera con el prefijo interno RV-AAAA-NNNN de siempre — sin
+   relación con la SAR, pero igual de expuesto a la misma carrera entre
+   dos personas emitiendo a la vez, así que igual pasa por aquí. */
+function emitirRecibo(datos, usuario){
+  const estado = leerDB('estado');
+  if(!estado) return {status:409, body:{error:'No se pudo leer el estado del servidor'}};
+  const c = estado.config || {};
+  const {fecha, hora} = ahoraHN();
+  if(c.facturaSerie && c.facturaLimite && fecha > c.facturaLimite)
+    return {status:409, body:{error:'El C.A.I. del Recibo venció el '+c.facturaLimite+'. Solicita uno nuevo a la SAR.'}};
+  const seqActual = estado.seq.rec || 1;
+  const numero = c.facturaSerie
+    ? c.facturaSerie + String(seqActual).padStart(8,'0')
+    : (c.reciboPrefijo||'RV')+'-'+fecha.slice(0,4)+'-'+String(seqActual).padStart(4,'0');
+  const recibo = {...datos, numero, fecha, hora, emitidoPor:usuario.nombre, anulado:false, motivoAnulacion:''};
+  estado.recibos = estado.recibos || [];
+  estado.recibos.push(recibo);
+  estado.seq.rec = seqActual + 1;
+  estado._ts = Date.now();
+  estado._por = usuario.nombre;
+  escribirDB('estado', estado);
+  respaldoDiario(estado);
+  return {status:200, body:{ok:true, recibo, seqRec:estado.seq.rec}};
+}
+app.post('/api/recibos', auth, (req, res) => {
+  const r = emitirRecibo(req.body||{}, req.user);
+  res.status(r.status).json(r.body);
+});
+
+function anularRecibo(numero, motivo, usuario){
+  const estado = leerDB('estado');
+  if(!estado) return {status:409, body:{error:'No se pudo leer el estado del servidor'}};
+  if(usuario.rol !== 'Admin') return {status:403, body:{error:'Solo un Admin puede anular un recibo'}};
+  const r = (estado.recibos||[]).find(x => x.numero===numero);
+  if(!r) return {status:404, body:{error:'Recibo no encontrado'}};
+  if(r.anulado) return {status:409, body:{error:'Ese recibo ya estaba anulado'}};
+  if(!motivo || !motivo.trim()) return {status:400, body:{error:'Se requiere un motivo para anular'}};
+  const {fecha, hora} = ahoraHN();
+  r.anulado = true; r.motivoAnulacion = motivo.trim();
+  r.fechaAnulacion = fecha; r.horaAnulacion = hora;
+  estado._ts = Date.now();
+  estado._por = usuario.nombre;
+  escribirDB('estado', estado);
+  respaldoDiario(estado);
+  return {status:200, body:{ok:true, recibo:r}};
+}
+app.post('/api/recibos/:numero/anular', auth, (req, res) => {
+  const r = anularRecibo(req.params.numero, (req.body||{}).motivo, req.user);
+  res.status(r.status).json(r.body);
+});
+
+function ajustarCorrelativoRecibo(nuevoValor, motivo, usuario){
+  const estado = leerDB('estado');
+  if(!estado) return {status:409, body:{error:'No se pudo leer el estado del servidor'}};
+  if(usuario.rol !== 'Admin') return {status:403, body:{error:'Solo un Admin puede ajustar el correlativo'}};
+  if(!motivo || !motivo.trim()) return {status:400, body:{error:'Se requiere un motivo para ajustar el correlativo'}};
+  const n = Number(nuevoValor);
+  if(!Number.isInteger(n) || n < 1) return {status:400, body:{error:'El número debe ser un entero positivo'}};
+  const maxUsado = (estado.recibos||[]).reduce((m,r) => {
+    const suf = String(r.numero||'').replace(/\D/g,'');
+    const v = Number(suf.slice(-8))||0;
+    return Math.max(m, v);
+  }, 0);
+  if(n <= maxUsado)
+    return {status:400, body:{error:'Ese número ya está en uso (el último recibo registrado usa el '+maxUsado+'). Debe ser mayor.'}};
+  const anterior = estado.seq.rec || 1;
+  estado.seq.rec = n;
+  estado.bitacora = estado.bitacora || [];
+  const {fecha, hora} = ahoraHN();
+  estado.bitacora.push({fecha, hora, responsable:usuario.nombre, tipo:'No conformidad',
+    descripcion:'Ajuste manual del correlativo de Recibos: de '+anterior+' a '+n+'. Motivo: '+motivo.trim()});
+  estado._ts = Date.now();
+  estado._por = usuario.nombre;
+  escribirDB('estado', estado);
+  respaldoDiario(estado);
+  return {status:200, body:{ok:true, seqRec:n}};
+}
+app.post('/api/recibos/ajustar-correlativo', auth, (req, res) => {
+  const {nuevoValor, motivo} = req.body||{};
+  const r = ajustarCorrelativoRecibo(nuevoValor, motivo, req.user);
+  res.status(r.status).json(r.body);
+});
+
+// ════════════════════════════════════════════════════════════
 // COTIZACIONES DEL PORTAL WEB (sin autenticación)
 // ════════════════════════════════════════════════════════════
 /* Sin límite, cualquiera podía mandar cotizaciones sin freno y llenar
