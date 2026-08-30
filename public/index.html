@@ -3531,12 +3531,20 @@ function autoCliente(cod){
     return;
   }
   const p=S.pacientes.find(x=>x.codigo===cod);if(!p)return;
-  set('c_nombre',nombreCompleto(p));
-  set('c_id',p.idNumero||'');
+  // Un menor no puede ser la parte que cotiza -- mismo criterio que
+  // Recibo/Factura (24_recibos.js/25_facturas.js): si ya tiene un
+  // responsable/tutor registrado, el nombre e identificación que se
+  // precargan son los del responsable, no los del propio menor. La
+  // cotización sigue ligada al paciente real vía c_pac (pacCodigo), así
+  // que imprimirCotizacion() puede mostrar al menor aparte igual que
+  // Factura/Recibo muestran la línea "Paciente".
+  const resp=responsableParaDocumento(p);
+  set('c_nombre',resp?resp.nombre:nombreCompleto(p));
+  set('c_id',resp?resp.id:(p.idNumero||''));
   set('c_fnac',p.fnac||'');
   set('c_edad',p.fnac?edadDetallada(p.fnac):'');
   set('c_sexo',sexoTexto(p.sexo)!=='—'?sexoTexto(p.sexo):'');
-  const t=partirTel(p.tel); set('c_lada',t.lada); set('c_tel',t.num);
+  const t=partirTel(resp?resp.tel:p.tel); set('c_lada',t.lada); set('c_tel',t.num);
   set('c_dir',p.dir||'');
   set('c_medico',p.medico||'');
   // Aviso con lo que quedó pendiente, para completarlo antes de imprimir
@@ -3546,9 +3554,11 @@ function autoCliente(cod){
   if(!p.tel)faltan.push('teléfono');
   if(!p.dir)faltan.push('dirección');
   const av=document.getElementById('c_aviso');
-  if(av)av.innerHTML=faltan.length
+  const avisoResp=resp?`<div class="aviso" style="border-left-color:var(--azul);margin-bottom:8px">Paciente menor de edad: la cotización se precargó a nombre de su
+    responsable registrado${resp.parentesco?' ('+esc(resp.parentesco)+')':''}. Puedes cambiarlo si corresponde otra persona.</div>`:'';
+  if(av)av.innerHTML=avisoResp+(faltan.length
     ? `<div class="aviso" style="margin-bottom:8px">Datos cargados de <b>${p.codigo}</b>. Sin registro en la ficha: ${faltan.join(', ')} — puedes escribirlos aquí.</div>`
-    : `<div style="font-size:12px;color:var(--verde);font-weight:700;margin-bottom:8px">✓ Datos cargados de ${p.codigo}</div>`;
+    : `<div style="font-size:12px;color:var(--verde);font-weight:700;margin-bottom:8px">✓ Datos cargados de ${p.codigo}</div>`);
 }
 function refEdadCot(){
   const f=document.getElementById('c_fnac');const e=document.getElementById('c_edad');
@@ -9748,7 +9758,19 @@ function imprimirCotizacion(n){
     sexoTexto:c.sexo||sexoTexto(p.sexo),
     tel:c.tel||p.tel,
     edadTexto:c.fnac?edadDetallada(c.fnac):(c.edad||(p.fnac?edadDetallada(p.fnac):'—')),
-    extra:[`<div class="ancho"><span class="et">Dirección:</span> <b>${esc(c.dir||p.dir||'—')}</b></div>`],
+    extra:[
+      `<div class="ancho"><span class="et">Dirección:</span> <b>${esc(c.dir||p.dir||'—')}</b></div>`,
+      // Si la cotización quedó a nombre de alguien distinto del paciente
+      // ligado (típicamente el responsable de un menor, ver autoCliente()
+      // en 22_cotizaciones.js) se deja constancia de quién es el paciente
+      // real -- mismo criterio que la línea "Paciente" de Factura/Recibo.
+      (()=>{
+        if(!p.codigo)return '';
+        const pnom=nombreCompleto(p);
+        if(!pnom||normTxt(pnom)===normTxt(c.nombre||''))return '';
+        return `<div class="ancho"><span class="et">Paciente:</span> <b>${esc(pnom)}</b>${p.idNumero?' · '+esc(p.idTipo||'DNI')+' '+esc(p.idNumero):''}</div>`;
+      })(),
+    ],
   })}
   <div class="pago">
     <div><b>Condiciones de Pago:</b> ${esc(c.condPago||'Contado')}</div>
