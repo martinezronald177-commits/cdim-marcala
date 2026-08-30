@@ -759,7 +759,7 @@ td,th,.ci-txt b,.ci-sub{overflow-wrap:anywhere}
 </aside>
 <main id="vista" role="main" tabindex="-1"></main>
 </div>
-<div class="velo" id="velo" onclick="if(event.target===this)cerrarModal()"><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
+<div class="velo" id="velo" onclick="if(event.target===this&&!MODAL_BLOQUEADO)cerrarModal()"><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script>
 /* =============== ESTADO Y PERSISTENCIA =============== */
@@ -1814,6 +1814,11 @@ function semillaExamenes(){
 /* En modo web, quien entró por la pantalla de acceso del servidor ES el
    usuario activo. No se pide una segunda identificación dentro del sistema. */
 let USUARIO_WEB=null;
+/* Con esto en true, el modal en pantalla no se puede cerrar haciendo clic
+   fuera ni con Escape -- se usa para el cambio de contraseña obligatorio al
+   entrar (ver modalClaveObligatoria() en 80_bitacora.js), que no puede
+   descartarse sin completarse. */
+let MODAL_BLOQUEADO=false;
 /* El inicio de sesión ahora es exclusivamente por el servidor: no existe un
    "modo local" de usuarios. El rol viaja tal cual desde el servidor;
    rolActivo() lo normaliza. */
@@ -1958,6 +1963,7 @@ document.addEventListener('keydown',e=>{
   const enCampo=/^(INPUT|TEXTAREA|SELECT)$/.test((e.target.tagName||''));
   // Escape: cierra el modal abierto o el menú lateral
   if(e.key==='Escape'){
+    if(MODAL_BLOQUEADO)return;
     if(document.getElementById('velo').classList.contains('abierto')){cerrarModal();return;}
     alternarMenu(false);return;
   }
@@ -1984,7 +1990,7 @@ function cerrarModal(){
     window.__pOpc=null;window.__genPDF=null;window.__reimprimir=null;
   }catch(e){}
 }
-document.getElementById('velo').addEventListener('click',e=>{if(e.target.id==='velo')cerrarModal();});
+document.getElementById('velo').addEventListener('click',e=>{if(e.target.id==='velo'&&!MODAL_BLOQUEADO)cerrarModal();});
 
 /* =============== INICIO =============== */
 function vInicio(){
@@ -14667,6 +14673,40 @@ async function eliminarUsuario(id,nombre){
   const r=await apiFetch('/api/usuarios/'+id,{method:'DELETE'});
   if(r.ok){vUsuarios();toast('Usuario eliminado');}
 }
+/* Cambio de contraseña obligatorio al entrar: se dispara desde arrancar()
+   cuando el servidor marca debeCambiarClave (cuenta recién creada con clave
+   temporal que puso otra persona, o la cuenta admin que sigue con la clave
+   de fábrica del código -- ver migrarRoles() en cdim-server/server.js). El
+   modal no se puede cerrar sin completarlo (MODAL_BLOQUEADO, ver
+   12_sesion.js): el resto del arranque queda en pausa hasta entonces. */
+function modalClaveObligatoria(){
+  MODAL_BLOQUEADO=true;
+  abrirModal(`
+  <h3>Por seguridad, cambia tu contraseña</h3>
+  <div class="aviso">Esta cuenta todavía tiene una contraseña temporal (la de fábrica, o la que te asignaron al crearla). Antes de continuar, elige una contraseña propia que solo tú conozcas.</div>
+  <div class="campo"><label>Contraseña actual (temporal)</label><input type="password" id="cco_actual" autocomplete="current-password"></div>
+  <div class="campo"><label>Contraseña nueva</label><input type="password" id="cco_nueva" placeholder="Mínimo 6 caracteres" autocomplete="new-password"></div>
+  <div class="campo"><label>Confirmar nueva</label><input type="password" id="cco_conf" autocomplete="new-password"
+    onkeydown="if(event.key==='Enter')guardarClaveObligatoria()"></div>
+  <div class="modal-pie"><button class="btn btn-p" onclick="guardarClaveObligatoria()">Cambiar y continuar</button></div>`);
+}
+async function guardarClaveObligatoria(){
+  const actual=document.getElementById('cco_actual').value;
+  const nueva=document.getElementById('cco_nueva').value;
+  const conf=document.getElementById('cco_conf').value;
+  if(!actual){toast('Escribe tu contraseña actual');return;}
+  if(nueva!==conf){toast('Las contraseñas nuevas no coinciden');return;}
+  if(nueva.length<6){toast('La contraseña debe tener al menos 6 caracteres');return;}
+  if(nueva===actual){toast('La contraseña nueva debe ser distinta de la actual');return;}
+  const r=await apiFetch('/api/auth/cambiar-clave',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({claveActual:actual,claveNueva:nueva})});
+  const d=await r.json();
+  if(!r.ok){toast('Error: '+(d.error||'No se pudo cambiar la contraseña'));return;}
+  MODAL_BLOQUEADO=false;
+  cerrarModal();
+  toast('Contraseña actualizada ✓');
+  await continuarArranque();
+}
 async function cambiarClave(){
   const actual=document.getElementById('pwd_actual').value;
   const nueva=document.getElementById('pwd_nueva').value;
@@ -14807,9 +14847,16 @@ function imprimirBitacora(){
     if(bu&&puede('usuarios'))bu.style.display='';
     const br=document.getElementById('btn-respaldos');
     if(br&&puede('usuarios'))br.style.display='';
-    // Cargar estado desde el servidor
-    await cargarDesdeServidor();
-    programarSyncPeriodico();
+    // Cuenta con contraseña temporal (de fábrica, o recién asignada por un
+    // Admin): se exige cambiarla antes de tocar cualquier otra cosa. El
+    // resto del arranque (cargar el estado, pintar la pantalla de inicio)
+    // continúa desde guardarClaveObligatoria() al terminar, vía
+    // continuarArranque().
+    if(u.debeCambiarClave){
+      modalClaveObligatoria();
+      return;
+    }
+    await continuarArranque();
   }catch(e){
     // Ya no existe un modo local de acceso: sin servidor no hay forma segura
     // de saber quién está entrando. login.html ya sabe mostrar el aviso de
@@ -14817,11 +14864,16 @@ function imprimirBitacora(){
     window.location.href='/login.html';
     return;
   }
+})();
+async function continuarArranque(){
+  // Cargar estado desde el servidor
+  await cargarDesdeServidor();
+  programarSyncPeriodico();
   // Arranque normal
   guardar();
   actualizarPieNav();
   vInicio();   // ya no existe mostrarCandado(): el candado local desapareció
-})();
+}
 </script>
 </body>
 </html>

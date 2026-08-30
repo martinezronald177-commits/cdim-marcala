@@ -46,6 +46,51 @@ const PUB_DIR = path.join(__dirname, 'public');
 
 [DATA_DIR, UPL_DIR, PUB_DIR].forEach(d => fs.mkdirSync(d, {recursive:true}));
 
+// ── Cifrado en disco (AES-256-GCM) ─────────────────────────────
+/* Los datos clínicos (estado.json.gz: pacientes, órdenes, resultados) y sus
+   respaldos se cifran antes de tocar el disco. Así, quien copie el disco
+   del servidor, una imagen de respaldo, o el archivo suelto, no puede leer
+   los datos de los pacientes sin esta clave -- solo este mismo servidor,
+   que la trae por variable de entorno (nunca en el código ni en el repo),
+   puede volver a leerlos.
+
+   Formato del archivo cifrado: IV (12 bytes) + AUTH TAG (16 bytes) +
+   contenido cifrado (el .gz de siempre, cifrado tal cual iría a disco). Se
+   detecta solo si un archivo YA está cifrado mirando sus dos primeros
+   bytes: un .gz sin cifrar SIEMPRE empieza con la firma 0x1f 0x8b; el
+   cifrado, al ser bytes al azar (el IV), prácticamente nunca. Esto permite
+   migrar sin downtime los datos que ya existían sin cifrar la primera vez
+   que este código se despliega: se leen como antes y, en el siguiente
+   guardado -- que ocurre todo el tiempo -- quedan cifrados. */
+const DATA_KEY_HEX = process.env.DATA_ENCRYPTION_KEY || '';
+if(!DATA_KEY_HEX && process.env.NODE_ENV === 'production'){
+  console.error('[CDIM] DATA_ENCRYPTION_KEY no está definida. El servidor no puede arrancar así en producción.');
+  process.exit(1);
+}
+if(DATA_KEY_HEX && !/^[0-9a-fA-F]{64}$/.test(DATA_KEY_HEX)){
+  console.error('[CDIM] DATA_ENCRYPTION_KEY debe ser una cadena hexadecimal de 64 caracteres (32 bytes). El servidor no puede arrancar así.');
+  process.exit(1);
+}
+if(!DATA_KEY_HEX)
+  console.warn('[CDIM] ⚠ DATA_ENCRYPTION_KEY no definida — los datos se guardan SIN cifrar en disco. No usar así en producción.');
+const DATA_KEY = DATA_KEY_HEX ? Buffer.from(DATA_KEY_HEX, 'hex') : null;
+function esGzip(buf){ return buf.length>=2 && buf[0]===0x1f && buf[1]===0x8b; }
+function cifrar(buf){
+  if(!DATA_KEY) return buf;
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', DATA_KEY, iv);
+  const ct = Buffer.concat([cipher.update(buf), cipher.final()]);
+  return Buffer.concat([iv, cipher.getAuthTag(), ct]);
+}
+function descifrar(buf){
+  if(esGzip(buf)) return buf;   // dato viejo aún sin cifrar (o sin clave configurada)
+  if(!DATA_KEY) throw new Error('El archivo está cifrado pero no hay DATA_ENCRYPTION_KEY configurada');
+  const iv = buf.subarray(0,12), tag = buf.subarray(12,28), ct = buf.subarray(28);
+  const decipher = crypto.createDecipheriv('aes-256-gcm', DATA_KEY, iv);
+  decipher.setAuthTag(tag);
+  return Buffer.concat([decipher.update(ct), decipher.final()]);
+}
+
 // ── Almacenamiento JSON ──────────────────────────────────────
 const DB_FILES = {
   usuarios : 'usuarios.json',
@@ -53,10 +98,12 @@ const DB_FILES = {
   cola_cot : 'cola_cot.json',  // cotizaciones del portal web
   sesiones : 'sesiones.json',
 };
-/* El estado se guarda comprimido: a 3000 órdenes son 11 MB que bajarían a
-   unos 100 KB. Como se escribe en cada guardado, la diferencia en desgaste
-   de disco y en tiempo es grande. Los archivos pequeños (usuarios, cola)
-   se dejan en texto plano para poder inspeccionarlos a mano si hace falta. */
+/* El estado se guarda comprimido (y cifrado, ver arriba): a 3000 órdenes
+   son 11 MB que bajarían a unos 100 KB. Como se escribe en cada guardado,
+   la diferencia en desgaste de disco y en tiempo es grande. Los archivos
+   pequeños (usuarios, cola) se dejan en texto plano para poder
+   inspeccionarlos a mano si hace falta -- no llevan datos clínicos: las
+   claves y PIN ya viajan con hash, nunca en claro. */
 const COMPRIMIR = ['estado'];
 
 function leerDB(nombre){
@@ -65,7 +112,7 @@ function leerDB(nombre){
   // Se prefiere el comprimido; si no está, se lee el de texto (versiones anteriores)
   try{
     if(fs.existsSync(fz))
-      return JSON.parse(zlib.gunzipSync(fs.readFileSync(fz)).toString('utf8'));
+      return JSON.parse(zlib.gunzipSync(descifrar(fs.readFileSync(fz))).toString('utf8'));
     if(fs.existsSync(f))
       return JSON.parse(fs.readFileSync(f,'utf8'));
   }catch(e){
@@ -80,7 +127,7 @@ function escribirDB(nombre, datos){
   // Si se corta la luz a mitad de la escritura, el archivo anterior queda intacto.
   if(COMPRIMIR.includes(nombre)){
     const fz = f + '.gz', tmp = fz + '.tmp';
-    fs.writeFileSync(tmp, zlib.gzipSync(texto, {level:6}));
+    fs.writeFileSync(tmp, cifrar(zlib.gzipSync(texto, {level:6})));
     fs.renameSync(tmp, fz);
     // Se retira la versión en texto para que no queden dos fuentes de verdad
     try{ if(fs.existsSync(f)) fs.unlinkSync(f); }catch{}
@@ -100,10 +147,12 @@ fs.mkdirSync(BAK_DIR, {recursive:true});
 function respaldoDiario(estado){
   try{
     const hoy = new Date().toISOString().slice(0,10);
-    // Respaldo comprimido: un estado de 20 MB baja a menos de 1 MB.
-    // Sin esto, 30 respaldos diarios llenarían el disco en unos dos años.
+    // Respaldo comprimido y cifrado: un estado de 20 MB baja a menos de 1 MB.
+    // Sin la compresión, 30 respaldos diarios llenarían el disco en unos dos
+    // años; sin el cifrado, cada respaldo sería una copia legible de los
+    // datos clínicos completos regada en 30 archivos distintos.
     const f = path.join(BAK_DIR, `estado-${hoy}.json.gz`);
-    fs.writeFileSync(f, zlib.gzipSync(JSON.stringify(estado), {level:6}));
+    fs.writeFileSync(f, cifrar(zlib.gzipSync(JSON.stringify(estado), {level:6})));
     // Se limpian también los respaldos antiguos sin comprimir
     const archivos = fs.readdirSync(BAK_DIR)
       .filter(x => x.startsWith('estado-'))
@@ -132,6 +181,14 @@ function migrarRoles(){
     usuarios[0].rol = 'Admin'; cambio = true;
     console.log(`[CDIM] ${usuarios[0].usuario} promovido a Admin (no había ninguno)`);
   }
+  // 3. Si la cuenta 'admin' TODAVÍA usa la contraseña de fábrica (la misma
+  //    que trae este código, público en el repositorio), se le exige
+  //    cambiarla en su próximo ingreso -- sin esto, cualquiera que lea el
+  //    código fuente conoce una contraseña válida del sistema en producción.
+  if(admin && admin.clave && !admin.debeCambiarClave && bcrypt.compareSync('cdim2024', admin.clave)){
+    admin.debeCambiarClave = true; cambio = true;
+    console.log('[CDIM] La cuenta admin sigue con la contraseña de fábrica: se exigirá cambiarla al entrar');
+  }
   if(cambio) escribirDB('usuarios', usuarios);
 }
 
@@ -145,6 +202,7 @@ function inicializarUsuarios(){
     rol    : 'Admin',
     activo : true,
     creado : new Date().toISOString(),
+    debeCambiarClave: true,
   };
   escribirDB('usuarios', [admin]);
   console.log('[CDIM] Usuario admin creado. Cambia la clave en primer ingreso.');
@@ -327,7 +385,16 @@ const app = express();
 // siempre diría "http" aunque el paciente haya entrado por https, y el QR
 // que se genera dentro del PDF (ver /r/:numero/:token/pdf) quedaría con la
 // URL equivocada.
-app.set('trust proxy', true);
+// "1" (y no true): se confía solo en el salto directo de Render, el único
+// proxy real delante de este servidor. Con "true" se confía en TODA la
+// cadena de X-Forwarded-For, y esa cadena la puede iniciar el propio
+// cliente -- cualquiera podía mandar su propio X-Forwarded-For y aparecer
+// con la IP que quisiera, saltándose así TODOS los límites de intentos
+// (login, PIN, refresh, PDF, cotización pública) que dependen de ipDe(req).
+// Con "1", Express toma el valor que Render mismo añadió al final de la
+// cadena -- el salto más cercano al servidor -- e ignora cualquier cosa que
+// el cliente haya intentado anteponer.
+app.set('trust proxy', 1);
 // El CSP por defecto de helmet bloquearía la app: todo el JS de index.html
 // (e informe.html) vive en un único <script> inline, y ese mismo archivo
 // carga JsBarcode desde cdn.jsdelivr.net -- ninguno de los dos pasa un
@@ -382,7 +449,8 @@ app.post('/api/auth/login', (req, res) => {
   _intentosLogin.delete(usuario);
   const {sesion, cruda} = crearSesion(u, req);
   emitirCookiesSesion(res, u, sesion.id, cruda);
-  res.json({ok:true, id:u.id, nombre:u.nombre, rol:u.rol, usuario:u.usuario, permisos:u.permisos||null});
+  res.json({ok:true, id:u.id, nombre:u.nombre, rol:u.rol, usuario:u.usuario, permisos:u.permisos||null,
+    debeCambiarClave: !!u.debeCambiarClave});
 });
 
 /* Lista para el desplegable de la pantalla de acceso.
@@ -440,7 +508,8 @@ app.post('/api/auth/pin', (req, res) => {
   _intentosLogin.delete(usuario);
   const {sesion, cruda} = crearSesion(u, req);
   emitirCookiesSesion(res, u, sesion.id, cruda);
-  res.json({ok:true, id:u.id, nombre:u.nombre, rol:u.rol, usuario:u.usuario, permisos:u.permisos||null});
+  res.json({ok:true, id:u.id, nombre:u.nombre, rol:u.rol, usuario:u.usuario, permisos:u.permisos||null,
+    debeCambiarClave: !!u.debeCambiarClave});
 });
 
 /* Renovar la sesión sin volver a pedir clave/PIN. Recibe el token de
@@ -473,7 +542,8 @@ app.post('/api/auth/refresh', (req, res) => {
   if(!u) return limpiarYRechazar();
   const nuevaCruda = rotarSesion(hallazgo.sesion, req);
   emitirCookiesSesion(res, u, hallazgo.sesion.id, nuevaCruda);
-  res.json({ok:true, id:u.id, nombre:u.nombre, rol:u.rol, usuario:u.usuario, permisos:u.permisos||null});
+  res.json({ok:true, id:u.id, nombre:u.nombre, rol:u.rol, usuario:u.usuario, permisos:u.permisos||null,
+    debeCambiarClave: !!u.debeCambiarClave});
 });
 
 /* Permisos propios de una persona. Un objeto vacío o null significa
@@ -531,7 +601,13 @@ app.post('/api/auth/logout', (req, res) => {
 });
 
 app.get('/api/auth/me', auth, (req, res) => {
-  res.json({id:req.user.id, nombre:req.user.nombre, rol:req.user.rol, usuario:req.user.usuario, permisos:req.user.permisos||null});
+  // debeCambiarClave se busca fresco en la base (no viaja en el JWT): así,
+  // si un Admin resetea la clave de alguien, esa persona queda obligada a
+  // cambiarla en su siguiente consulta, sin esperar a que su token de
+  // acceso actual (hasta 15 min de vida) venza y se renueve.
+  const u = (leerDB('usuarios')||[]).find(x => x.id === req.user.id);
+  res.json({id:req.user.id, nombre:req.user.nombre, rol:req.user.rol, usuario:req.user.usuario,
+    permisos:req.user.permisos||null, debeCambiarClave: !!(u && u.debeCambiarClave)});
 });
 
 app.post('/api/auth/cambiar-clave', auth, (req, res) => {
@@ -543,6 +619,7 @@ app.post('/api/auth/cambiar-clave', auth, (req, res) => {
   if(!u || !bcrypt.compareSync(claveActual, u.clave))
     return res.status(401).json({error:'La clave actual es incorrecta'});
   u.clave = bcrypt.hashSync(claveNueva, 10);
+  u.debeCambiarClave = false;
   escribirDB('usuarios', usuarios);
   res.json({ok:true});
 });
@@ -552,7 +629,7 @@ app.post('/api/auth/cambiar-clave', auth, (req, res) => {
 // ════════════════════════════════════════════════════════════
 app.get('/api/usuarios', auth, soloAdmin, (req, res) => {
   const usuarios = (leerDB('usuarios') || [])
-    .map(({clave, pin, ...u}) => ({...u, tienePin: !!pin}));   // permisos sí viajan: el Admin los edita
+    .map(({clave, pin, ...u}) => ({...u, tienePin: !!pin, debeCambiarClave: !!u.debeCambiarClave}));   // permisos sí viajan: el Admin los edita
   res.json(usuarios);
 });
 
@@ -572,6 +649,9 @@ app.post('/api/usuarios', auth, soloAdmin, (req, res) => {
     rol    : ['Admin','Dr','Administrador','Técnico'].includes(rol) ? rol : 'Técnico',
     activo : true,
     creado : new Date().toISOString(),
+    // La contraseña la elige quien da de alta a la persona, no ella misma:
+    // se le exige cambiarla en su primer ingreso.
+    debeCambiarClave: true,
   };
   usuarios.push(nuevo);
   escribirDB('usuarios', usuarios);
@@ -594,7 +674,7 @@ app.put('/api/usuarios/:id', auth, soloAdmin, (req, res) => {
   if(nombre) u.nombre = nombre;
   if(rol)    u.rol    = rol;
   if(activo !== undefined) u.activo = activo;
-  if(clave) u.clave = bcrypt.hashSync(clave, 10);
+  if(clave){ u.clave = bcrypt.hashSync(clave, 10); u.debeCambiarClave = true; }
   escribirDB('usuarios', usuarios);
   const {clave:_, pin:__, ...publico} = u;
   res.json({...publico, tienePin: !!u.pin});
@@ -1195,6 +1275,15 @@ app.get('/api/respaldos', auth, soloAdmin, (req, res) => {
   }catch(e){ res.json([]); }
 });
 
+// Resguardo de última hora antes de sobrescribir con una restauración --
+// cifrado y comprimido igual que respaldoDiario(), para no dejar tirada en
+// disco una copia legible de los datos clínicos completos.
+function respaldarAntesDeRestaurar(actual){
+  if(!actual) return;
+  fs.writeFileSync(path.join(BAK_DIR,'antes-de-restaurar.json.gz'),
+    cifrar(zlib.gzipSync(JSON.stringify(actual))));
+}
+
 // Restaurar desde un respaldo del servidor
 app.post('/api/respaldo/restaurar', auth, soloAdmin, (req, res) => {
   const { archivo } = req.body;
@@ -1204,13 +1293,13 @@ app.post('/api/respaldo/restaurar', auth, soloAdmin, (req, res) => {
   if(!fs.existsSync(f)) return res.status(404).json({error:'Ese respaldo no existe'});
   try{
     // Antes de restaurar se guarda el estado actual, por si acaso
-    const actual = leerDB('estado');
-    if(actual) fs.writeFileSync(path.join(BAK_DIR,'antes-de-restaurar.json.gz'),
-      zlib.gzipSync(JSON.stringify(actual)));
-    // Los respaldos nuevos vienen comprimidos; los antiguos se leen igual
+    respaldarAntesDeRestaurar(leerDB('estado'));
+    // Los respaldos nuevos vienen comprimidos (y cifrados si hay clave
+    // configurada); descifrar() detecta sola cuál es el caso. Los muy
+    // antiguos, de antes de esta función, se leen igual que siempre.
     const crudo = fs.readFileSync(f);
     const estado = JSON.parse(archivo.endsWith('.gz')
-      ? zlib.gunzipSync(crudo).toString('utf8')
+      ? zlib.gunzipSync(descifrar(crudo)).toString('utf8')
       : crudo.toString('utf8'));
     estado._ts = Date.now();
     estado._por = req.user.nombre + ' (restauración)';
@@ -1225,8 +1314,7 @@ app.post('/api/respaldo/subir', auth, soloAdmin, (req, res) => {
   const { estado } = req.body;
   if(!estado || !estado.pacientes) return res.status(400).json({error:'El archivo no parece un respaldo válido'});
   try{
-    const actual = leerDB('estado');
-    if(actual) fs.writeFileSync(path.join(BAK_DIR,'antes-de-restaurar.json'), JSON.stringify(actual));
+    respaldarAntesDeRestaurar(leerDB('estado'));
     estado._ts = Date.now();
     estado._por = req.user.nombre + ' (restauración desde archivo)';
     escribirDB('estado', estado);
