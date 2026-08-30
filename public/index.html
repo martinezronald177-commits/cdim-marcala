@@ -44,7 +44,20 @@ nav button:hover{background:rgba(255,255,255,.07);color:#fff}
 nav button.activo{background:rgba(184,151,74,.18);border-left-color:var(--dorado);color:#fff}
 nav .ico{width:20px;text-align:center;font-size:15px}
 .pie-nav{padding:14px 20px;font-size:10px;color:rgba(255,255,255,.45);line-height:1.5;flex:0 0 auto}
-main{margin-left:230px;flex:1;padding:22px 28px;max-width:1900px;width:100%;box-sizing:border-box}
+/* Dos problemas encimados, no uno: (1) el width:100% que convivía con
+   "flex:1" -- la barra lateral es position:fixed, así que #app la trata
+   como si no ocupara espacio dentro del flex, y ese width:100% le daba a
+   <main> el ancho COMPLETO del viewport, sumándole encima margin-left:230px
+   y empujando su borde derecho 230px más allá de la pantalla. Se quita.
+   (2) Un truco clásico de flexbox: por defecto, un ítem flex tiene
+   min-width:auto, no 0 -- se niega a encogerse por debajo del ancho
+   mínimo de SU CONTENIDO aunque tenga flex-shrink. Con una tabla ancha
+   adentro (Facturas, Recibos…) eso vuelve a empujar a <main> más allá del
+   viewport incluso sin el width:100%. min-width:0 aquí es lo que de
+   verdad deja que <main> se encoja y que el scroll horizontal quede
+   contenido DENTRO de la tarjeta (.tarjeta{overflow-x:auto}), no en toda
+   la página. */
+main{margin-left:230px;flex:1;min-width:0;padding:22px 28px;max-width:1900px;box-sizing:border-box}
 .cabecera{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:10px}
 .cabecera h2{font-size:21px;font-weight:800;color:var(--azul)}
 .cabecera h2::after{content:"";display:block;width:46px;height:3px;background:var(--dorado);border-radius:2px;margin-top:5px}
@@ -413,9 +426,26 @@ nav button:focus-visible{outline:3px solid var(--dorado-claro);outline-offset:-3
 .tarjeta:hover{box-shadow:var(--s2)}
 
 /* ---------- Tablas: encabezado fijo, filas legibles ---------- */
+/* overflow-x:auto y un min-width fijo se dejan SIEMPRE activos, sin
+   condicionarlos al ancho de la ventana: una tabla con muchas columnas
+   (Facturas, Recibos, Cotizaciones…) no cabe en su ancho natural aunque
+   la ventana mida más de 901px, si la barra lateral se come buena parte
+   de ese espacio (ventana no maximizada, portátil de pantalla chica). El
+   min-width:0 que antes se forzaba ahí arriba dejaba que las columnas se
+   encogieran hasta partir cada palabra letra por letra en vez de mostrar
+   una barra de scroll horizontal, que es el comportamiento correcto. */
 .tarjeta{overflow-x:auto}
-.tarjeta>table{min-width:560px}
-@media(min-width:901px){.tarjeta{overflow-x:visible}.tarjeta>table{min-width:0;width:100%}}
+.tarjeta table{min-width:560px}
+@media(min-width:901px){.tarjeta table{width:100%}}
+/* Nunca se parten palabras letra por letra, sin importar el ancho de la
+   ventana (antes esta protección solo regía por debajo de 900px; una
+   ventana de escritorio sin maximizar, con la barra lateral de por medio,
+   sufría exactamente el mismo problema y se quedaba sin ella). Si una
+   columna no tiene espacio, lo que debe pasar es que la tarjeta se
+   desplace en horizontal (overflow-x:auto arriba) — nunca que el texto se
+   corte a la mitad de una palabra. */
+.tarjeta table th,.tarjeta table td{word-break:keep-all;overflow-wrap:break-word;hyphens:none}
+.tarjeta table th{white-space:nowrap}
 /* Los botones de acción de cada fila se acomodan sin cortar la tabla */
 td .btn+.btn{margin-left:3px}
 td:last-child{white-space:normal}
@@ -508,26 +538,19 @@ kbd{background:#fff;border:1px solid var(--linea);border-bottom-width:2px;border
 @media (max-width:900px){
   .topbar{display:flex}
   /* ── Tablas en el teléfono ──────────────────────────────────
-     Sin esto el navegador reparte el ancho entre todas las columnas y
-     termina rompiendo el texto letra por letra. Se ocultan las columnas
-     secundarias y la tabla conserva un ancho mínimo legible. */
+     La protección contra partir palabras letra por letra ya es
+     incondicional (ver más arriba, ".tarjeta table th,.tarjeta table td");
+     aquí solo quedan los ajustes que sí son propios de pantalla chica:
+     texto y relleno más compactos. */
   .tarjeta{overflow-x:auto;-webkit-overflow-scrolling:touch;position:relative}
-  /* Regla clave: la tabla NO se comprime por debajo de un ancho legible.
-     Si el contenido no cabe, la tarjeta se desplaza en horizontal; lo que
-     nunca debe pasar es que el navegador parta las palabras letra por letra. */
-  .tarjeta>table{min-width:560px;table-layout:auto;width:100%}
-  .tarjeta>table th,.tarjeta>table td{
-    white-space:normal;padding:9px 7px;font-size:12.5px;width:auto !important;
-    word-break:keep-all;overflow-wrap:break-word;hyphens:none}
-  /* Los encabezados nunca se parten: son palabras cortas y deben leerse de un golpe */
-  .tarjeta>table th{white-space:nowrap;font-size:10.5px}
-  /* Aviso de que la tabla se desplaza */
-  .tarjeta{position:relative}
+  .tarjeta table{min-width:560px;table-layout:auto;width:100%}
+  .tarjeta table th,.tarjeta table td{white-space:normal;padding:9px 7px;font-size:12.5px;width:auto !important}
+  .tarjeta table th{font-size:10.5px}
   /* El nombre del paciente necesita espacio: es lo que identifica el registro */
   .tabla-ordenes th:nth-child(4),.tabla-ordenes td:nth-child(4){min-width:120px}
   /* Los números largos (COT-WEB-20260814-183535) se parten por el guion,
      no letra por letra */
-  .tarjeta>table td b{word-break:normal;overflow-wrap:break-word;hyphens:none}
+  .tarjeta table td b{word-break:normal;overflow-wrap:break-word;hyphens:none}
   .num-largo{font-size:11.5px;line-height:1.35;letter-spacing:-.2px;display:block}
   /* En el teléfono, el estado se muestra bajo el número y su columna se oculta:
      así el botón de acción no queda fuera de la pantalla. */
