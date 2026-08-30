@@ -10009,9 +10009,10 @@ const cssCabeceraDoc=`
     Con estos valores la dirección entra en dos y queda sitio para resultados. */
  .cab{display:flex;align-items:center;justify-content:space-between;gap:6px;
    border-bottom:2.2px solid #111;padding-bottom:5px}
- .cab-logo{flex:0 0 auto;max-width:20%;display:flex;align-items:center}
- .cab-logo img{max-height:100px;max-width:100%;width:auto}
- .cab-nom{font-size:12pt;font-weight:700;color:#111;line-height:1.15;letter-spacing:-.3px}
+ .cab-logo{flex:0 0 auto;max-width:20%;display:flex;flex-direction:column;align-items:center;
+   gap:2px;text-align:center}
+ .cab-logo img{max-height:80px;max-width:100%;width:auto}
+ .cab-nom{font-size:10.5pt;font-weight:700;color:#111;line-height:1.15;letter-spacing:-.3px}
  .cab-datos{flex:1;min-width:0;text-align:left;font-size:8.1pt;color:#111;
    line-height:1.55;padding:0 5px 0 4mm}
  .cab-datos b{font-weight:800}
@@ -10050,7 +10051,7 @@ function bloqueCab(cf,opciones){
   const claseContacto=('claseContacto' in opciones)?opciones.claseContacto:'ln-contacto';
   const atrContacto=claseContacto?` class="${claseContacto}"`:'';
   return `<div class="cab">
-    <div class="cab-logo">${cf.logo?`<img src="${cf.logo}">`:`<div class="cab-nom">${esc(cf.nombre)}</div>`}</div>
+    <div class="cab-logo">${cf.logo?`<img src="${cf.logo}">`:''}<div class="cab-nom">${esc(cf.nombre)}</div></div>
     <div class="cab-datos">
       ${(opciones.razonSocial&&cf.razonSocial)?`<div class="ln-razon">De <b>${esc(cf.razonSocial)}</b>${cf.rtn?' · R.T.N.: '+esc(cf.rtn):''}</div>`:''}
       <div>&#9906; <b>DIRECCIÓN:</b> ${esc((cf.direccion||'').toUpperCase())}</div>
