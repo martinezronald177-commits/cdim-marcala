@@ -9963,7 +9963,13 @@ function ventanaImpresion(html,css,nombre){
   // sin relación alguna con cómo se ve realmente el documento impreso. Se le
   // da un tamaño de carta aproximado (ancho útil tras los márgenes de
   // @page) para que cualquier medición en pantalla sea representativa.
-  fr.style.cssText='position:fixed;right:0;bottom:0;width:780px;height:1100px;border:0;visibility:hidden;';
+  // 748 px = 198 mm: el ancho útil exacto de una carta tras los 9 mm de
+  // margen lateral de @page, y el mismo que deja la vista previa (hoja de
+  // 216 mm con 9 mm de relleno a cada lado). Igualarlos hace que el texto
+  // se envuelva idéntico en los dos lados y que repaginarPaginas() reparta
+  // las filas igual en la previa que en el papel. Antes eran 780 px, un
+  // ancho que no correspondía ni a la hoja ni a la previa.
+  fr.style.cssText='position:fixed;right:0;bottom:0;width:748px;height:1100px;border:0;visibility:hidden;';
   document.body.appendChild(fr);
   const doc=fr.contentDocument||fr.contentWindow.document;
   doc.open();
@@ -10713,15 +10719,30 @@ function repaginarPaginas(win){
 
     const cs=win.getComputedStyle(originales[0]);
     const relleno=(parseFloat(cs.paddingTop)||0)+(parseFloat(cs.paddingBottom)||0);
-    /* Se mide contra min-height y no contra max-height: min-height existe en
-       pantalla y en impresión por igual (max-height solo en impresión), así
-       que la vista previa reparte las filas EXACTAMENTE igual que la
-       impresora. Sumarle el relleno compensa el margen que la vista previa le
-       dibuja a la hoja y que en papel pone @page. */
-    const limite=((parseFloat(cs.minHeight)||parseFloat(cs.maxHeight))||0)+relleno;
-    if(!limite)return;
-    const margen=Math.max(limite*0.005,3);
-    const tope=limite-margen;
+    /* La hoja tiene min-height y su pie usa margin-top:auto, así que
+       scrollHeight NUNCA baja de ese mínimo: aunque lleve un solo renglón,
+       mide una hoja completa. Comparar scrollHeight contra el mínimo daba
+       siempre "desborda" y la cotización salía a un análisis por hoja.
+       Para medir el contenido DE VERDAD se anula el mínimo un instante: sin
+       él la hoja se encoge a lo que ocupa, y restándole el relleno queda el
+       alto real del contenido. La capacidad es ese mismo min-height, que
+       vale igual en pantalla y en papel -- por eso la previa y la impresora
+       reparten las filas idéntico. */
+    const capacidad=(parseFloat(cs.minHeight)||parseFloat(cs.maxHeight))||0;
+    if(!capacidad)return;
+    const margen=Math.max(capacidad*0.005,3);
+    const altoContenido=h=>{
+      const antes=h.style.minHeight;
+      h.style.minHeight='0';
+      const alto=h.scrollHeight-relleno;
+      h.style.minHeight=antes;
+      return alto;
+    };
+    /* El margen se RESTA, no se suma: en impresión la hoja lleva
+       max-height:262mm con overflow:hidden, así que pasarse aunque sea medio
+       milímetro recorta el pie. Cortar un pelo antes solo cuesta, de vez en
+       cuando, un renglón que baja a la hoja siguiente. */
+    const desborda=h=>altoContenido(h)>capacidad-margen;
 
     /* Se reconstruye de cero en vez de ir empujando filas entre hojas: así el
        reparto depende solo de lo que mide cada fila, y el proceso termina por
@@ -10746,7 +10767,7 @@ function repaginarPaginas(win){
       tb.appendChild(fila);
       // Si esta fila hizo desbordar y no es la única de la hoja, se pasa entera
       // a una hoja nueva: nunca se corta un renglón por la mitad.
-      if(hoja.scrollHeight>tope&&tb.rows.length>1){
+      if(desborda(hoja)&&tb.rows.length>1){
         fila.remove();
         hoja=nuevaHoja(); tb=hoja.querySelector(FILAS);
         tb.appendChild(fila);
@@ -10758,7 +10779,7 @@ function repaginarPaginas(win){
       const meter=h=>{ const ref=h.querySelector('.cond')||null;
         cola.forEach(e=>ref?h.insertBefore(e,ref):h.appendChild(e)); };
       meter(hoja);
-      if(hoja.scrollHeight>tope&&tb.rows.length){
+      if(desborda(hoja)&&tb.rows.length){
         cola.forEach(e=>e.remove());
         hoja=nuevaHoja(); meter(hoja);
       }
