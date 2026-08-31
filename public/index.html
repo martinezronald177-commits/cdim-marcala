@@ -6423,14 +6423,43 @@ function calcRecibo(r){
     isv15,isv18,isv,total:round2(base+isv)};
 }
 
-function vRecibos(filtro=''){
+/* Mismo selector Día/Mes/Todas que Facturas (25_facturas.js), para que las
+   dos secciones de cobro se manejen igual. Aquí el modo arranca en "Todas":
+   el recibo de venta no lleva rango autorizado ni correlativo que vigilar por
+   día, así que lo natural es ver el histórico completo y acotar solo si se
+   busca algo puntual. Quedan en memoria, sin guardarse. */
+let _recQ='', _recModo='todas', _recFecha=hoy(), _recMes='';
+function recibosFiltrados(){
+  const f=normTxt(_recQ||'');
+  let lista=S.recibos.slice();
+  if(f){
+    lista=lista.filter(r=>normTxt(r.numero+' '+r.clienteNombre+' '+(r.clienteId||'')+' '+(r.ot||'')).includes(f));
+  }else if(_recModo==='mes'&&_recMes){
+    lista=lista.filter(r=>r.fecha.startsWith(_recMes));
+  }else if(_recModo==='dia'&&_recFecha){
+    lista=lista.filter(r=>r.fecha===_recFecha);
+  }
+  return lista.slice().reverse();
+}
+function cambiarModoRecibos(modo){
+  _recModo=modo;
+  if(modo==='mes'&&!_recMes)_recMes=hoy().slice(0,7);
+  if(modo==='dia'&&!_recFecha)_recFecha=hoy();
+  vRecibos();
+}
+function filtrarVistaRecibos(){
+  _recQ=document.getElementById('q_rec')?.value||'';
+  if(_recModo==='mes')_recMes=document.getElementById('rec_mes')?.value||'';
+  else if(_recModo==='dia')_recFecha=document.getElementById('rec_fecha')?.value||'';
+  const l=document.getElementById('lista_rec');if(l)l.innerHTML=filasRecibos();
+  const c=document.getElementById('rec_conteo');if(c)c.textContent=recibosFiltrados().length+' recibo(s)';
+}
+function verTodosLosRecibos(){_recModo='todas';_recQ='';vRecibos();}
+function vRecibos(filtro){
+  if(filtro!==undefined)_recQ=filtro;
   vista.innerHTML=`
   <div class="cabecera"><h2>Recibos de Venta</h2>
-    <div style="display:flex;gap:10px">
-      <input class="busqueda" id="q_rec" placeholder="Buscar por número, cliente, orden o identificación…"
-        value="${esc(filtro)}" oninput="document.getElementById('lista_rec').innerHTML=filasRecibos(this.value)">
-      <button class="btn btn-p" onclick="modalRecibo()">+ Nuevo recibo</button>
-    </div>
+    <button class="btn btn-p" onclick="modalRecibo()">+ Nuevo recibo</button>
   </div>
   ${(()=>{const mes=hoy().slice(0,7);
     const delMes=S.recibos.filter(r=>r.fecha.startsWith(mes)&&!r.anulado);
@@ -6442,15 +6471,37 @@ function vRecibos(filtro=''){
       <div class="kpi" style="border-left-color:var(--dorado)"><div class="n" style="color:var(--dorado)">${L(tot)}</div><div class="t">Facturado del mes</div></div>
       <div class="kpi" style="border-left-color:var(--rojo)"><div class="n" style="color:var(--rojo)">${anul}</div><div class="t">Anulados del mes</div></div>
     </div>`;})()}
-  <div class="tarjeta" id="lista_rec">${filasRecibos(filtro)}</div>
+  <div class="tarjeta">
+    <div class="ord-filtros">
+      <input class="busqueda" id="q_rec" placeholder="Buscar por número, cliente, orden o identificación en todo el historial…"
+        value="${esc(_recQ)}" oninput="filtrarVistaRecibos()">
+      <select onchange="cambiarModoRecibos(this.value)" style="width:110px">
+        <option value="todas" ${_recModo==='todas'?'selected':''}>Todos</option>
+        <option value="dia" ${_recModo==='dia'?'selected':''}>Día</option>
+        <option value="mes" ${_recModo==='mes'?'selected':''}>Mes</option>
+      </select>
+      ${_recModo==='todas'
+        ?`<span class="chip chip-az" title="Todos los recibos emitidos, de cualquier fecha">Todos los emitidos</span>`
+        :_recModo==='mes'
+        ?`<input type="month" id="rec_mes" value="${_recMes||hoy().slice(0,7)}" onchange="filtrarVistaRecibos()">`
+        :`<label class="ord-fecha-lbl" title="Ver los recibos de otro día">📅
+        <input type="date" id="rec_fecha" value="${_recFecha}" onchange="filtrarVistaRecibos()">
+      </label>`}
+      ${_recModo!=='todas'?`<button class="btn btn-g btn-min" onclick="verTodosLosRecibos()">Ver todos los emitidos</button>`:''}
+      <span class="ord-conteo" id="rec_conteo">${recibosFiltrados().length} recibo(s)</span>
+    </div>
+    <div id="lista_rec">${filasRecibos()}</div>
+  </div>
   <div class="aviso">Próximo número: <b>${numeroRecibo()}</b>${S.config.facturaSerie?` · Serie autorizada ${esc(S.config.facturaSerie)}`:''}.
     Los recibos anulados conservan su número y quedan registrados en la bitácora, como exige el control correlativo.</div>`;
-  const q=document.getElementById('q_rec');if(q&&filtro)q.focus();
+  const q=document.getElementById('q_rec');if(q&&_recQ)q.focus();
 }
-function filasRecibos(filtro=''){
-  const f=normTxt(filtro);
-  const lista=S.recibos.filter(r=>normTxt(r.numero+' '+r.clienteNombre+' '+(r.clienteId||'')+' '+(r.ot||'')).includes(f)).slice().reverse();
-  if(!lista.length)return `<div class="vacio">${filtro?'Ningún recibo coincide con “'+esc(filtro)+'”.':'Sin recibos emitidos. Crea el primero con “+ Nuevo recibo”.'}</div>`;
+function filasRecibos(){
+  const lista=recibosFiltrados();
+  if(!lista.length)return `<div class="vacio">${_recQ?'Ningún recibo coincide con “'+esc(_recQ)+'”.'
+    :(_recModo==='mes'&&_recMes)?'Sin recibos ese mes.'
+    :(_recModo==='dia'&&_recFecha)?'Sin recibos de ese día.'
+    :'Sin recibos emitidos. Crea el primero con “+ Nuevo recibo”.'}</div>`;
   return `<table><thead><tr><th>No.</th><th>Fecha</th><th>Cliente</th><th>Concepto</th><th>Método</th><th style="text-align:right">Total</th><th>Estado</th><th></th></tr></thead><tbody>
     ${lista.map(r=>{const t=calcRecibo(r);return `<tr class="${r.anulado?'fila-anulada':''}">
       <td><b>${r.numero}</b>${r.ot?`<div style="font-size:9.5px;color:var(--gris)">Orden ${r.ot}</div>`:''}</td>
@@ -6949,15 +7000,17 @@ function facturasFiltradas(){
   }else if(_facModo==='dia'&&_facFecha){
     lista=lista.filter(x=>x.fecha===_facFecha);
   }
+  // _facModo==='todas': sin filtro de fecha, todas las emitidas.
   return lista.slice().reverse();
 }
 function botonesExtraFacturas(){
   const hy=hoy();
   const enHoySinBusqueda=!_facQ&&_facModo==='dia'&&_facFecha===hy;
-  const filtrandoOtro=!_facQ&&(_facModo==='mes'||(_facModo==='dia'&&_facFecha&&_facFecha!==hy));
+  const filtrandoPorFecha=!_facQ&&_facModo!=='todas'&&
+    (_facModo==='mes'||(_facModo==='dia'&&_facFecha));
   const n=facturasFiltradas().length;
   return `${!enHoySinBusqueda?`<button class="btn btn-g btn-min" onclick="irFacturasHoy()">📅 Hoy</button>`:''}
-  ${filtrandoOtro?`<button class="btn btn-g btn-min" onclick="verTodoHistorialFacturas()">Ver todo el historial</button>`:''}
+  ${filtrandoPorFecha?`<button class="btn btn-g btn-min" onclick="verTodoHistorialFacturas()">Ver todas las emitidas</button>`:''}
   <span class="ord-conteo">${n} factura(s)</span>`;
 }
 /* Mismo "Ver más" que Órdenes: facturasFiltradas() se deja SIN recortar
@@ -6977,18 +7030,19 @@ function verMasFacturas(){_topeFac+=150;const l=document.getElementById('lista_f
 function cambiarModoFacturas(modo){
   _facModo=modo;
   if(modo==='mes'&&!_facMes)_facMes=hoy().slice(0,7);
+  _topeFac=150;
   vFacturas();
 }
 function filtrarVistaFacturas(){
   _facQ=document.getElementById('fac_q')?.value||'';
   if(_facModo==='mes')_facMes=document.getElementById('fac_mes')?.value||'';
-  else _facFecha=document.getElementById('fac_fecha')?.value||'';
+  else if(_facModo==='dia')_facFecha=document.getElementById('fac_fecha')?.value||'';
   _topeFac=150;
   const l=document.getElementById('lista_fac');if(l)l.innerHTML=contenidoListaFacturas();
   const eb=document.getElementById('fac_extra_btns');if(eb)eb.innerHTML=botonesExtraFacturas();
 }
 function irFacturasHoy(){_facModo='dia';_facFecha=hoy();_facQ='';_topeFac=150;vFacturas();}
-function verTodoHistorialFacturas(){_facModo='dia';_facFecha='';_facQ='';_topeFac=150;vFacturas();}
+function verTodoHistorialFacturas(){_facModo='todas';_facQ='';_topeFac=150;vFacturas();}
 
 function vFacturas(){
   const c=S.config;
@@ -7029,11 +7083,18 @@ function vFacturas(){
     <div class="ord-filtros">
       <input class="busqueda" id="fac_q" placeholder="Buscar por número, cliente, identificación (DNI/RTN/Pasaporte) u orden en todo el historial…"
         value="${esc(_facQ)}" oninput="filtrarVistaFacturas()">
-      <select onchange="cambiarModoFacturas(this.value)" style="width:100px">
+      ${/* "Todas" en el propio selector: el botón "Ver todo el historial" solo
+            aparecía cuando ya se estaba filtrando OTRO día, así que desde la
+            vista por defecto -la de hoy- no había ninguna forma de llegar a
+            todas las facturas emitidas. */''}
+      <select onchange="cambiarModoFacturas(this.value)" style="width:110px">
         <option value="dia" ${_facModo==='dia'?'selected':''}>Día</option>
         <option value="mes" ${_facModo==='mes'?'selected':''}>Mes</option>
+        <option value="todas" ${_facModo==='todas'?'selected':''}>Todas</option>
       </select>
-      ${_facModo==='mes'
+      ${_facModo==='todas'
+        ?`<span class="chip chip-az" title="Todas las facturas emitidas, de cualquier fecha">Todas las emitidas</span>`
+        :_facModo==='mes'
         ?`<input type="month" id="fac_mes" value="${_facMes||hoy().slice(0,7)}" onchange="filtrarVistaFacturas()">`
         :`<label class="ord-fecha-lbl" title="Ver las facturas de otro día">📅
         <input type="date" id="fac_fecha" value="${_facFecha}" onchange="filtrarVistaFacturas()">
@@ -7048,7 +7109,10 @@ function vFacturas(){
   if(_facQ){const q=document.getElementById('fac_q');if(q)q.focus();}
 }
 function tablaFacturas(lista){
-  if(!lista.length)return `<div class="vacio">${_facQ?'Ninguna factura coincide con “'+esc(_facQ)+'”.':(_facModo==='mes'&&_facMes)?'Sin facturas ese mes.':_facFecha?'Sin facturas de ese día.':'Sin facturas emitidas. Crea la primera con “+ Nueva factura”.'}</div>`;
+  if(!lista.length)return `<div class="vacio">${_facQ?'Ninguna factura coincide con “'+esc(_facQ)+'”.'
+    :(_facModo==='mes'&&_facMes)?'Sin facturas ese mes.'
+    :(_facModo==='dia'&&_facFecha)?'Sin facturas de ese día.'
+    :'Sin facturas emitidas. Crea la primera con “+ Nueva factura”.'}</div>`;
   return `<table><thead><tr><th>No.</th><th>Fecha</th><th>Cliente</th><th>Identificación</th><th>Concepto</th><th>Método</th><th style="text-align:right">Total</th><th>Estado</th><th></th></tr></thead><tbody>
     ${lista.map(x=>{const t=calcFactura(x);return `<tr class="${x.anulado?'fila-anulada':''}">
       <td><b>${x.numero}</b>${x.ot?`<div style="font-size:9.5px;color:var(--gris)">Orden ${x.ot}</div>`:''}</td>
