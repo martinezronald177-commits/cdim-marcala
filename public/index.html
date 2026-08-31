@@ -6450,7 +6450,12 @@ const cssReciboVenta=`
  .rv-caja .lbl{font-weight:800;text-align:right}
  .rv-caja .val{text-align:right;font-variant-numeric:tabular-nums}
  .rv-caja .fila-total td{border-top:1.3px solid #111;font-size:12pt;font-weight:800;padding-top:5px}
- .rv-firmas{display:grid;grid-template-columns:1fr 1fr;gap:24mm;margin-top:auto;padding-top:14mm;font-size:9pt}
+ /* Columna izquierda más ancha y separación menor: en la izquierda va la
+    firma con los sellos (hasta 101 mm de ancho con las tres marcas) y a
+    1fr/1fr con 24 mm de separación la columna medía 87 mm, así que los sellos
+    se salían por el margen izquierdo del papel. El padding baja de 14 a 6 mm
+    porque ese hueco en blanco ya lo llena el propio bloque de sellos. */
+ .rv-firmas{display:grid;grid-template-columns:1.35fr 1fr;gap:12mm;margin-top:auto;padding-top:6mm;font-size:9pt}
  .rv-linea{border-top:1.1px solid #111;padding-top:2.5mm;text-align:center;color:#333}
  .rv-pie{margin-top:8mm;border-top:1.6px solid #111;padding-top:5px;font-size:8.2pt;color:#222;text-align:center;line-height:1.65}
  .rv-anulado{position:absolute;top:42%;left:50%;transform:translate(-50%,-50%) rotate(-18deg);
@@ -9867,7 +9872,7 @@ const cssCotizacion=`
  .pago{display:grid;grid-template-columns:1fr 1fr;gap:16px;background:#f2f2f2;border-radius:6px;padding:7px 14px;margin-top:5px;font-size:8.6pt}
  table.items{width:100%;border-collapse:collapse;margin-top:10px}
  table.items thead th{border-bottom:1.4px solid #285068;font-size:8.4pt;font-weight:800;padding:5px 6px;text-align:left;color:#1c2b36}
- table.items td{padding:4px 6px;font-size:8.6pt;border-bottom:.4px solid #eeeeee}
+ table.items td{padding:3px 6px;font-size:8.6pt;border-bottom:.4px solid #eeeeee}
  .num{text-align:right;white-space:nowrap}
  .c-art{width:44px;text-align:right}
  .c-eg{width:28px;text-align:center;font-weight:800}
@@ -9876,7 +9881,12 @@ const cssCotizacion=`
  .c-pre{width:78px;text-align:right}
  .c-des{width:78px;text-align:right}
  .c-tot{width:86px;text-align:right;font-weight:700}
- .totales{display:flex;justify-content:space-between;gap:20px;margin-top:12px;align-items:flex-start}
+ /* Márgenes verticales apretados (ago. 2026): con firma y los dos sellos
+    marcados, el bloque de firma aporta 30 mm que antes no existían y la
+    cotización se pasaba de la hoja, cortando las condiciones y empujando el
+    pie institucional a una segunda página. Se recuperaron ~22 mm del aire
+    que ya sobraba entre bloques, sin tocar tamaños de letra. */
+ .totales{display:flex;justify-content:space-between;gap:20px;margin-top:8px;align-items:flex-start}
  .en-letras{font-size:8.6pt;padding-top:4px;flex:1}
  .caja-tot{width:250px}
  .caja-tot table{width:100%;border-collapse:collapse}
@@ -9885,16 +9895,26 @@ const cssCotizacion=`
  .caja-tot .sim{width:24px;color:#333333}
  .caja-tot .val{text-align:right;font-variant-numeric:tabular-nums}
  .caja-tot .fila-total td{border-top:1.3px solid #285068;font-size:10pt;font-weight:800;color:#285068;padding-top:5px}
- .nota{margin-top:14px;font-size:8.6pt}
- .cot-firma{margin-top:16px;text-align:center}
+ .nota{margin-top:9px;font-size:8.6pt}
+ .cot-firma{margin-top:8px;text-align:center}
+ /* Los sellos se centran dentro de una banda que termina ANTES de la caja de
+    totales (que arranca en 149.8 mm): lo que sobresale del sello del
+    laboratorio sube al costado de esa caja, y centrado en toda la hoja le
+    tapaba «Descuento», «Impuesto» y «Total». Dentro de la banda sube contra
+    la franja en blanco que queda bajo el total en letras, sin cubrir ninguna
+    cifra, y se mantiene bajo la línea de firma se marquen uno, dos o los
+    tres sellos. La línea de firma sigue centrada en la hoja. */
+ .cot-firma .firma-lab-img{padding-left:47mm;padding-right:68mm}
  .cot-firma-linea{border-top:1.3px solid #1c2b36;width:64mm;margin:0 auto}
  .cot-firma-nom{font-size:9pt;font-weight:800;color:#1c2b36;margin-top:3px}
  .cot-firma-sub{font-size:7.6pt;color:#667}
- .cond{margin-top:auto;padding-top:14px;font-size:7.8pt;color:#333333;line-height:1.75}
+ /* line-height 1.5 en vez de 1.75: son cinco renglones de letra chica, y a
+    1.75 el interlineado solo aportaba 5 mm de aire. */
+ .cond{margin-top:auto;padding-top:8px;font-size:7.8pt;color:#333333;line-height:1.5}
  .cond div{margin-bottom:1px}
- .rev{display:flex;justify-content:space-between;align-items:center;font-size:8pt;margin-top:8px}
+ .rev{display:flex;justify-content:space-between;align-items:center;font-size:8pt;margin-top:5px}
  .rev b{color:#1c2b36}
- .pie-inst{margin-top:8px;border-top:2px solid #285068;padding-top:6px}
+ .pie-inst{margin-top:5px;border-top:2px solid #285068;padding-top:4px}
  .pie-serv{background:#285068;color:#fff;font-size:7pt;font-weight:600;text-align:center;padding:3.5px 6px;border-radius:4px}
  .pie-dir{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:12px;font-size:7pt;color:#333;margin-top:6px;line-height:1.5}
  .pie-web{text-align:center;font-size:7.6pt;font-weight:700;color:#111;letter-spacing:1.5px;margin-top:5px}`;
@@ -10030,7 +10050,8 @@ function imprimirCotizacion(n){
         <tr class="fila-total"><td class="lbl">Total:</td><td class="sim">${sim}</td><td class="val">${moneda(t.total)}</td></tr>
       </table></div>
     </div>
-    <div class="nota"><b>Nota:</b> ${esc(c.nota||'')}</div>
+    ${/* Sin nota escrita, el rótulo solo gastaba 7 mm de alto en blanco. */''
+     }${c.nota?`<div class="nota"><b>Nota:</b> ${esc(c.nota)}</div>`:''}
     <div class="cot-firma">
       <div class="firma-lab">
         ${bloqueFirmaSello(cf)}
@@ -10131,8 +10152,16 @@ const cssCabeceraDoc=`
     letras y los totales. Así se coloca solo encima de la línea de firma y
     empuja lo que venga arriba; y cuando no se marca ningún sello el span ni
     se genera, de modo que no queda hueco en blanco. */
+ /* Reserva 30 mm -- el alto de un sello redondo, que es el caso normal -- y
+    deja que lo que sea más alto sobresalga HACIA ARRIBA (align-items:flex-end
+    + overflow visible). El sello del laboratorio mide 45 mm porque arrastra
+    la caja fiscal; reservarle los 45 mm completos empujaba el documento 15 mm
+    y tumbaba la cotización y la factura a una segunda página. Esos 15 mm
+    sobresalen sobre la franja en blanco que siempre queda entre los totales y
+    la línea de firma, donde no hay texto que tapar. */
  .firma-lab-img{display:flex;align-items:flex-end;justify-content:center;
-   gap:3mm;line-height:0;margin-bottom:1.5mm}
+   gap:3mm;line-height:0;margin-bottom:1mm;height:26mm}
+ .firma-lab-img img{flex:none}
  /* 18 mm de alto: la firma tiene que leerse como firma al lado de sellos de
     30 y 40 mm. A la altura del informe (48px ≈ 12.7 mm) quedaba empequeñecida
     entre los dos sellos, que allí no la acompañan. */
