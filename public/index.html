@@ -753,6 +753,7 @@ td,th,.ci-txt b,.ci-sub{overflow-wrap:anywhere}
     <button data-v="perfiles" aria-label="Combos / Perfiles"><span class="ico" aria-hidden="true">📦</span>Combos / Perfiles</button>
     <button data-v="cotizaciones" aria-label="Cotizaciones"><span class="ico" aria-hidden="true">L</span>Cotizaciones</button>
     <button data-v="ordenes" aria-label="Órdenes de Trabajo"><span class="ico" aria-hidden="true">✓</span>Órdenes de Trabajo</button>
+    <button data-v="resultados" aria-label="Resultados validados"><span class="ico" aria-hidden="true">📄</span>Resultados</button>
     <button data-v="etiquetas" aria-label="Etiquetas 57×32"><span class="ico" aria-hidden="true">▤</span>Etiquetas 57×32</button>
     <button data-v="instructivos" aria-label="Instructivos de preparación"><span class="ico" aria-hidden="true">📋</span>Instructivos</button>
     <button data-v="recibos" aria-label="Recibos de Venta"><span class="ico" aria-hidden="true">₤</span>Recibos de Venta</button>
@@ -1931,6 +1932,9 @@ function render(v,arg){
   if((v==='calidad'||v==='sgc')&&!puede('calidad')){toast('No tienes permiso para el módulo de calidad');v='inicio';}
   if(v==='almacen'&&!puede('almacen')){toast('No tienes permiso para el almacén');v='inicio';}
   if(v==='pacientes'&&!puede('pacientes')){toast('No tienes permiso para ver pacientes');v='inicio';}
+  // Resultados solo deja consultar y descargar informes ya validados: se rige
+  // por el mismo permiso con el que se ve el expediente del paciente.
+  if(v==='resultados'&&!puede('pacientes')){toast('No tienes permiso para ver resultados');v='inicio';}
   if(v==='medicos'&&!puede('pacientes')){toast('No tienes permiso para administrar médicos');v='inicio';}
   if((v==='config'&&!puede('config'))||(v==='usuarios'&&!puede('usuarios'))){
     toast('No tienes permiso para esta sección');v='inicio';
@@ -1943,6 +1947,7 @@ function render(v,arg){
   else if(v==='medicos')vMedicos();
   else if(v==='cotizaciones')vCotizaciones();
   else if(v==='ordenes')vOrdenes(arg);
+  else if(v==='resultados')vResultados();
   else if(v==='etiquetas')vEtiquetas();
   else if(v==='recibos')vRecibos();
   else if(v==='facturas')vFacturas();
@@ -6162,6 +6167,175 @@ function srvValidarExamen(n, ei, opts={}){
   guardar(true);
   return {ok:true, ordenCompleta, nombre:e.nombre};
 }
+/* =============== RESULTADOS (solo consulta) ===============
+   Archivo de informes ya validados, separado de Órdenes de Trabajo.
+
+   Órdenes de Trabajo es la vista OPERATIVA: se abre en el día de hoy, y
+   desde ahí se cobra, se captura, se modifica y se valida. Para buscar el
+   informe de un paciente de hace tres meses y volver a mandárselo, esa vista
+   estorba: obliga a recordar la fecha o el número, y ofrece botones que ahí
+   no se necesitan.
+
+   Esta sección solo LEE. No cobra, no modifica, no valida y no borra: lista
+   las órdenes que ya tienen al menos un examen validado y deja verlas o
+   bajarlas en PDF. Una orden sin nada validado no aparece -- todavía no hay
+   informe que entregar.
+
+   El filtro es por RANGO de fechas (no por un día suelto como en Órdenes):
+   aquí se busca hacia atrás en el historial, no se trabaja el día. */
+
+let _resQ='';                    // texto: paciente, DNI o número de orden
+let _resDesde='';                // rango de fechas (vacío = sin límite)
+let _resHasta='';
+let _resSolo='todos';            // todos | completos | parciales
+let _topeRes=100;
+
+/* Estado de validación de una orden, calculado una sola vez por fila. */
+function estadoValidacion(o){
+  const total=o.examenes.length;
+  const val=o.examenes.filter(e=>e.validado).length;
+  return {total, val, completo:val>0&&val===total, parcial:val>0&&val<total, hayInforme:val>0};
+}
+/* Fecha y firmante del informe: los del ÚLTIMO examen validado. En una orden
+   parcial, o.fechaValidacion sigue vacío (ver imprimirSoloValidados), así que
+   no sirve para ordenar ni para mostrar. */
+function firmaInforme(o){
+  const val=o.examenes.filter(e=>e.validado);
+  if(!val.length)return null;
+  const u=[...val].sort((a,b)=>((a.fechaValidacion||'')+' '+(a.horaValidacion||''))
+    .localeCompare((b.fechaValidacion||'')+' '+(b.horaValidacion||''))).pop();
+  return {fecha:u.fechaValidacion||o.fechaValidacion||o.fecha,
+          hora:u.horaValidacion||o.horaValidacion||'',
+          por:u.validadoPor||o.validadoPor||''};
+}
+function resultadosFiltrados(){
+  const f=normTxt(_resQ||'');
+  let lista=S.ordenes.filter(o=>estadoValidacion(o).hayInforme);
+  if(_resSolo==='completos')lista=lista.filter(o=>estadoValidacion(o).completo);
+  else if(_resSolo==='parciales')lista=lista.filter(o=>estadoValidacion(o).parcial);
+  if(_resDesde)lista=lista.filter(o=>o.fecha>=_resDesde);
+  if(_resHasta)lista=lista.filter(o=>o.fecha<=_resHasta);
+  if(f){
+    lista=lista.filter(o=>{
+      const pac=S.pacientes.find(x=>x.codigo===o.pacCodigo);
+      return normTxt(o.numero+' '+o.pacienteNombre+' '+((pac&&pac.idNumero)||'')).includes(f);
+    });
+  }
+  // Más reciente primero: por fecha de validación, que es lo que se entregó.
+  return lista.sort((a,b)=>{
+    const fa=firmaInforme(a), fb=firmaInforme(b);
+    return ((fb.fecha||'')+' '+(fb.hora||'')).localeCompare((fa.fecha||'')+' '+(fa.hora||''));
+  });
+}
+function filtrarVistaResultados(){
+  _resQ=document.getElementById('res_q')?.value||'';
+  _resDesde=document.getElementById('res_desde')?.value||'';
+  _resHasta=document.getElementById('res_hasta')?.value||'';
+  _resSolo=document.getElementById('res_solo')?.value||'todos';
+  _topeRes=100;
+  const l=document.getElementById('lista_res');if(l)l.innerHTML=contenidoListaResultados();
+  const c=document.getElementById('res_conteo');if(c)c.textContent=resultadosFiltrados().length+' informe(s)';
+}
+function limpiarFiltrosResultados(){
+  _resQ='';_resDesde='';_resHasta='';_resSolo='todos';_topeRes=100;vResultados();
+}
+/* Atajo de uso diario: lo validado en los últimos 30 días. */
+function resultadosUltimoMes(){
+  const d=new Date(hoy()+'T12:00:00');d.setDate(d.getDate()-30);
+  _resDesde=d.toISOString().slice(0,10);_resHasta='';_resQ='';_resSolo='todos';_topeRes=100;
+  vResultados();
+}
+function verMasResultados(){_topeRes+=100;const l=document.getElementById('lista_res');if(l)l.innerHTML=contenidoListaResultados();}
+
+function tablaResultados(lista){
+  if(!lista.length)return `<div class="vacio">Ningún informe validado con esos filtros.<br>
+    <span style="font-size:12px">Un informe aparece aquí en cuanto se valida al menos un examen de la orden.</span></div>`;
+  return `<table class="tabla-ordenes"><thead><tr>
+    <th style="width:16%">No. de orden</th><th style="width:24%">Paciente</th>
+    <th class="col-sec" style="width:18%">Exámenes</th>
+    <th style="width:16%">Validado</th><th style="width:11%">Informe</th>
+    <th style="width:15%;text-align:right">Acciones</th>
+  </tr></thead><tbody>
+  ${lista.map(o=>{
+    const v=estadoValidacion(o), fi=firmaInforme(o), dg=desglosarOrden(o.numero);
+    const ids=o.examenes.filter(e=>e.validado).map(e=>e.id);
+    return `<tr>
+    <td><b style="letter-spacing:.3px">${o.numero}</b>
+      ${dg?`<div class="cel-sub">Suc. ${dg.sucursal} · ${dg.dia}/${dg.mes}/${dg.anio}</div>`:''}
+      <div class="cel-sub">Tomada: ${fmtFecha(o.fecha)}</div></td>
+    <td><b>${esc(o.pacienteNombre)}</b></td>
+    <td class="cel-ex col-sec" title="${esc(ids.join(', '))}">${esc(ids.slice(0,4).join(', '))}${ids.length>4?` <span class="cel-sub">+${ids.length-4}</span>`:''}</td>
+    <td>${fi&&fi.fecha?fmtFecha(fi.fecha):'—'}${fi&&fi.hora?` <span class="cel-sub">${hora12(fi.hora)}</span>`:''}
+      ${fi&&fi.por?`<div class="cel-sub">${esc(fi.por)}</div>`:''}</td>
+    <td>${v.completo?'<span class="chip chip-vd">Completo</span>'
+        :`<span class="chip chip-am">Parcial ${v.val}/${v.total}</span>`}</td>
+    <td class="cel-acc">
+      <button class="btn btn-p btn-min" onclick="verInformeValidado('${o.numero}')">Ver</button>
+      <button class="btn btn-g btn-min" onclick="pdfInformeValidado('${o.numero}')">PDF</button>
+    </td></tr>`;}).join('')}
+  </tbody></table>`;
+}
+function contenidoListaResultados(){
+  const todos=resultadosFiltrados();
+  const lista=todos.slice(0,_topeRes);
+  const resto=todos.length-lista.length;
+  return `${resto>0?`<div class="aviso" style="margin-bottom:8px">Mostrando ${lista.length} de ${todos.length} informes.
+    <button class="btn btn-g btn-min" onclick="verMasResultados()">Ver 100 más</button>
+    <span style="color:var(--gris)">· afina con el buscador o el rango de fechas</span></div>`:''}${tablaResultados(lista)}`;
+}
+/* Ver y descargar SIEMPRE entregan solo lo validado, tanto si la orden está
+   completa como si va a medias: esta sección es el archivo de lo que ya se
+   puede entregar, así que nunca saca un informe con marca de preliminar. */
+function verInformeValidado(n){
+  const o=S.ordenes.find(x=>x.numero===n);
+  if(!o)return;
+  const v=estadoValidacion(o);
+  if(!v.hayInforme){toast('Esta orden todavía no tiene ningún examen validado');return;}
+  previsualizar(()=>v.completo?imprimirResultados(n):imprimirSoloValidados(n),
+    'Informe · '+n+' · '+o.pacienteNombre,'Imprimir');
+}
+function pdfInformeValidado(n){
+  const o=S.ordenes.find(x=>x.numero===n);
+  if(!o)return;
+  const v=estadoValidacion(o);
+  if(!v.hayInforme){toast('Esta orden todavía no tiene ningún examen validado');return;}
+  modalPDF(v.completo?'informe':'informeValidados',n);
+}
+
+function vResultados(){
+  const n=resultadosFiltrados().length;
+  vista.innerHTML=`
+  <div class="cabecera"><h2>Resultados</h2>
+    <button class="btn btn-g" onclick="resultadosUltimoMes()">Últimos 30 días</button></div>
+  <div class="tarjeta">
+    <div class="aviso" style="margin-bottom:10px;font-size:12.5px">
+      Archivo de <b>informes ya validados</b>, solo para consultarlos y descargarlos.
+      Para capturar, validar o cobrar, usa <b>Órdenes de Trabajo</b>.
+    </div>
+    <div class="ord-filtros">
+      <input class="busqueda" id="res_q" placeholder="Buscar por paciente, DNI o número de orden…"
+        value="${esc(_resQ)}" oninput="filtrarVistaResultados()">
+      <label class="ord-fecha-lbl" title="Desde esta fecha de toma">Desde
+        <input type="date" id="res_desde" value="${_resDesde}" onchange="filtrarVistaResultados()">
+      </label>
+      <label class="ord-fecha-lbl" title="Hasta esta fecha de toma">Hasta
+        <input type="date" id="res_hasta" value="${_resHasta}" onchange="filtrarVistaResultados()">
+      </label>
+      <label class="ord-fecha-lbl" title="Órdenes validadas por completo o a medias">Informe
+        <select id="res_solo" onchange="filtrarVistaResultados()" style="width:auto">
+          <option value="todos"${_resSolo==='todos'?' selected':''}>Todos</option>
+          <option value="completos"${_resSolo==='completos'?' selected':''}>Solo completos</option>
+          <option value="parciales"${_resSolo==='parciales'?' selected':''}>Solo parciales</option>
+        </select>
+      </label>
+      ${(_resQ||_resDesde||_resHasta||_resSolo!=='todos')
+        ?`<button class="btn btn-g btn-min" onclick="limpiarFiltrosResultados()">Limpiar filtros</button>`:''}
+      <span class="ord-conteo" id="res_conteo">${n} informe(s)</span>
+    </div>
+    <div id="lista_res">${contenidoListaResultados()}</div>
+  </div>`;
+  const q=document.getElementById('res_q');if(q&&_resQ)q.focus();
+}
 /* =============== RECIBOS DE VENTA =============== */
 function numeroRecibo(){
   const c=S.config;
@@ -9630,6 +9804,9 @@ const cssAplanado=`
 function modalPDF(tipo,id){
   const gen=tipo==='cotizacion'?(()=>imprimirCotizacion(id))
           :tipo==='informe'?(()=>imprimirResultados(id))
+          // Orden validada a medias: el PDF sale con SOLO lo ya validado, sin
+          // marca de preliminar (lo usa la sección Resultados).
+          :tipo==='informeValidados'?(()=>imprimirSoloValidados(id))
           :tipo==='recibo'?(()=>imprimirReciboVenta(id))
           :tipo==='factura'?(()=>imprimirFactura(id))
           :tipo==='instructivo'?(()=>imprimirInstructivos(id))
