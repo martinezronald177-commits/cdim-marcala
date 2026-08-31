@@ -1146,6 +1146,27 @@ function migrarEstado(s){
       if(n)console.log(`[CDIM] Hora de validación recuperada en ${n} orden(es)`);
       s.meta.horaValV1=true;
     }
+    if(!s.meta.descCotV1){
+      /* Las órdenes creadas desde una cotización guardaban su total ya
+         descontado, pero no el descuento: srvCrearOrdenDesdeCotizacion() no le
+         pasaba a nuevaOrden() ni los precios de línea ni el porcentaje global,
+         así que quedaban con descPct 0. Como el recibo y la factura se
+         precargan leyendo justamente ese campo, salían a precio de lista: se
+         cotizaba con descuento y se cobraba sin él.
+         El desglose por línea ya no se puede reconstruir, pero sí el
+         porcentaje: lo que el total tiene de menos frente al subtotal. Puesto
+         como descuento global da exactamente el mismo total cobrado. */
+      let n=0;
+      (s.ordenes||[]).forEach(o=>{
+        if(!o.cot || o.descPct || !o.subtotal || !(o.subtotal>o.total)) return;
+        if((o.examenes||[]).some(e=>Number(e.descPct)||Number(e.descuento))) return;
+        o.descuento=Math.round((o.subtotal-o.total)*100)/100;
+        o.descPct=Math.round((o.descuento/o.subtotal)*10000)/100;
+        n++;
+      });
+      if(n)console.log(`[CDIM] Descuento recuperado en ${n} orden(es) creada(s) desde cotización`);
+      s.meta.descCotV1=true;
+    }
     if(!s.meta.cotV1){
       // Las cotizaciones anteriores se marcan como originadas internamente
       (s.cotizaciones||[]).forEach(c=>{
@@ -3814,7 +3835,12 @@ function modalVerCotizacion(n){
     <button class="btn btn-g" onclick="modalPDF('cotizacion','${n}')">⬇ PDF</button>
     ${!c.ot?`<button class="btn btn-g" onclick="modalCotizacion('${n}')">✎ Modificar</button>
     <button class="btn btn-v" onclick="cotAOrden('${n}')">→ Convertir en orden</button>`:
-    `<button class="btn btn-p" onclick="cerrarModal();irA('ordenes');modalResultados('${c.ot}')">Ver orden ${c.ot}</button>`}
+    /* Con la orden ya creada se cobra desde aquí mismo, sin tener que ir a
+       buscarla a Órdenes de Trabajo: los dos documentos se precargan con los
+       exámenes, los precios y los descuentos pactados en esta cotización. */
+    `${puede('cobrar')?`<button class="btn btn-v" onclick="cerrarModal();modalRecibo('${c.ot}')">₤ Recibo</button>
+    <button class="btn btn-v" onclick="cerrarModal();modalFactura('${c.ot}')">🧾 Factura</button>`:''}
+    <button class="btn btn-p" onclick="cerrarModal();irA('ordenes');modalResultados('${c.ot}')">Ver orden ${c.ot}</button>`}
   </div>`);
 }
 function borrarCot(n){
@@ -3975,7 +4001,20 @@ function srvCrearOrdenDesdeCotizacion(nCot, pacCodigo){
   if(!p.medico&&c.medico)p.medico=c.medico;
   if(!p.fnac&&c.fnac)p.fnac=c.fnac;
   if(!p.idNumero&&(c.idNumero||c.identificacion))p.idNumero=c.idNumero||c.identificacion;
-  const o=nuevaOrden(p,ids,{cot:nCot,total:totalCot(c)});
+  /* La orden hereda los PRECIOS Y DESCUENTOS pactados en la cotización, no
+     solo su total. Antes se pasaba únicamente {cot, total}: la orden salía
+     con el total correcto, pero cada examen quedaba con descPct 0 y la orden
+     con descPct 0, porque nuevaOrden() rellena esos campos desde extra.precios
+     y extra.descPct. El desglose se perdía en silencio, y como el recibo y la
+     factura se precargan leyendo justamente esos campos (pctItem de cada
+     examen y o.descPct), salían a precio de lista: se cotizaba con 10 % y se
+     cobraba sin él. */
+  const precios=c.items.filter(i=>existeExamen(i.id))
+    .map(i=>({id:i.id,precio:i.precio,descPct:pctItem(i),
+      comboId:i.comboId||'',comboNombre:i.comboNombre||''}));
+  const t=calcCot(c);
+  const o=nuevaOrden(p,ids,{cot:nCot,precios,
+    descPct:t.pctGlobal,descuento:t.descuento,subtotal:t.sub,total:t.total});
   c.ot=o.numero;c.pacCodigo=pacCodigo;
   guardar(true);
   return {ok:true, orden:o};
