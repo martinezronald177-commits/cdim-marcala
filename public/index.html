@@ -9570,7 +9570,8 @@ function previsualizar(generador,titulo,etiquetaBoton,conFirma){
   // no cabe en una sola página física, se repagina aquí también (ver
   // repaginarHojas más arriba), no solo al imprimir de verdad.
   const ifrPrevia=document.querySelector('.marco-previa iframe');
-  if(ifrPrevia)ifrPrevia.onload=()=>{ try{repaginarHojas(ifrPrevia.contentWindow);}catch(e){} };
+  if(ifrPrevia)ifrPrevia.onload=()=>{ try{repaginarHojas(ifrPrevia.contentWindow);
+    repaginarPaginas(ifrPrevia.contentWindow);}catch(e){} };
 }
 /* Tildar/destildar cualquiera de los tres chips reconstruye el documento
    entero desde cero (mismo generador, mismo título) para que el iframe
@@ -9806,7 +9807,7 @@ function ventanaImpresion(html,css,nombre){
       // (pasa en algunos móviles), el título vuelve igual.
       setTimeout(restaurar,3000);
       window.addEventListener('focus',restaurar,{once:true});
-      repaginarHojas(w);
+      repaginarHojas(w); repaginarPaginas(w);
       w.focus();w.print();
     }catch(e){
       restaurar();
@@ -9859,7 +9860,19 @@ const cssCotizacion=`
     quedan alineadas y el conjunto se lee como documento técnico. */
  body{font-family:ui-monospace,'SFMono-Regular','DejaVu Sans Mono',Menlo,Consolas,'Courier New',monospace;
    color:#1c2b36;font-size:8.8pt;margin:0}
- .pagina{page-break-after:always;position:relative;min-height:254mm;max-height:262mm;overflow:hidden;display:flex;flex-direction:column}
+ /* El recorte (max-height + overflow:hidden) queda SOLO para impresión, como
+    última red contra que una hoja se pase por un par de milímetros y arrastre
+    una tira a la hoja siguiente. En pantalla no se recorta: si algo llegara a
+    desbordar, hay que verlo en la vista previa, no perderlo en silencio --
+    justamente así se estaban comiendo renglones y totales de las cotizaciones
+    largas antes de que repaginarPaginas() repartiera las filas midiendo. */
+ /* min-height igual al max-height de impresión: repaginarPaginas() mide contra
+    min-height (el único que existe en pantalla y en papel), así que igualarlos
+    hace que la hoja se llene hasta donde de verdad cabe. Con 254 se
+    desperdiciaban 8 mm por hoja y una cotización al filo se partía en dos sin
+    necesidad. */
+ .pagina{page-break-after:always;position:relative;min-height:262mm;display:flex;flex-direction:column}
+ @media print{ .pagina{max-height:262mm;overflow:hidden} }
  .pagina:last-child{page-break-after:auto}
  .titulo{text-align:center;margin-top:10px}
  .titulo h1{font-size:13pt;color:#1a6fb5;font-weight:800;letter-spacing:.3px}
@@ -9941,7 +9954,10 @@ function imprimirCotizacion(n){
   <div class="barra">
     <span><b>No. Cotización:</b> ${esc(c.numero)}</span>
     <span><b>Sucursal:</b> ${esc((cf.sucursalNombre||'PRINCIPAL').toUpperCase())}</span>
-    <span style="text-align:right"><b>Página</b> ${np} de ${totalPag}</span>
+    ${/* .pag-num/.pag-total: marcadores que repaginarPaginas() renumera si al
+          medir el documento ya renderizado hace falta repartir las filas en
+          más hojas de las que estimó POR_PAG. */''
+     }<span style="text-align:right"><b>Página</b> <span class="pag-num">${np}</span> de <span class="pag-total">${totalPag}</span></span>
     <span><b>Fecha de emisión:</b> ${fmtFecha(c.fecha)}</span>
     <span><b>Elaborado por:</b> ${esc(c.elaboradoPor||cf.regente)}</span>
     <span></span>
@@ -10463,6 +10479,108 @@ function repaginarHojas(win){
       if(tot)tot.textContent=String(totalFinal);
     });
   }catch(e){ /* si algo falla, se imprime como estaba: el repaginado nunca debe bloquear una impresión */ }
+}
+
+/* repaginarPaginas(): el hermano de repaginarHojas() para los documentos
+   comerciales (cotización, factura, recibo), que en vez de ".hoja" usan
+   ".pagina" y llevan el cuerpo dentro de una <table class="items">.
+
+   Esos documentos reparten sus renglones con un tope FIJO de filas por hoja
+   (POR_PAG), calculado a ojo: no sabe si una descripción larga ocupa dos
+   líneas ni si se marcaron los sellos, que suman 26 mm. Cuando la cuenta se
+   queda corta, ".pagina" (max-height + overflow:hidden) recortaba en silencio
+   lo que sobraba -- se perdían renglones, los totales o las condiciones.
+
+   Aquí se mide la hoja ya renderizada y, mientras desborde, se pasa su última
+   fila al principio de la siguiente (creándola con el mismo encabezado si no
+   existe). El bloque de totales y firma viaja siempre a la hoja final, y al
+   terminar se renumeran los artículos y el "Página X de Y", de modo que la
+   secuencia siga siendo continua y correlativa.
+
+   El límite se toma como max-height MÁS el relleno vertical: en pantalla la
+   vista previa le pone padding a la hoja y en impresión el margen lo pone
+   @page, así que sumarlo deja la misma altura útil en los dos lados y la
+   previa pagina idéntico a lo que sale por la impresora. */
+function repaginarPaginas(win){
+  try{
+    const doc=win.document;
+    const originales=[...doc.querySelectorAll('.pagina')];
+    if(!originales.length)return;
+    const FILAS='table.items tbody';
+    const COLA='.totales,.nota,.cot-firma,.rv-tot,.rv-letras,.rv-sar,.rv-caja,.rv-firmas';
+    if(!originales[0].querySelector(FILAS))return;   // no usa este patrón
+
+    /* Si el documento se está midiendo en un ancho que no es el de una hoja
+       (un iframe angosto, un contenedor de 0 px), el texto se envuelve palabra
+       por palabra y las alturas se disparan: repaginar con esas medidas
+       partiría la cotización en decenas de hojas de una fila. Ante esa duda se
+       deja el documento como venía -- ver el mismo cuidado en ventanaImpresion(),
+       que le da tamaño carta al iframe de impresión justamente por esto. */
+    if(originales[0].clientWidth<500)return;
+
+    const cs=win.getComputedStyle(originales[0]);
+    const relleno=(parseFloat(cs.paddingTop)||0)+(parseFloat(cs.paddingBottom)||0);
+    /* Se mide contra min-height y no contra max-height: min-height existe en
+       pantalla y en impresión por igual (max-height solo en impresión), así
+       que la vista previa reparte las filas EXACTAMENTE igual que la
+       impresora. Sumarle el relleno compensa el margen que la vista previa le
+       dibuja a la hoja y que en papel pone @page. */
+    const limite=((parseFloat(cs.minHeight)||parseFloat(cs.maxHeight))||0)+relleno;
+    if(!limite)return;
+    const margen=Math.max(limite*0.005,3);
+    const tope=limite-margen;
+
+    /* Se reconstruye de cero en vez de ir empujando filas entre hojas: así el
+       reparto depende solo de lo que mide cada fila, y el proceso termina por
+       construcción (cada fila se coloca una única vez). */
+    const filas=[];
+    originales.forEach(pg=>{ const tb=pg.querySelector(FILAS); if(tb)filas.push(...tb.rows); });
+    const cola=[];
+    originales.forEach(pg=>cola.push(...pg.querySelectorAll(COLA)));
+    filas.forEach(f=>f.remove()); cola.forEach(e=>e.remove());
+
+    /* Las hojas nuevas se insertan ANTES de la primera original y las
+       originales se quitan al final: si se quitaran primero, el nodo que se
+       usara de ancla podría ser una de ellas y ya estaría fuera del documento,
+       insertBefore lanzaría y el catch dejaría la cotización sin ninguna hoja. */
+    const padre=originales[0].parentNode, ancla=originales[0];
+    const molde=originales[0].cloneNode(true);       // encabezado + tabla vacía + pie
+
+    const hojas=[];
+    const nuevaHoja=()=>{ const h=molde.cloneNode(true); padre.insertBefore(h,ancla); hojas.push(h); return h; };
+    let hoja=nuevaHoja(), tb=hoja.querySelector(FILAS);
+    for(const fila of filas){
+      tb.appendChild(fila);
+      // Si esta fila hizo desbordar y no es la única de la hoja, se pasa entera
+      // a una hoja nueva: nunca se corta un renglón por la mitad.
+      if(hoja.scrollHeight>tope&&tb.rows.length>1){
+        fila.remove();
+        hoja=nuevaHoja(); tb=hoja.querySelector(FILAS);
+        tb.appendChild(fila);
+      }
+    }
+    // Totales, nota, firma y sellos van en la hoja final; si ya no caben, se
+    // les da una hoja propia (con su encabezado y su correlativo).
+    if(cola.length){
+      const meter=h=>{ const ref=h.querySelector('.cond')||null;
+        cola.forEach(e=>ref?h.insertBefore(e,ref):h.appendChild(e)); };
+      meter(hoja);
+      if(hoja.scrollHeight>tope&&tb.rows.length){
+        cola.forEach(e=>e.remove());
+        hoja=nuevaHoja(); meter(hoja);
+      }
+    }
+
+    originales.forEach(pg=>pg.remove());
+
+    let n=0;
+    hojas.forEach((h,idx)=>{
+      h.querySelectorAll('td.c-art').forEach(td=>{ td.textContent=String(++n); });
+      const num=h.querySelector('.pag-num'), tot=h.querySelector('.pag-total');
+      if(num)num.textContent=String(idx+1);
+      if(tot)tot.textContent=String(hojas.length);
+    });
+  }catch(e){ /* igual que repaginarHojas: nunca debe bloquear una impresión */ }
 }
 /* cssInforme, horaLarga() y agruparHojas() se movieron a
    51b_plantillas_informe.js (Fase 8, ago. 2026) — ese archivo también reúne
