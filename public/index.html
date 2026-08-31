@@ -10129,9 +10129,21 @@ const cssCabeceraDoc=`
  .firma-lab-img{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);
    margin-bottom:1mm;white-space:nowrap;line-height:0;display:flex;align-items:flex-end}
  .firma-lab-img .img-firma-doc{height:28px;position:relative;z-index:3;margin:0 -4mm}
- .firma-lab-img .img-sello-doc{width:19mm;height:19mm;position:relative;z-index:1;opacity:.9}
+ /* height fijo + width:auto (no un cuadro fijo): conserva la relación de
+    aspecto real de cada sello en vez de estirarlo/aplastarlo a un cuadro --
+    un sello redondo y uno rectangular no deforman igual si se fuerzan
+    ambos lados a la misma medida. */
+ .firma-lab-img .img-sello-doc{height:19mm;width:auto;position:relative;z-index:1;opacity:.9}
  .firma-lab-img .img-sello-izq{margin-right:-5mm}
- .firma-lab-img .img-sello-der{margin-left:-5mm;z-index:2}`;
+ .firma-lab-img .img-sello-der{margin-left:-5mm;z-index:2;
+   /* Sello del laboratorio (medido directamente del sello físico, ago.
+      2026): círculo de 30 mm de diámetro con una caja rectangular de
+      40×15 mm debajo. Se fija el ANCHO a 40 mm -- el lado más ancho, el de
+      la caja -- y el alto queda proporcional; así el círculo también sale
+      a su tamaño real sin tener que medirlo aparte. Para que la escala
+      coincida, el PNG que se suba en Configuración debe venir recortado
+      justo al borde visible del sello, sin aire alrededor. */
+   height:auto;width:40mm}`;
 
 /* ---- Plantillas de impresión compartidas entre documentos (ago. 2026) ----
    Antes, el bloque "logo + dirección/contacto + profesional" (clase .cab)
@@ -12627,7 +12639,9 @@ function vConfig(){
       <div style="align-self:center">${c.sello?`<img src="${c.sello}" style="height:54px"><br><button class="btn btn-r btn-min" onclick="quitarImagenCfg('sello')">Quitar sello del laboratorio</button>`:'<span style="color:var(--gris);font-size:11px">Sin sello del laboratorio</span>'}</div>
       <div style="align-self:center">${c.selloMicro?`<img src="${c.selloMicro}" style="height:54px"><br><button class="btn btn-r btn-min" onclick="quitarImagenCfg('selloMicro')">Quitar sello de microbiólogo</button>`:'<span style="color:var(--gris);font-size:11px">Sin sello de microbiólogo</span>'}</div>
     </div>
-    <div class="aviso" style="margin-top:6px">El sello del laboratorio y el de microbiólogo solo se imprimen en informes <b>validados</b>; los informes preliminares salen sin sello. En Cotización, Factura y Recibo, la firma y ambos sellos son opcionales: se agregan solo si se marcan al imprimir o descargar (ver "Firmar y sellar" en la vista previa). Trata estos archivos como tus sellos físicos: resguarda la computadora con contraseña y evita compartir el HTML o el respaldo .json con terceros, ya que los llevan incrustados.</div>
+    <div class="aviso" style="margin-top:6px">
+      <b>Para que el sello del laboratorio salga a su tamaño real (círculo de 30 mm + caja de 40×15 mm) en Cotización, Factura, Recibo y Sobre:</b> sube una foto o escaneo del sello ya <b>recortado justo al borde</b> (sin aire alrededor) y con el <b>fondo transparente</b> — quítale el fondo con remove.bg, Canva o la app Fotos de Windows antes de subirlo. Si sube con fondo o con margen de sobra, la escala real no va a coincidir.<br><br>
+      El sello del laboratorio y el de microbiólogo solo se imprimen en informes <b>validados</b>; los informes preliminares salen sin sello. En Cotización, Factura, Recibo y Sobre, la firma y ambos sellos son opcionales: se agregan solo si se marcan al imprimir o descargar (ver "Firmar y sellar" en la vista previa). Trata estos archivos como tus sellos físicos: resguarda la computadora con contraseña y evita compartir el HTML o el respaldo .json con terceros, ya que los llevan incrustados.</div>
       <div class="campo"><label>Logo (PNG con fondo transparente)</label><input type="file" accept="image/*" onchange="cargarLogo(this)"></div>
       <div style="align-self:center">${c.logo?`<img src="${c.logo}" style="height:50px">`:'<span style="color:var(--gris);font-size:12px">Sin logo cargado</span>'}</div>
     </div>
