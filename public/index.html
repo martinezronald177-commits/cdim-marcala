@@ -2082,7 +2082,7 @@ function vInicio(){
       <button class="btn btn-g btn-min" style="float:right" onclick="modalResultados('${o.numero}')">Ver</button></div>`).join('')}
     ${hoyEntrega.length>10?`<div style="font-size:11.5px;color:var(--gris);margin:4px 0 8px">y ${hoyEntrega.length-10} entrega(s) más que vencen hoy.</div>`:''}
     ${porCobrar.length?`<div class="aviso">L ${porCobrar.length} orden(es) pendientes de cobro por ${L(porCobrar.reduce((a,o)=>a+o.total,0))}
-      <button class="btn btn-g btn-min" style="float:right" onclick="irA('ordenes')">Ver órdenes</button></div>`:''}
+      <button class="btn btn-g btn-min" style="float:right" onclick="verOrdenesPorCobrar()">Ver órdenes</button></div>`:''}
     ${necesitaResp?`<div class="aviso">💾 Han pasado ${S.meta.ultimoRespaldo?Math.round((new Date(hoy())-new Date(S.meta.ultimoRespaldo))/86400000)+' días desde el último respaldo':'varios días sin respaldo registrado'}. Exporta uno hoy.
       <button class="btn btn-g btn-min" style="float:right" onclick="exportarRespaldo()">Respaldar ahora</button></div>`:''}
   </div>`:'<div class="tarjeta" style="border-left:4px solid var(--verde)"><b style="color:var(--verde)">✓ Sin alertas pendientes.</b> Todas las órdenes están al día.</div>'}
@@ -4699,28 +4699,40 @@ function abrirMenuOrden(ev,n){
    memoria (no se guardan) para que el filtro no se pierda si algo repinta
    la vista completa (p. ej. tras editar o borrar una orden). */
 let _ordFecha=hoy(), _ordQ='';
+/* Modo "solo pendientes de cobro": lo enciende el Centro de alertas de Inicio
+   (12_sesion.js). Ignora el filtro por día A PROPÓSITO: una orden sin cobrar
+   puede ser de cualquier fecha, y como la vista abre con el día de hoy puesto,
+   el aviso decía "2 órdenes pendientes de cobro" y al entrar se veía una sola
+   -- la del día. Con el modo encendido se listan todas, de todas las fechas. */
+let _ordPorCobrar=false;
 function ordenesFiltradas(){
   const f=normTxt(_ordQ||'');
   let lista=S.ordenes.slice();
+  if(_ordPorCobrar)lista=lista.filter(o=>!o.pagada);
   if(f){
     lista=lista.filter(o=>{
       const pac=S.pacientes.find(x=>x.codigo===o.pacCodigo);
       return normTxt(o.numero+' '+o.pacienteNombre+' '+((pac&&pac.idNumero)||'')).includes(f);
     });
-  }else if(_ordFecha){
+  }else if(_ordFecha&&!_ordPorCobrar){
     lista=lista.filter(o=>o.fecha===_ordFecha);
   }
   return lista.slice().reverse();
 }
 function botonesExtraOrdenes(){
   const hy=hoy();
-  const enHoySinBusqueda=!_ordQ&&_ordFecha===hy;
-  const filtrandoOtroDia=!_ordQ&&_ordFecha&&_ordFecha!==hy;
+  const enHoySinBusqueda=!_ordQ&&!_ordPorCobrar&&_ordFecha===hy;
+  const filtrandoOtroDia=!_ordQ&&!_ordPorCobrar&&_ordFecha&&_ordFecha!==hy;
   const n=ordenesFiltradas().length;
-  return `${!enHoySinBusqueda?`<button class="btn btn-g btn-min" onclick="irOrdenesHoy()">📅 Hoy</button>`:''}
+  return `${_ordPorCobrar?`<button class="btn btn-p btn-min" onclick="quitarFiltroPorCobrar()"
+      title="Quitar el filtro y volver a las órdenes de hoy">Solo pendientes de cobro ✕</button>`:''}
+  ${!enHoySinBusqueda?`<button class="btn btn-g btn-min" onclick="irOrdenesHoy()">📅 Hoy</button>`:''}
   ${filtrandoOtroDia?`<button class="btn btn-g btn-min" onclick="verTodoHistorialOrdenes()">Ver todo el historial</button>`:''}
   <span class="ord-conteo">${n} orden(es)</span>`;
 }
+/* Entrada desde el aviso "N orden(es) pendientes de cobro" del tablero. */
+function verOrdenesPorCobrar(){_ordPorCobrar=true;_ordFecha='';_ordQ='';_topeOrd=150;irA('ordenes');}
+function quitarFiltroPorCobrar(){_ordPorCobrar=false;_ordFecha=hoy();_ordQ='';_topeOrd=150;vOrdenes();}
 /* Mismo patrón "Ver más" que _topePac en Pacientes (20_pacientes.js): con el
    filtro por día, la lista casi siempre es chica, pero "Ver todo el
    historial" o una búsqueda amplia pueden traer años de órdenes de una vez.
@@ -4739,15 +4751,19 @@ function contenidoListaOrdenes(){
     <span style="color:var(--gris)">· usa la fecha o el buscador para llegar directo a una</span></div>`:''}${tablaOrdenes(lista)}`;
 }
 function verMasOrdenes(){_topeOrd+=150;const l=document.getElementById('lista_ord');if(l)l.innerHTML=contenidoListaOrdenes();}
-function filtrarVistaOrdenes(){
+function filtrarVistaOrdenes(porFecha){
   _ordQ=document.getElementById('ord_q')?.value||'';
   _ordFecha=document.getElementById('ord_fecha')?.value||'';
+  // Elegir un día es pedir ESE día: sale del modo "solo pendientes de cobro",
+  // que justamente ignora la fecha. Buscar por nombre o número sí se combina
+  // con el modo, para ubicar rápido a un cliente dentro de los que deben.
+  if(porFecha)_ordPorCobrar=false;
   _topeOrd=150;
   const l=document.getElementById('lista_ord');if(l)l.innerHTML=contenidoListaOrdenes();
   const eb=document.getElementById('ord_extra_btns');if(eb)eb.innerHTML=botonesExtraOrdenes();
 }
-function irOrdenesHoy(){_ordFecha=hoy();_ordQ='';_topeOrd=150;vOrdenes();}
-function verTodoHistorialOrdenes(){_ordFecha='';_ordQ='';_topeOrd=150;vOrdenes();}
+function irOrdenesHoy(){_ordFecha=hoy();_ordQ='';_ordPorCobrar=false;_topeOrd=150;vOrdenes();}
+function verTodoHistorialOrdenes(){_ordFecha='';_ordQ='';_ordPorCobrar=false;_topeOrd=150;vOrdenes();}
 function vOrdenes(abrir){
   vista.innerHTML=`
   <div class="cabecera"><h2>Órdenes de Trabajo</h2><button class="btn btn-p" onclick="modalOrdenDirecta()">+ Orden directa</button></div>
@@ -4756,7 +4772,7 @@ function vOrdenes(abrir){
       <input class="busqueda" id="ord_q" placeholder="Buscar por paciente, DNI o número de orden…"
         value="${esc(_ordQ)}" oninput="filtrarVistaOrdenes()">
       <label class="ord-fecha-lbl" title="Ver las órdenes de otro día">📅
-        <input type="date" id="ord_fecha" value="${_ordFecha}" onchange="filtrarVistaOrdenes()">
+        <input type="date" id="ord_fecha" value="${_ordFecha}" onchange="filtrarVistaOrdenes(true)">
       </label>
       <span id="ord_extra_btns">${botonesExtraOrdenes()}</span>
     </div>
