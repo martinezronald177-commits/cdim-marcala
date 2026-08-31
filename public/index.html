@@ -10122,33 +10122,36 @@ const cssCabeceraDoc=`
  /* Firma y hasta dos sellos opcionales (bloqueFirmaSello, más abajo): flotan
     JUSTO encima de la línea de firma de cada documento (la propia línea le
     pone la clase "firma-lab" para volverse el ancla de position:relative).
-    Se dibujan encimados -- la firma al centro (más arriba, z-index mayor),
-    un sello a cada lado, ligeramente detrás -- como quedaría un documento
-    firmado y sellado a mano de verdad. */
+    Van EN FILA, uno al lado del otro y sin encimarse: encimados, el sello de
+    arriba tapaba la firma y el otro sello, y en papel no se distinguía cuál
+    era cuál. El "gap" los separa; cada pieza conserva su tamaño físico. */
  .firma-lab{position:relative}
  .firma-lab-img{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);
-   margin-bottom:1mm;white-space:nowrap;line-height:0;display:flex;align-items:flex-end}
- .firma-lab-img .img-firma-doc{height:28px;position:relative;z-index:3;margin:0 -4mm}
- /* height fijo + width:auto (no un cuadro fijo): conserva la relación de
+   margin-bottom:1mm;line-height:0;
+   display:flex;align-items:flex-end;justify-content:center;gap:3mm}
+ /* Misma altura que la firma del informe de resultados (.img-firma, 48px):
+    a 28px quedaba tan chica que no se leía como firma. */
+ .firma-lab-img .img-firma-doc{height:48px;width:auto;position:relative;z-index:3}
+ /* Ancho fijo + height:auto (no un cuadro fijo): conserva la relación de
     aspecto real de cada sello en vez de estirarlo/aplastarlo a un cuadro --
     un sello redondo y uno rectangular no deforman igual si se fuerzan
-    ambos lados a la misma medida. */
- .firma-lab-img .img-sello-doc{height:19mm;width:auto;position:relative;z-index:1;opacity:.9}
- .firma-lab-img .img-sello-izq{margin-right:-5mm;
-   /* Sello de microbiólogo (Colegio de Microbiólogos y Químicos Clínicos de
-      Honduras): círculo de 30 mm de diámetro, sin caja. La imagen es
-      cuadrada, así que fijar el ANCHO a 30 mm deja el círculo a su medida
-      real. */
-   height:auto;width:30mm}
- .firma-lab-img .img-sello-der{margin-left:-5mm;z-index:2;
-   /* Sello del laboratorio (medido directamente del sello físico, ago.
-      2026): círculo de 30 mm de diámetro con una caja rectangular de
-      40×15 mm debajo. Se fija el ANCHO a 40 mm -- el lado más ancho, el de
-      la caja -- y el alto queda proporcional; así el círculo también sale
-      a su tamaño real sin tener que medirlo aparte. Para que la escala
-      coincida, el PNG que se suba en Configuración debe venir recortado
-      justo al borde visible del sello, sin aire alrededor. */
-   height:auto;width:40mm}`;
+    ambos lados a la misma medida. "multiply" imita la tinta del sello real
+    sobre el papel, igual que en el informe de resultados. */
+ .firma-lab-img .img-sello-doc{height:auto;position:relative;z-index:1;
+   opacity:.94;mix-blend-mode:multiply}
+ /* Sello de microbiólogo (Colegio de Microbiólogos y Químicos Clínicos de
+    Honduras): círculo de 30 mm de diámetro, sin caja. La imagen es cuadrada,
+    así que fijar el ANCHO a 30 mm deja el círculo a su medida real -- el
+    mismo tamaño con el que sale en el informe de resultados (.img-sello). */
+ .firma-lab-img .img-sello-izq{width:30mm}
+ /* Sello del laboratorio (medido directamente del sello físico, ago. 2026):
+    círculo de 30 mm de diámetro con una caja rectangular de 40×15 mm debajo.
+    Se fija el ANCHO a 40 mm -- el lado más ancho, el de la caja -- y el alto
+    queda proporcional; así el círculo también sale a su tamaño real sin
+    tener que medirlo aparte. Para que la escala coincida, el PNG que se suba
+    en Configuración debe venir recortado justo al borde visible del sello,
+    sin aire alrededor. */
+ .firma-lab-img .img-sello-der{width:40mm}`;
 
 /* ---- Plantillas de impresión compartidas entre documentos (ago. 2026) ----
    Antes, el bloque "logo + dirección/contacto + profesional" (clase .cab)
@@ -10509,7 +10512,12 @@ function imprimirResultados(n,forzarTodo){
   <div class="firma-bloque">
     <div class="firma-zona">
       ${c.firma?`<img src="${c.firma}" class="img-firma">`:'<div style="height:40px"></div>'}
-      ${(c.sello&&!preliminar)?`<img src="${c.sello}" class="img-sello">`:''}
+      ${/* Quien valida un informe clínico es el microbiólogo colegiado, no el
+            laboratorio: el sello que acompaña la firma es el suyo. Se cae de
+            vuelta al sello del laboratorio solo si aún no se ha subido el de
+            microbiólogo, para no dejar sin sellar los informes ya en uso. */''
+      }${((c.selloMicro||c.sello)&&!preliminar)
+        ?`<img src="${c.selloMicro||c.sello}" class="img-sello">`:''}
       <div class="linea-firma"></div>
     </div>
     <div class="firma-nom">${esc(o.validadoPor||c.regente)}</div>
@@ -12646,7 +12654,7 @@ function vConfig(){
     </div>
     <div class="aviso" style="margin-top:6px">
       <b>Para que el sello del laboratorio salga a su tamaño real (círculo de 30 mm + caja de 40×15 mm) en Cotización, Factura, Recibo y Sobre:</b> sube una foto o escaneo del sello ya <b>recortado justo al borde</b> (sin aire alrededor) y con el <b>fondo transparente</b> — quítale el fondo con remove.bg, Canva o la app Fotos de Windows antes de subirlo. Si sube con fondo o con margen de sobra, la escala real no va a coincidir.<br><br>
-      El sello del laboratorio y el de microbiólogo solo se imprimen en informes <b>validados</b>; los informes preliminares salen sin sello. En Cotización, Factura, Recibo y Sobre, la firma y ambos sellos son opcionales: se agregan solo si se marcan al imprimir o descargar (ver "Firmar y sellar" en la vista previa). Trata estos archivos como tus sellos físicos: resguarda la computadora con contraseña y evita compartir el HTML o el respaldo .json con terceros, ya que los llevan incrustados.</div>
+      <b>Quién valida los resultados:</b> el informe clínico lo firma y sella el <b>microbiólogo colegiado</b>, no el laboratorio. Por eso, en los informes <b>validados</b> se imprime automáticamente la firma junto al <b>sello de microbiólogo</b>; los informes preliminares salen sin sello. El sello del laboratorio es el sello fiscal (razón social y RTN) y no interviene en la validación. En Cotización, Factura, Recibo y Sobre, la firma y ambos sellos son opcionales: se agregan solo si se marcan al imprimir o descargar (ver "Firmar y sellar" en la vista previa). Trata estos archivos como tus sellos físicos: resguarda la computadora con contraseña y evita compartir el HTML o el respaldo .json con terceros, ya que los llevan incrustados.</div>
       <div class="campo"><label>Logo (PNG con fondo transparente)</label><input type="file" accept="image/*" onchange="cargarLogo(this)"></div>
       <div style="align-self:center">${c.logo?`<img src="${c.logo}" style="height:50px">`:'<span style="color:var(--gris);font-size:12px">Sin logo cargado</span>'}</div>
     </div>
