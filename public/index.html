@@ -3398,7 +3398,7 @@ function abrirMenuCot(ev,n){
 
   <div class="acc-grupo"><b>Documentos</b>
     <div class="acc-botones">
-      <button class="btn btn-d" onclick="cerrarModal();previsualizar(()=>imprimirCotizacion('${n}'),'${n}','Imprimir')">🖨 Imprimir</button>
+      <button class="btn btn-d" onclick="cerrarModal();previsualizar(()=>imprimirCotizacion('${n}'),'${n}','Imprimir',true)">🖨 Imprimir</button>
       <button class="btn btn-g" onclick="cerrarModal();modalPDF('cotizacion','${n}')">⬇ PDF</button>
       <button class="btn btn-v" onclick="cerrarModal();modalCompartir('cotizacion','${n}')">✆ Enviar</button>
     </div>
@@ -3788,7 +3788,7 @@ function modalVerCotizacion(n){
   ${c.nota?`<div class="aviso" style="margin-top:10px"><b>Nota:</b> ${esc(c.nota)}</div>`:''}
   <div class="modal-pie">
     <button class="btn btn-g" onclick="cerrarModal()">Cerrar</button>
-    <button class="btn btn-d" onclick="previsualizar(()=>imprimirCotizacion('${n}'),'Cotización ${n}','Imprimir cotización')">👁 Vista previa</button>
+    <button class="btn btn-d" onclick="previsualizar(()=>imprimirCotizacion('${n}'),'Cotización ${n}','Imprimir cotización',true)">👁 Vista previa</button>
     <button class="btn btn-g" onclick="modalPDF('cotizacion','${n}')">⬇ PDF</button>
     ${!c.ot?`<button class="btn btn-g" onclick="modalCotizacion('${n}')">✎ Modificar</button>
     <button class="btn btn-v" onclick="cotAOrden('${n}')">→ Convertir en orden</button>`:
@@ -6215,7 +6215,7 @@ function filasRecibos(filtro=''){
       <td style="text-align:right"><b>${L(t.total)}</b>${t.descuento?`<div style="font-size:9.5px;color:var(--gris)">desc. ${t.pctTotal} %</div>`:''}</td>
       <td>${r.anulado?'<span class="chip chip-rj">Anulado</span>':'<span class="chip chip-vd">Emitido</span>'}</td>
       <td style="text-align:right;white-space:nowrap">
-        <button class="btn btn-p btn-min" onclick="previsualizar(()=>imprimirReciboVenta('${r.numero}'),'Recibo ${r.numero}','Imprimir recibo')">Ver</button>
+        <button class="btn btn-p btn-min" onclick="previsualizar(()=>imprimirReciboVenta('${r.numero}'),'Recibo ${r.numero}','Imprimir recibo',true)">Ver</button>
         <button class="btn btn-g btn-min" onclick="modalPDF('recibo','${r.numero}')">⬇ PDF</button>
         <button class="btn btn-v btn-min" onclick="modalCompartir('recibo','${r.numero}')">✆ Enviar</button>
         ${!r.anulado?`<button class="btn btn-r btn-min" onclick="anularRecibo('${r.numero}')">Anular</button>`:''}
@@ -6376,7 +6376,7 @@ async function guardarRecibo(){
       (r.ot?' (orden '+r.ot+')':'')+(r.movRef?'. Ingreso registrado en contabilidad.':'. Sin registro contable: la orden ya estaba cobrada.')});
   itemsRec=[];guardar(true);cerrarModal();irA('recibos');
   toast(r.numero+' emitido · '+L(t.total));
-  previsualizar(()=>imprimirReciboVenta(r.numero),'Recibo '+r.numero,'Imprimir recibo');
+  previsualizar(()=>imprimirReciboVenta(r.numero),'Recibo '+r.numero,'Imprimir recibo',true);
 }
 async function anularRecibo(num){
   if(!esAdmin()){toast('Solo un Admin puede anular un recibo');return;}
@@ -6535,7 +6535,7 @@ function imprimirReciboVenta(num){
       </table></div>
     </div>
     <div class="rv-firmas">
-      <div class="rv-linea">${esc(r.emitidoPor)}<br><span style="font-size:7pt">Entregado por</span></div>
+      <div class="rv-linea firma-lab">${bloqueFirmaSello(c)}${esc(r.emitidoPor)}<br><span style="font-size:7pt">Entregado por</span></div>
       <div class="rv-linea">Recibí conforme<br><span style="font-size:7pt">Nombre y firma del cliente</span></div>
     </div>
     <div class="rv-pie">
@@ -6713,7 +6713,7 @@ function tablaFacturas(lista){
       <td style="text-align:right"><b>${L(t.total)}</b>${t.descuento?`<div style="font-size:9.5px;color:var(--gris)">desc. ${t.pctTotal} %</div>`:''}</td>
       <td>${x.anulado?'<span class="chip chip-rj">Anulada</span>':'<span class="chip chip-vd">Emitida</span>'}</td>
       <td style="text-align:right;white-space:nowrap">
-        <button class="btn btn-p btn-min" onclick="previsualizar(()=>imprimirFactura('${x.numero}'),'Factura ${x.numero}','Imprimir factura')">Ver</button>
+        <button class="btn btn-p btn-min" onclick="previsualizar(()=>imprimirFactura('${x.numero}'),'Factura ${x.numero}','Imprimir factura',true)">Ver</button>
         <button class="btn btn-g btn-min" onclick="modalPDF('factura','${x.numero}')">⬇ PDF</button>
         <button class="btn btn-v btn-min" onclick="modalCompartir('factura','${x.numero}')">✆ Enviar</button>
         ${!x.anulado?`<button class="btn btn-r btn-min" onclick="anularFactura('${x.numero}')">Anular</button>`:''}
@@ -7091,7 +7091,7 @@ async function guardarFactura(){
       (f.ot?' (orden '+f.ot+')':'')+(f.movRef?'. Ingreso registrado en contabilidad.':'. Sin registro contable: la orden ya estaba cobrada.')});
   itemsFac=[];guardar(true);cerrarModal();irA('facturas');
   toast(f.numero+' emitida · '+L(t.total));
-  previsualizar(()=>imprimirFactura(f.numero),'Factura '+f.numero,'Imprimir factura');
+  previsualizar(()=>imprimirFactura(f.numero),'Factura '+f.numero,'Imprimir factura',true);
 }
 /* La marca de "anulado" también se hace en el servidor, en un solo paso
    atómico (POST /api/facturas/:numero/anular) -- si dos personas intentan
@@ -7261,7 +7261,7 @@ function renderizarFactura(f){
       </table></div>
     </div>
     <div class="rv-firmas">
-      <div class="rv-linea">${esc(f.emitidoPor)}<br><span style="font-size:7pt">Entregado por</span></div>
+      <div class="rv-linea firma-lab">${bloqueFirmaSello(c)}${esc(f.emitidoPor)}<br><span style="font-size:7pt">Entregado por</span></div>
       <div class="rv-linea">Recibí conforme<br><span style="font-size:7pt">Nombre y firma del cliente</span></div>
     </div>
     <div class="rv-pie">
@@ -9464,13 +9464,24 @@ function abrirEnlace(url){
 
 /* =============== VISTA PREVIA DE DOCUMENTOS =============== */
 let capturaImp=null;   // cuando está activo, ventanaImpresion() entrega el documento en vez de imprimirlo
-function previsualizar(generador,titulo,etiquetaBoton){
+/* "Firmar y sellar": preferencia de SESIÓN (no se graba en el documento),
+   igual patrón que modoAplanado más abajo. La marca la casilla de la vista
+   previa o del modal de PDF; bloqueFirmaSello() (50b_plantillas_comunes.js)
+   la lee al armar cada documento. Empieza en false: cada persona decide
+   cada vez si esta copia lleva o no la firma y el sello. */
+let firmaSelloActivo=false;
+function previsualizar(generador,titulo,etiquetaBoton,conFirma){
+  window.__previaTitulo=titulo; window.__previaEtiqueta=etiquetaBoton; window.__previaConFirma=conFirma;
   capturaImp={};
   let doc=null;
   try{ generador(); doc=capturaImp; }
   catch(e){ capturaImp=null; toast('No se pudo generar la vista previa'); return; }
   capturaImp=null;
   if(!doc||!doc.html){toast('El documento se canceló');return;}
+  // conFirma: true solo para cotización/factura/recibo (ver bloqueFirmaSello()
+  // en 50b_plantillas_comunes.js) -- en el resto de documentos no hay dónde
+  // pegar la firma/sello, así que ni se ofrece la casilla.
+  const conFirmaSello=!!conFirma&&!!(S.config.firma||S.config.sello);
   const srcdoc=('<!DOCTYPE html><html><head><meta charset="UTF-8">'+
     '<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">'+
     '<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>'+
@@ -9489,6 +9500,9 @@ function previsualizar(generador,titulo,etiquetaBoton){
       <button class="btn btn-v" onclick="imprimirDesdePrevia()">🖨 ${esc(etiquetaBoton||'Imprimir')}</button>
     </div>
   </div>
+  ${conFirmaSello?`<label style="display:flex;align-items:center;gap:7px;font-size:12.5px;margin-bottom:8px;cursor:pointer">
+    <input type="checkbox" ${firmaSelloActivo?'checked':''} onchange="alternarFirmaSello(this.checked)">
+    Firmar y sellar (usa la firma y el sello de Configuración) — solo para esta copia</label>`:''}
   <div class="aviso" style="border-left:4px solid var(--dorado);background:#fff8e6;padding:7px 11px;margin-bottom:8px;font-size:12.5px">
     <b>Al imprimir, verifique que el tamaño de papel diga «Carta» o «Letter».</b>
     Si el navegador trae A4, cámbielo ahí mismo: el diálogo del navegador manda sobre el diseño del documento.
@@ -9501,6 +9515,14 @@ function previsualizar(generador,titulo,etiquetaBoton){
   // repaginarHojas más arriba), no solo al imprimir de verdad.
   const ifrPrevia=document.querySelector('.marco-previa iframe');
   if(ifrPrevia)ifrPrevia.onload=()=>{ try{repaginarHojas(ifrPrevia.contentWindow);}catch(e){} };
+}
+/* Tildar/destildar "Firmar y sellar" en la vista previa reconstruye el
+   documento entero desde cero (mismo generador, mismo título) para que el
+   iframe refleje el cambio de inmediato -- no hay forma de "insertar" la
+   firma en un documento que ya se armó sin ella. */
+function alternarFirmaSello(v){
+  firmaSelloActivo=v;
+  if(typeof window.__reimprimir==='function')previsualizar(window.__reimprimir,window.__previaTitulo,window.__previaEtiqueta,window.__previaConFirma);
 }
 /* ===== Descarga en PDF: dos modos de salida ===== */
 let modoAplanado=false;
@@ -9535,8 +9557,14 @@ function modalPDF(tipo,id){
           :tipo==='instructivoTodos'?(()=>imprimirTodosInstructivos())
           :(()=>imprimirRecibo(id));
   const esInstructivo=/^instructivo/.test(tipo);
+  // Firmar y sellar solo tiene sentido en los documentos con línea de firma
+  // propia: cotización, factura y recibo de venta (ver bloqueFirmaSello()).
+  const conFirmaSello=['cotizacion','factura','recibo'].includes(tipo)&&!!(S.config.firma||S.config.sello);
   abrirModal(`
   <h3>${esInstructivo?'Instructivo en PDF':'Descargar en PDF'}</h3>
+  ${conFirmaSello?`<label style="display:flex;align-items:center;gap:7px;font-size:12.5px;margin-bottom:10px;cursor:pointer">
+    <input type="checkbox" id="chk_firma_sello_pdf" ${firmaSelloActivo?'checked':''} onchange="firmaSelloActivo=this.checked">
+    Firmar y sellar (usa la firma y el sello de Configuración) — solo para este PDF</label>`:''}
   <div class="aviso" style="border-left:4px solid var(--dorado);background:#fff8e6;margin-bottom:10px">
     <b>En el diálogo que se abre, revise estas cuatro cosas:</b>
     <table style="width:100%;font-size:12.5px;margin-top:6px;border-collapse:collapse">
@@ -9801,6 +9829,10 @@ const cssCotizacion=`
  .caja-tot .val{text-align:right;font-variant-numeric:tabular-nums}
  .caja-tot .fila-total td{border-top:1.3px solid #285068;font-size:10pt;font-weight:800;color:#285068;padding-top:5px}
  .nota{margin-top:14px;font-size:8.6pt}
+ .cot-firma{margin-top:16px;text-align:center}
+ .cot-firma-linea{border-top:1.3px solid #1c2b36;width:64mm;margin:0 auto}
+ .cot-firma-nom{font-size:9pt;font-weight:800;color:#1c2b36;margin-top:3px}
+ .cot-firma-sub{font-size:7.6pt;color:#667}
  .cond{margin-top:auto;padding-top:14px;font-size:7.8pt;color:#333333;line-height:1.75}
  .cond div{margin-bottom:1px}
  .rev{display:flex;justify-content:space-between;align-items:center;font-size:8pt;margin-top:8px}
@@ -9941,7 +9973,15 @@ function imprimirCotizacion(n){
         <tr class="fila-total"><td class="lbl">Total:</td><td class="sim">${sim}</td><td class="val">${moneda(t.total)}</td></tr>
       </table></div>
     </div>
-    <div class="nota"><b>Nota:</b> ${esc(c.nota||'')}</div>`:'';
+    <div class="nota"><b>Nota:</b> ${esc(c.nota||'')}</div>
+    <div class="cot-firma">
+      <div class="firma-lab">
+        ${bloqueFirmaSello(cf)}
+        <div class="cot-firma-linea"></div>
+        <div class="cot-firma-nom">${esc(cf.regente)}</div>
+        <div class="cot-firma-sub">${esc(cf.profesionalTitulo||'Microbiólogo y Químico Clínico')} · ${esc(cf.colegiacion)}</div>
+      </div>
+    </div>`:'';
     return `<div class="pagina">
       ${cabecera(idx+1)}
       ${encTabla}${filas}</tbody></table>
@@ -10021,7 +10061,16 @@ const cssCabeceraDoc=`
  .cab-datos .ln-contacto{text-align:left;white-space:nowrap;margin-top:1px}
  .cab-prof{flex:0 0 24%;text-align:right}
  .prof-n{font-size:9.2pt;font-weight:700;letter-spacing:-.2px;color:#111;line-height:1.25}
- .prof-t{font-size:7.6pt;color:#333;line-height:1.45}`;
+ .prof-t{font-size:7.6pt;color:#333;line-height:1.45}
+ /* Firma y sello opcionales (bloqueFirmaSello, más abajo): flotan JUSTO
+    encima de la línea de firma de cada documento (la propia línea le pone
+    la clase "firma-lab" para volverse el ancla de position:relative). */
+ .firma-lab{position:relative}
+ .firma-lab-img{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);
+   margin-bottom:1mm;white-space:nowrap;line-height:0}
+ .firma-lab-img .img-firma-doc{height:30px;position:relative;z-index:2}
+ .firma-lab-img .img-sello-doc{width:20mm;height:20mm;position:absolute;left:50%;
+   margin-left:5mm;bottom:-3mm;z-index:1;opacity:.9}`;
 
 /* ---- Plantillas de impresión compartidas entre documentos (ago. 2026) ----
    Antes, el bloque "logo + dirección/contacto + profesional" (clase .cab)
@@ -10063,6 +10112,24 @@ function bloqueCab(cf,opciones){
       ${opciones.codigoBarra?`<svg class="codigo" data-valor="${opciones.codigoBarra}" style="width:74px;height:17px;margin-top:3px"></svg>`:''}
     </div>
   </div>`;
+}
+
+/* ---- Firma y sello, opcionales (ago. 2026, pedido del usuario) ----
+   firmaSelloActivo (declarada en 50_impresion.js junto a modoAplanado, mismo
+   patrón) es una preferencia de SESIÓN, no algo grabado en la factura/recibo/
+   cotización: se marca con la casilla "Firmar y sellar" de la vista previa o
+   del modal de PDF (ver previsualizar()/modalPDF()), y decide si ESTA copia
+   en particular lleva la firma y el sello configurados en Configuración —
+   la siguiente copia de la MISMA factura puede salir sin ellos si se
+   desmarca. Se usa junto con la clase "firma-lab" (position:relative) que
+   cada documento le pone a su propia línea de firma. */
+function bloqueFirmaSello(cf){
+  if(!firmaSelloActivo)return '';
+  if(!cf.firma&&!cf.sello)return '';
+  return `<span class="firma-lab-img">
+    ${cf.firma?`<img src="${cf.firma}" class="img-firma-doc">`:''}
+    ${cf.sello?`<img src="${cf.sello}" class="img-sello-doc">`:''}
+  </span>`;
 }
 
 /* Formato de moneda para los montos de cotización/recibo (ago. 2026) — antes
