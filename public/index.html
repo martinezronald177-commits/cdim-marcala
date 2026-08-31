@@ -6526,6 +6526,7 @@ function modalRecibo(ot){
   ${o&&o.pagada?'<div class="aviso">Esta orden ya fue cobrada y registrada en contabilidad; el recibo <b>no volverá a sumar</b> el ingreso, solo documenta la venta.</div>':''}
   <div class="modal-pie">
     <button class="btn btn-g" onclick="cerrarModal()">Cancelar</button>
+    <button class="btn btn-d" onclick="previsualizarBorradorRecibo()">👁 Ver recibo</button>
     <button class="btn btn-p" onclick="guardarRecibo()">✓ Emitir recibo</button>
   </div>`,true);
   pintarItemsRec();
@@ -6563,6 +6564,93 @@ function pintarItemsRec(){
    atómico (POST /api/recibos, cdim-server/server.js), no el navegador --
    así dos personas emitiendo casi al mismo tiempo nunca terminan con el
    mismo número, ni pierden en silencio un recibo ya impreso. */
+/* Arma un recibo con lo que hay en el formulario, sin guardarlo ni gastar el
+   correlativo -- para el botón "Ver recibo" del modal: se quiere ver cómo va a
+   quedar el papel ANTES de emitirlo. Es deliberadamente permisiva (no exige
+   nombre ni conceptos, como sí hace guardarRecibo): es un vistazo, no un
+   intento de emitir. Mismo patrón que construirBorradorFactura(). */
+function construirBorradorRecibo(){
+  const g=id=>document.getElementById(id)?.value.trim()||'';
+  const esEmpresa=!!document.getElementById('r_es_empresa')?.checked;
+  return {
+    numero:numeroRecibo(),fecha:hoy(),hora:ahoraHora(),
+    clienteNombre:g('r_nombre')||'(sin nombre aún)',
+    clienteIdTipo:document.getElementById('r_idtipo')?.value||'DNI',
+    clienteId:g('r_id'),clienteDir:g('r_dir'),clienteTel:g('r_tel'),
+    esEmpresa,
+    pacienteNombre:esEmpresa?g('r_pacnombre'):'',
+    pacienteIdTipo:esEmpresa?(document.getElementById('r_pactipo')?.value||''):'',
+    pacienteId:esEmpresa?g('r_pacid'):'',
+    terminoPago:document.getElementById('r_termpago')?.value||'Contado',
+    metodo:document.getElementById('r_metodo')?.value||'Efectivo',
+    ot:g('r_ot'),
+    items:itemsRec.filter(i=>i.desc.trim()||i.precio).map(i=>({...i,descPct:pctItem(i)})),
+    descPct:Number(g('r_desc'))||0,nota:g('r_nota'),
+    emitidoPor:usuarioActivo().nombre,
+    anulado:false,motivoAnulacion:'',
+    borrador:true,
+  };
+}
+/* Vista previa de solo lectura. A propósito NO usa previsualizar(): ese modal
+   trae un botón "Imprimir", y imprimir un borrador dejaría circulando un papel
+   con un número de recibo que nunca quedó registrado, rompiendo el
+   correlativo. Aquí solo se ve y se vuelve a editar.
+   "Volver a editar" no puede reabrir modalRecibo(ot) a secas: esa función
+   reconstruye el formulario desde la orden y resetea itemsRec, así que se
+   perdería lo que se hubiera cambiado a mano. Por eso el borrador y una copia
+   de itemsRec se guardan aparte y se reinyectan campo por campo. */
+function previsualizarBorradorRecibo(){
+  const borrador=construirBorradorRecibo();
+  const itemsSnapshot=itemsRec.slice();
+  capturaImp={};
+  let doc=null;
+  try{ renderizarReciboVenta(borrador); doc=capturaImp; }
+  catch(e){ capturaImp=null; toast('No se pudo generar la vista previa'); return; }
+  capturaImp=null;
+  if(!doc||!doc.html){toast('No se pudo generar la vista previa');return;}
+  window.__borradorRecibo=borrador;
+  window.__itemsBorradorRecibo=itemsSnapshot;
+  const srcdoc=('<!DOCTYPE html><html><head><meta charset="UTF-8">'+
+    '<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">'+
+    '<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>'+
+    '<style>body{margin:0;background:#e8ecef}'+doc.css+
+    '@media screen{.hoja,.pagina,.rv{background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.18);margin:8px auto;padding:10mm 9mm;width:216mm;box-sizing:border-box}}'+
+    '</style></head><body>'+doc.html+
+    '<script>window.onload=function(){try{document.querySelectorAll("svg.codigo").forEach(function(s){'+
+    'if(window.JsBarcode)JsBarcode(s,s.dataset.valor,{format:"CODE128",displayValue:false,height:28,margin:0,width:1.4});});}catch(e){}};<\/script>'+
+    '</body></html>').replace(/"/g,'&quot;');
+  abrirModal(`
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+    <h3 style="margin:0">Vista previa del recibo</h3>
+    <button class="btn btn-g btn-min" onclick="volverAEditarRecibo()">← Volver a editar</button>
+  </div>
+  <div class="aviso" style="border-left:4px solid var(--dorado);background:#fff8e6;padding:7px 11px;margin-bottom:8px;font-size:12.5px">
+    <b>Esto es un borrador.</b> El número <b>${esc(borrador.numero)}</b> todavía no se ha emitido ni impreso;
+    para eso, vuelve a editar y presiona “Emitir recibo”.
+  </div>
+  <div class="marco-previa"><iframe srcdoc="${srcdoc}"></iframe></div>`,true);
+}
+function volverAEditarRecibo(){
+  const r=window.__borradorRecibo;
+  if(!r){cerrarModal();return;}
+  modalRecibo(r.ot||undefined);
+  itemsRec=window.__itemsBorradorRecibo||[];
+  const set=(id,v)=>{const el=document.getElementById(id);if(el)el.value=String(v??'');};
+  set('r_nombre',r.clienteNombre==='(sin nombre aún)'?'':r.clienteNombre);
+  const selIdTipo=document.getElementById('r_idtipo');if(selIdTipo)selIdTipo.value=r.clienteIdTipo;
+  set('r_id',r.clienteId);set('r_dir',r.clienteDir);set('r_tel',r.clienteTel);
+  const selTerm=document.getElementById('r_termpago');if(selTerm)selTerm.value=r.terminoPago;
+  const selMetodo=document.getElementById('r_metodo');if(selMetodo)selMetodo.value=r.metodo;
+  set('r_desc',r.descPct);set('r_nota',r.nota);
+  const chk=document.getElementById('r_es_empresa');
+  if(chk){chk.checked=!!r.esEmpresa;alternarDatosPacienteRecibo();}
+  if(r.esEmpresa){
+    set('r_pacnombre',r.pacienteNombre);
+    const selPacTipo=document.getElementById('r_pactipo');if(selPacTipo&&r.pacienteIdTipo)selPacTipo.value=r.pacienteIdTipo;
+    set('r_pacid',r.pacienteId);
+  }
+  pintarItemsRec();
+}
 async function guardarRecibo(){
   const g=id=>document.getElementById(id).value.trim();
   if(!g('r_nombre')){toast('Escribe el nombre del cliente');return;}
@@ -6694,6 +6782,13 @@ const cssReciboVenta=`
 function imprimirReciboVenta(num){
   const r=S.recibos.find(x=>x.numero===num);
   if(!r){toast('Recibo no encontrado');return;}
+  renderizarReciboVenta(r);
+}
+/* Igual que renderizarFactura(): dibuja un recibo YA EMITIDO (desde
+   imprimirReciboVenta) o un borrador armado en memoria sin guardar (desde
+   previsualizarBorradorRecibo, para el botón "Ver recibo" del modal antes de
+   emitir). Solo lee S.config, S.ordenes y S.pacientes; nunca escribe. */
+function renderizarReciboVenta(r){
   const c=S.config, t=calcRecibo(r);
   // Mismos datos del cliente/paciente que la Factura (25_facturas.js) --
   // médico, fecha de nacimiento, género, edad, QR a resultados, términos
@@ -6736,7 +6831,8 @@ function imprimirReciboVenta(num){
   };
   const cuerpo=(copia,pag)=>`
   <div class="rv">
-    ${r.anulado?'<div class="rv-anulado">ANULADO</div>':''}
+    ${r.anulado?'<div class="rv-anulado">ANULADO</div>'
+      :r.borrador?'<div class="rv-anulado" style="color:rgba(184,151,74,.35)">VISTA PREVIA</div>':''}
     ${bloqueCab(c,{razonSocial:true,claseContacto:''})}
     <div class="rv-tit">
       <div>
