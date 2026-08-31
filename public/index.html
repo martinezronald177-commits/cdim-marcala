@@ -10134,7 +10134,12 @@ const cssCabeceraDoc=`
     un sello redondo y uno rectangular no deforman igual si se fuerzan
     ambos lados a la misma medida. */
  .firma-lab-img .img-sello-doc{height:19mm;width:auto;position:relative;z-index:1;opacity:.9}
- .firma-lab-img .img-sello-izq{margin-right:-5mm}
+ .firma-lab-img .img-sello-izq{margin-right:-5mm;
+   /* Sello de microbiólogo (Colegio de Microbiólogos y Químicos Clínicos de
+      Honduras): círculo de 30 mm de diámetro, sin caja. La imagen es
+      cuadrada, así que fijar el ANCHO a 30 mm deja el círculo a su medida
+      real. */
+   height:auto;width:30mm}
  .firma-lab-img .img-sello-der{margin-left:-5mm;z-index:2;
    /* Sello del laboratorio (medido directamente del sello físico, ago.
       2026): círculo de 30 mm de diámetro con una caja rectangular de
