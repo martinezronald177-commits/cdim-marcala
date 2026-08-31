@@ -10126,12 +10126,17 @@ const cssCabeceraDoc=`
     arriba tapaba la firma y el otro sello, y en papel no se distinguía cuál
     era cuál. El "gap" los separa; cada pieza conserva su tamaño físico. */
  .firma-lab{position:relative}
- .firma-lab-img{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);
-   margin-bottom:1mm;line-height:0;
-   display:flex;align-items:flex-end;justify-content:center;gap:3mm}
- /* Misma altura que la firma del informe de resultados (.img-firma, 48px):
-    a 28px quedaba tan chica que no se leía como firma. */
- .firma-lab-img .img-firma-doc{height:48px;width:auto;position:relative;z-index:3}
+ /* En el flujo normal (no position:absolute): flotando, el bloque no reservaba
+    su propio alto y un sello de 45 mm terminaba montado sobre el total en
+    letras y los totales. Así se coloca solo encima de la línea de firma y
+    empuja lo que venga arriba; y cuando no se marca ningún sello el span ni
+    se genera, de modo que no queda hueco en blanco. */
+ .firma-lab-img{display:flex;align-items:flex-end;justify-content:center;
+   gap:3mm;line-height:0;margin-bottom:1.5mm}
+ /* 18 mm de alto: la firma tiene que leerse como firma al lado de sellos de
+    30 y 40 mm. A la altura del informe (48px ≈ 12.7 mm) quedaba empequeñecida
+    entre los dos sellos, que allí no la acompañan. */
+ .firma-lab-img .img-firma-doc{height:18mm;width:auto;position:relative;z-index:3}
  /* Ancho fijo + height:auto (no un cuadro fijo): conserva la relación de
     aspecto real de cada sello en vez de estirarlo/aplastarlo a un cuadro --
     un sello redondo y uno rectangular no deforman igual si se fuerzan
