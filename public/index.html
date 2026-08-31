@@ -80,6 +80,23 @@ tr:hover td{background:#f8fafb}
 .chip-do{background:#f5edda;color:#8a6d2e}
 .chip-rj{background:var(--rojo-suave);color:var(--rojo)}
 .chip-am{background:var(--ambar-suave);color:var(--ambar)}
+/* Selector de "Firmar y sellar" (vista previa y PDF de Cotización, Factura,
+   Recibo y Sobre — ver filaOpcionesFirma() en 50_impresion.js): tres chips
+   independientes, uno por imagen (firma, sello de microbiólogo, sello del
+   laboratorio), para que sea evidente de un vistazo cuáles están activos sin
+   tener que leer casillas de texto pequeñas. */
+.firma-selector{display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+  background:#f4f8fa;border:1px solid var(--linea);border-radius:10px;padding:9px 12px;margin-bottom:8px}
+.firma-selector-tit{font-size:11px;font-weight:800;color:var(--gris);text-transform:uppercase;
+  letter-spacing:.4px;width:100%;margin-bottom:1px}
+.firma-chip{display:flex;align-items:center;gap:6px;padding:6px 13px;border-radius:20px;
+  border:1.5px solid var(--linea);background:#fff;font-size:12.5px;font-weight:600;color:var(--gris);
+  cursor:pointer;transition:.15s;user-select:none}
+.firma-chip input{display:none}
+.firma-chip:hover{border-color:var(--azul);color:var(--azul)}
+.firma-chip.activo{background:var(--verde-suave);border-color:var(--verde);color:var(--verde-osc)}
+.firma-chip.deshabilitado{opacity:.5;cursor:not-allowed}
+.firma-chip.deshabilitado:hover{border-color:var(--linea);color:var(--gris)}
 .rejilla{display:grid;gap:12px}
 .c2{grid-template-columns:repeat(auto-fit,minmax(290px,1fr))}.c3{grid-template-columns:repeat(auto-fit,minmax(215px,1fr))}.c4{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(206px,1fr));gap:14px;margin-bottom:18px}
@@ -4655,7 +4672,7 @@ function abrirMenuOrden(ev,n){
   <div class="acc-grupo"><b>Impresos del laboratorio</b>
     <div class="acc-botones">
       <button class="btn btn-d" onclick="cerrarModal();previsualizar(()=>imprimirEtiquetas('${n}'),'Etiquetas · ${n}','Imprimir')">▤ Etiquetas</button>
-      <button class="btn btn-g" onclick="cerrarModal();previsualizar(()=>imprimirSobre('${n}'),'Sobre · ${n}','Imprimir')">✉ Sobre</button>
+      <button class="btn btn-g" onclick="cerrarModal();previsualizar(()=>imprimirSobre('${n}'),'Sobre · ${n}','Imprimir',true)">✉ Sobre</button>
     </div>
   </div>
 
@@ -5284,7 +5301,7 @@ function modalResultados(n,desde,sinScroll,areaActiva){
       <button class="btn btn-p btn-min" onclick="previsualizar(()=>imprimirHojaTrabajo('${n}'),'Hoja de trabajo · ${n}','Imprimir hoja de trabajo')">📋 Hoja de trabajo</button>
       <button class="btn btn-d btn-min" onclick="previsualizar(()=>imprimirEtiquetas('${n}'),'Etiquetas · ${n}','Imprimir etiquetas')">▤ Etiquetas</button>
       <button class="btn btn-v btn-min" onclick="imprimirResultados('${n}')">👁 Ver informe</button>
-      <button class="btn btn-g btn-min" onclick="previsualizar(()=>imprimirSobre('${n}'),'Sobre · ${n}','Imprimir sobre')">✉ Imprimir sobre</button>
+      <button class="btn btn-g btn-min" onclick="previsualizar(()=>imprimirSobre('${n}'),'Sobre · ${n}','Imprimir sobre',true)">✉ Imprimir sobre</button>
       <button class="btn btn-v btn-min" onclick="modalCompartir('informe','${n}')">✆ Enviar al paciente</button>
       ${o.pagada?`<button class="btn btn-g btn-min" onclick="previsualizar(()=>imprimirRecibo('${n}'),'Recibo · ${n}','Imprimir recibo')">Recibo</button>`:''}
     </div>
@@ -9465,11 +9482,48 @@ function abrirEnlace(url){
 /* =============== VISTA PREVIA DE DOCUMENTOS =============== */
 let capturaImp=null;   // cuando está activo, ventanaImpresion() entrega el documento en vez de imprimirlo
 /* "Firmar y sellar": preferencia de SESIÓN (no se graba en el documento),
-   igual patrón que modoAplanado más abajo. La marca la casilla de la vista
-   previa o del modal de PDF; bloqueFirmaSello() (50b_plantillas_comunes.js)
-   la lee al armar cada documento. Empieza en false: cada persona decide
-   cada vez si esta copia lleva o no la firma y el sello. */
-let firmaSelloActivo=false;
+   igual patrón que modoAplanado más abajo. Tres interruptores independientes
+   -- la firma del profesional, el sello del laboratorio (el que lleva razón
+   social y RTN) y el sello personal de microbiólogo son tres imágenes
+   distintas (ver Configuración) y cada quien puede necesitar una, dos o las
+   tres según el documento. Los marca la persona en la vista previa o el
+   modal de PDF; bloqueFirmaSello() (50b_plantillas_comunes.js) los lee al
+   armar cada documento. Empiezan en false: cada copia se decide aparte. */
+let opcionesFirma={firma:false, selloMicro:false, selloLab:false};
+/* Arma la fila de "chips" seleccionables (ver .firma-selector en
+   01_estilos.css) -- una por cada imagen que SÍ está cargada en
+   Configuración. Si falta alguna (p. ej. nunca se subió el sello de
+   microbiólogo) esa opción ni se ofrece, en vez de mostrar una casilla que
+   no haría nada. Si NO hay ninguna imagen cargada, se muestra un aviso que
+   explica dónde subirlas, en vez de no mostrar nada y dejar a la persona sin
+   saber por qué no aparece la opción. */
+function filaOpcionesFirma(cf,manejador){
+  // manejador: qué función llama cada chip al tocarlo. previsualizar() usa
+  // alternarOpcionFirma() (regenera el documento completo, para que la
+  // vista previa en vivo lo refleje); modalPDF() no tiene ninguna vista
+  // previa que regenerar -- ahí se usa alternarOpcionFirmaPDF(), que solo
+  // guarda la preferencia y redibuja ESE chip, sin tocar ninguna otra
+  // ventana (reusar alternarOpcionFirma() ahí reabría por error la última
+  // vista previa que hubiera quedado abierta, de OTRO documento).
+  manejador=manejador||'alternarOpcionFirma';
+  const opciones=[
+    {clave:'firma', etiqueta:'✍️ Firma', disponible:!!cf.firma},
+    {clave:'selloMicro', etiqueta:'🩺 Sello de microbiólogo', disponible:!!cf.selloMicro},
+    {clave:'selloLab', etiqueta:'🏥 Sello del laboratorio', disponible:!!cf.sello},
+  ];
+  if(!opciones.some(o=>o.disponible))
+    return `<div class="aviso" style="margin-bottom:8px;font-size:12.5px">
+      Para poder firmar y sellar tus documentos, sube la firma y los sellos en
+      <b>Configuración → Firma y sellos</b>. Mientras no subas ninguno, esta opción no aparece.</div>`;
+  return `<div class="firma-selector">
+    <div class="firma-selector-tit">🖋 Firmar y sellar — solo para esta copia</div>
+    ${opciones.map(o=>`<label class="firma-chip ${opcionesFirma[o.clave]?'activo':''} ${o.disponible?'':'deshabilitado'}"
+        title="${o.disponible?'':'Sube esta imagen en Configuración → Firma y sellos para activarla'}">
+      <input type="checkbox" ${o.disponible?'':'disabled'} ${opcionesFirma[o.clave]?'checked':''}
+        onchange="${manejador}('${o.clave}',this.checked,this)">
+      <span>${o.etiqueta}</span></label>`).join('')}
+  </div>`;
+}
 function previsualizar(generador,titulo,etiquetaBoton,conFirma){
   window.__previaTitulo=titulo; window.__previaEtiqueta=etiquetaBoton; window.__previaConFirma=conFirma;
   capturaImp={};
@@ -9478,10 +9532,9 @@ function previsualizar(generador,titulo,etiquetaBoton,conFirma){
   catch(e){ capturaImp=null; toast('No se pudo generar la vista previa'); return; }
   capturaImp=null;
   if(!doc||!doc.html){toast('El documento se canceló');return;}
-  // conFirma: true solo para cotización/factura/recibo (ver bloqueFirmaSello()
-  // en 50b_plantillas_comunes.js) -- en el resto de documentos no hay dónde
-  // pegar la firma/sello, así que ni se ofrece la casilla.
-  const conFirmaSello=!!conFirma&&!!(S.config.firma||S.config.sello);
+  // conFirma: true solo para cotización/factura/recibo/sobre (ver
+  // bloqueFirmaSello() en 50b_plantillas_comunes.js) -- en el resto de
+  // documentos no hay dónde pegar la firma/sello, así que ni se ofrece.
   const srcdoc=('<!DOCTYPE html><html><head><meta charset="UTF-8">'+
     '<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">'+
     '<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>'+
@@ -9500,9 +9553,7 @@ function previsualizar(generador,titulo,etiquetaBoton,conFirma){
       <button class="btn btn-v" onclick="imprimirDesdePrevia()">🖨 ${esc(etiquetaBoton||'Imprimir')}</button>
     </div>
   </div>
-  ${conFirmaSello?`<label style="display:flex;align-items:center;gap:7px;font-size:12.5px;margin-bottom:8px;cursor:pointer">
-    <input type="checkbox" ${firmaSelloActivo?'checked':''} onchange="alternarFirmaSello(this.checked)">
-    Firmar y sellar (usa la firma y el sello de Configuración) — solo para esta copia</label>`:''}
+  ${conFirma?filaOpcionesFirma(S.config):''}
   <div class="aviso" style="border-left:4px solid var(--dorado);background:#fff8e6;padding:7px 11px;margin-bottom:8px;font-size:12.5px">
     <b>Al imprimir, verifique que el tamaño de papel diga «Carta» o «Letter».</b>
     Si el navegador trae A4, cámbielo ahí mismo: el diálogo del navegador manda sobre el diseño del documento.
@@ -9516,13 +9567,21 @@ function previsualizar(generador,titulo,etiquetaBoton,conFirma){
   const ifrPrevia=document.querySelector('.marco-previa iframe');
   if(ifrPrevia)ifrPrevia.onload=()=>{ try{repaginarHojas(ifrPrevia.contentWindow);}catch(e){} };
 }
-/* Tildar/destildar "Firmar y sellar" en la vista previa reconstruye el
-   documento entero desde cero (mismo generador, mismo título) para que el
-   iframe refleje el cambio de inmediato -- no hay forma de "insertar" la
-   firma en un documento que ya se armó sin ella. */
-function alternarFirmaSello(v){
-  firmaSelloActivo=v;
+/* Tildar/destildar cualquiera de los tres chips reconstruye el documento
+   entero desde cero (mismo generador, mismo título) para que el iframe
+   refleje el cambio de inmediato -- no hay forma de "insertar" la firma en
+   un documento que ya se armó sin ella. */
+function alternarOpcionFirma(clave,v){
+  opcionesFirma[clave]=v;
   if(typeof window.__reimprimir==='function')previsualizar(window.__reimprimir,window.__previaTitulo,window.__previaEtiqueta,window.__previaConFirma);
+}
+/* Chips del modal de PDF (modalPDF, más abajo): ahí no hay ninguna vista
+   previa en vivo que regenerar -- el PDF se arma recién al hacer clic en
+   "Generar PDF". Solo se guarda la preferencia y se redibuja ESE chip. */
+function alternarOpcionFirmaPDF(clave,v,input){
+  opcionesFirma[clave]=v;
+  const chip=input&&input.closest?input.closest('.firma-chip'):null;
+  if(chip)chip.classList.toggle('activo',v);
 }
 /* ===== Descarga en PDF: dos modos de salida ===== */
 let modoAplanado=false;
@@ -9558,13 +9617,11 @@ function modalPDF(tipo,id){
           :(()=>imprimirRecibo(id));
   const esInstructivo=/^instructivo/.test(tipo);
   // Firmar y sellar solo tiene sentido en los documentos con línea de firma
-  // propia: cotización, factura y recibo de venta (ver bloqueFirmaSello()).
-  const conFirmaSello=['cotizacion','factura','recibo'].includes(tipo)&&!!(S.config.firma||S.config.sello);
+  // propia: cotización, factura, recibo de venta y sobre (bloqueFirmaSello()).
+  const conFirma=['cotizacion','factura','recibo','sobre'].includes(tipo);
   abrirModal(`
   <h3>${esInstructivo?'Instructivo en PDF':'Descargar en PDF'}</h3>
-  ${conFirmaSello?`<label style="display:flex;align-items:center;gap:7px;font-size:12.5px;margin-bottom:10px;cursor:pointer">
-    <input type="checkbox" id="chk_firma_sello_pdf" ${firmaSelloActivo?'checked':''} onchange="firmaSelloActivo=this.checked">
-    Firmar y sellar (usa la firma y el sello de Configuración) — solo para este PDF</label>`:''}
+  ${conFirma?filaOpcionesFirma(S.config,'alternarOpcionFirmaPDF'):''}
   <div class="aviso" style="border-left:4px solid var(--dorado);background:#fff8e6;margin-bottom:10px">
     <b>En el diálogo que se abre, revise estas cuatro cosas:</b>
     <table style="width:100%;font-size:12.5px;margin-top:6px;border-collapse:collapse">
@@ -10062,15 +10119,19 @@ const cssCabeceraDoc=`
  .cab-prof{flex:0 0 24%;text-align:right}
  .prof-n{font-size:9.2pt;font-weight:700;letter-spacing:-.2px;color:#111;line-height:1.25}
  .prof-t{font-size:7.6pt;color:#333;line-height:1.45}
- /* Firma y sello opcionales (bloqueFirmaSello, más abajo): flotan JUSTO
-    encima de la línea de firma de cada documento (la propia línea le pone
-    la clase "firma-lab" para volverse el ancla de position:relative). */
+ /* Firma y hasta dos sellos opcionales (bloqueFirmaSello, más abajo): flotan
+    JUSTO encima de la línea de firma de cada documento (la propia línea le
+    pone la clase "firma-lab" para volverse el ancla de position:relative).
+    Se dibujan encimados -- la firma al centro (más arriba, z-index mayor),
+    un sello a cada lado, ligeramente detrás -- como quedaría un documento
+    firmado y sellado a mano de verdad. */
  .firma-lab{position:relative}
  .firma-lab-img{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);
-   margin-bottom:1mm;white-space:nowrap;line-height:0}
- .firma-lab-img .img-firma-doc{height:30px;position:relative;z-index:2}
- .firma-lab-img .img-sello-doc{width:20mm;height:20mm;position:absolute;left:50%;
-   margin-left:5mm;bottom:-3mm;z-index:1;opacity:.9}`;
+   margin-bottom:1mm;white-space:nowrap;line-height:0;display:flex;align-items:flex-end}
+ .firma-lab-img .img-firma-doc{height:28px;position:relative;z-index:3;margin:0 -4mm}
+ .firma-lab-img .img-sello-doc{width:19mm;height:19mm;position:relative;z-index:1;opacity:.9}
+ .firma-lab-img .img-sello-izq{margin-right:-5mm}
+ .firma-lab-img .img-sello-der{margin-left:-5mm;z-index:2}`;
 
 /* ---- Plantillas de impresión compartidas entre documentos (ago. 2026) ----
    Antes, el bloque "logo + dirección/contacto + profesional" (clase .cab)
@@ -10114,22 +10175,29 @@ function bloqueCab(cf,opciones){
   </div>`;
 }
 
-/* ---- Firma y sello, opcionales (ago. 2026, pedido del usuario) ----
-   firmaSelloActivo (declarada en 50_impresion.js junto a modoAplanado, mismo
+/* ---- Firma y sellos, opcionales (ago. 2026, pedido del usuario) ----
+   opcionesFirma (declarada en 50_impresion.js junto a modoAplanado, mismo
    patrón) es una preferencia de SESIÓN, no algo grabado en la factura/recibo/
-   cotización: se marca con la casilla "Firmar y sellar" de la vista previa o
-   del modal de PDF (ver previsualizar()/modalPDF()), y decide si ESTA copia
-   en particular lleva la firma y el sello configurados en Configuración —
-   la siguiente copia de la MISMA factura puede salir sin ellos si se
-   desmarca. Se usa junto con la clase "firma-lab" (position:relative) que
-   cada documento le pone a su propia línea de firma. */
+   cotización/sobre: se marcan con los "chips" de la vista previa o del modal
+   de PDF (ver filaOpcionesFirma()/previsualizar()/modalPDF()), y deciden si
+   ESTA copia en particular lleva la firma, el sello de microbiólogo y/o el
+   sello del laboratorio configurados en Configuración -- la siguiente copia
+   del MISMO documento puede salir con una combinación distinta. Se usa junto
+   con la clase "firma-lab" (position:relative) que cada documento le pone a
+   su propia línea de firma.
+
+   Las tres imágenes se dibujan encimadas, como quedaría un documento firmado
+   y sellado a mano de verdad: la firma al centro y arriba (z-index más
+   alto), un sello a cada lado, ligeramente detrás. */
 function bloqueFirmaSello(cf){
-  if(!firmaSelloActivo)return '';
-  if(!cf.firma&&!cf.sello)return '';
-  return `<span class="firma-lab-img">
-    ${cf.firma?`<img src="${cf.firma}" class="img-firma-doc">`:''}
-    ${cf.sello?`<img src="${cf.sello}" class="img-sello-doc">`:''}
-  </span>`;
+  const o=opcionesFirma;
+  const partes=[
+    (o.selloMicro&&cf.selloMicro)?`<img src="${cf.selloMicro}" class="img-sello-doc img-sello-izq">`:'',
+    (o.firma&&cf.firma)?`<img src="${cf.firma}" class="img-firma-doc">`:'',
+    (o.selloLab&&cf.sello)?`<img src="${cf.sello}" class="img-sello-doc img-sello-der">`:'',
+  ].filter(Boolean);
+  if(!partes.length)return '';
+  return `<span class="firma-lab-img">${partes.join('')}</span>`;
 }
 
 /* Formato de moneda para los montos de cotización/recibo (ago. 2026) — antes
@@ -10542,7 +10610,7 @@ function imprimirSobre(n){
       <div class="s-orden">${o.numero}</div>
     </div>
     <div class="s-entrega">
-      <div class="s-linea">Entregado por</div>
+      <div class="s-linea firma-lab">${bloqueFirmaSello(c)}Entregado por</div>
       <div class="s-linea">Recibido por · Fecha</div>
     </div>
     <div class="s-pie">
@@ -12553,11 +12621,13 @@ function vConfig(){
       <div class="campo" style="align-self:end"><div style="background:#eef2f5;border-radius:8px;padding:8px 10px;font-size:12px">
         Próxima orden de hoy: <b style="color:var(--azul);letter-spacing:.5px">${numeroOrden(hoy())}</b></div></div>
       <div class="campo"><label>Firma escaneada (PNG transparente)</label><input type="file" accept="image/*" onchange="cargarImagenCfg(this,'firma')"></div>
-      <div class="campo"><label>Sello escaneado (PNG transparente)</label><input type="file" accept="image/*" onchange="cargarImagenCfg(this,'sello')"></div>
+      <div class="campo"><label>Sello del laboratorio (PNG transparente)</label><input type="file" accept="image/*" onchange="cargarImagenCfg(this,'sello')"></div>
+      <div class="campo"><label>Sello de microbiólogo (PNG transparente)</label><input type="file" accept="image/*" onchange="cargarImagenCfg(this,'selloMicro')"></div>
       <div style="align-self:center">${c.firma?`<img src="${c.firma}" style="height:40px"><br><button class="btn btn-r btn-min" onclick="quitarImagenCfg('firma')">Quitar firma</button>`:'<span style="color:var(--gris);font-size:11px">Sin firma</span>'}</div>
-      <div style="align-self:center">${c.sello?`<img src="${c.sello}" style="height:54px"><br><button class="btn btn-r btn-min" onclick="quitarImagenCfg('sello')">Quitar sello</button>`:'<span style="color:var(--gris);font-size:11px">Sin sello</span>'}</div>
+      <div style="align-self:center">${c.sello?`<img src="${c.sello}" style="height:54px"><br><button class="btn btn-r btn-min" onclick="quitarImagenCfg('sello')">Quitar sello del laboratorio</button>`:'<span style="color:var(--gris);font-size:11px">Sin sello del laboratorio</span>'}</div>
+      <div style="align-self:center">${c.selloMicro?`<img src="${c.selloMicro}" style="height:54px"><br><button class="btn btn-r btn-min" onclick="quitarImagenCfg('selloMicro')">Quitar sello de microbiólogo</button>`:'<span style="color:var(--gris);font-size:11px">Sin sello de microbiólogo</span>'}</div>
     </div>
-    <div class="aviso" style="margin-top:6px">El sello digital solo se imprime en informes <b>validados</b>; los informes preliminares salen sin sello. Trata este archivo como tu sello físico: resguarda la computadora con contraseña y evita compartir el HTML o el respaldo .json con terceros, ya que contienen el sello incrustado.</div>
+    <div class="aviso" style="margin-top:6px">El sello del laboratorio y el de microbiólogo solo se imprimen en informes <b>validados</b>; los informes preliminares salen sin sello. En Cotización, Factura y Recibo, la firma y ambos sellos son opcionales: se agregan solo si se marcan al imprimir o descargar (ver "Firmar y sellar" en la vista previa). Trata estos archivos como tus sellos físicos: resguarda la computadora con contraseña y evita compartir el HTML o el respaldo .json con terceros, ya que los llevan incrustados.</div>
       <div class="campo"><label>Logo (PNG con fondo transparente)</label><input type="file" accept="image/*" onchange="cargarLogo(this)"></div>
       <div style="align-self:center">${c.logo?`<img src="${c.logo}" style="height:50px">`:'<span style="color:var(--gris);font-size:12px">Sin logo cargado</span>'}</div>
     </div>
