@@ -15351,6 +15351,46 @@ function vRespaldos(){
           <input type="file" accept=".json" style="display:none" onchange="subirRespaldo(this)"></label>
       </div>
     </div>
+    ${(()=>{
+      /* Copia fuera del servidor. Es la diferencia entre "tengo 30 respaldos"
+         y "tengo 30 respaldos que se pierden con el mismo disco que protegen",
+         así que el estado se muestra sin que haya que ir a buscarlo. */
+      const re=(salud&&salud.respaldoExterno)||{activo:false};
+      if(!re.activo)return `<div class="tarjeta">
+        <h3 style="margin-bottom:6px">Copia fuera del servidor</h3>
+        <div class="aviso" style="border-left:4px solid var(--ambar);background:var(--ambar-suave)">
+          <b>⚠ No está configurada.</b> Los respaldos de arriba viven en el mismo disco que
+          los datos: si ese disco se pierde, se pierden con él.<br>
+          Para activarla, define en tu proveedor las variables <code>RESPALDO_S3_ENDPOINT</code>,
+          <code>RESPALDO_S3_BUCKET</code>, <code>RESPALDO_S3_REGION</code>,
+          <code>RESPALDO_S3_KEY_ID</code> y <code>RESPALDO_S3_SECRET</code>.
+        </div></div>`;
+      const err=re.ultimoError;
+      return `<div class="tarjeta">
+        <h3 style="margin-bottom:6px">Copia fuera del servidor</h3>
+        <p style="font-size:12.5px;color:var(--gris);margin-bottom:10px">
+          Cada respaldo sale además hacia un almacenamiento externo, ya cifrado: allá no se puede
+          leer ningún dato de paciente sin tu llave. Se manda automáticamente
+          cada ${re.cadaMin} minutos cuando hay cambios.</p>
+        <div class="aviso" style="border-left:4px solid ${err?'var(--rojo)':'var(--verde)'};
+             background:${err?'var(--rojo-suave)':'var(--verde-suave)'}">
+          ${err?`<b>⚠ La última copia falló.</b><br><span style="font-family:monospace;font-size:11.5px">${esc(err)}</span>`
+               :`<b>✓ Activa.</b> ${re.ultimoOk
+                   ?`Última copia: ${fmtFecha(re.ultimoOk.slice(0,10))} a las ${hora12(re.ultimoOk.slice(11,16))}
+                     · ${re.subidas} en esta sesión del servidor.`
+                   :'Todavía no ha subido ninguna copia desde que arrancó el servidor.'}`}
+          <div style="font-size:11.5px;color:var(--gris);margin-top:6px;word-break:break-all">
+            Destino: <code>${esc(re.destino||'')}</code></div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
+          <button class="btn btn-v" id="btn_resp_ext" onclick="respaldarFueraAhora()">
+            ☁ Respaldar fuera del servidor ahora</button>
+        </div>
+        <p style="font-size:11.5px;color:var(--gris);margin-top:8px">
+          Úsalo para comprobar que la configuración quedó bien, o para llevarte una copia
+          justo antes de un cambio delicado.</p>
+      </div>`;
+    })()}
     <div class="tarjeta">
       <h3 style="margin-bottom:6px">Respaldos automáticos del servidor</h3>
       <p style="font-size:12.5px;color:var(--gris);margin-bottom:10px">
@@ -15366,6 +15406,23 @@ function vRespaldos(){
       </tbody></table>`:'<div class="vacio">Aún no hay respaldos automáticos. Se crea uno la primera vez que guardes datos.</div>'}
     </div>`;
   }).catch(()=>toast('No se pudo consultar el estado del servidor'));
+}
+/* Manda una copia al almacenamiento externo sin esperar el intervalo. Antes
+   esto solo se podía disparar desde la consola del navegador, que no es sitio
+   para pedirle nada a nadie. */
+async function respaldarFueraAhora(){
+  const b=document.getElementById('btn_resp_ext');
+  if(b){b.disabled=true;b.textContent='Subiendo…';}
+  try{
+    const r=await apiFetch('/api/respaldo-externo',{method:'POST'});
+    const d=await r.json();
+    if(!r.ok||!d.ok)throw new Error(d.error||('HTTP '+r.status));
+    toast(`✓ Copia subida · ${d.archivo} (${d.kb} KB)`);
+    vRespaldos();          // se repinta para que se vea la fecha nueva
+  }catch(e){
+    toast('No se pudo subir la copia: '+e.message,'err');
+    if(b){b.disabled=false;b.textContent='☁ Respaldar fuera del servidor ahora';}
+  }
 }
 async function restaurarRespaldo(archivo,fecha){
   if(!confirm('¿Restaurar los datos del '+fecha+'?\n\nSe reemplazará todo lo que hay ahora. Los cambios posteriores a esa fecha se perderán.'))return;
