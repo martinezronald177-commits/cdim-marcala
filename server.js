@@ -772,6 +772,124 @@ app.get('/api/estado/ts', auth, (req, res) => {
   res.json({ts: estado?._ts || 0});
 });
 
+/* ════════════════════════════════════════════════════════════
+   SINCRONIZACIÓN POR REGISTRO (delta)
+   ════════════════════════════════════════════════════════════
+   POST /api/estado guarda el documento ENTERO y resuelve los choques por
+   marca de tiempo: si dos personas guardaban casi a la vez, la segunda se
+   topaba con un 409 y tenía que elegir entre descargar lo del servidor
+   —perdiendo su trabajo— o insistir. Con una recepcionista abriendo órdenes
+   mientras el microbiólogo valida, eso pasa todos los días, y quien elige no
+   tiene forma de saber qué está perdiendo.
+
+   Aquí el cliente manda SOLO los registros que tocó. El servidor los mezcla
+   uno por uno sobre su propia copia, identificándolos por su clave. Dos
+   personas trabajando sobre registros distintos ya no chocan: cada una
+   aporta lo suyo y ambas cosas quedan. Solo dos ediciones de la MISMA orden
+   compiten, y ahí gana la última, que es lo razonable.
+
+   El handler es deliberadamente SÍNCRONO de principio a fin: Node atiende
+   una petición a la vez en el hilo principal, así que leer, mezclar y
+   escribir sin ningún await es atómico. Meter un await en medio abriría la
+   puerta a que dos mezclas se pisen. */
+const COLECCIONES = {
+  pacientes:          {ruta:['pacientes'],           clave:'codigo'},
+  examenes:           {ruta:['examenes'],            clave:'id'},
+  perfiles:           {ruta:['perfiles'],            clave:'id'},
+  medicos:            {ruta:['medicos'],             clave:'id'},
+  cotizaciones:       {ruta:['cotizaciones'],        clave:'numero'},
+  ordenes:            {ruta:['ordenes'],             clave:'numero'},
+  recibos:            {ruta:['recibos'],             clave:'numero'},
+  facturas:           {ruta:['facturas'],            clave:'numero'},
+  movimientos:        {ruta:['movimientos'],         clave:'id'},
+  'almacen.insumos':  {ruta:['almacen','insumos'],   clave:'id'},
+  'almacen.movs':     {ruta:['almacen','movs'],      clave:'id'},
+  'cc.controles':     {ruta:['cc','controles'],      clave:'id'},
+  'cc.datos':         {ruta:['cc','datos'],          clave:'id'},
+  'sgc.documentos':   {ruta:['sgc','documentos'],    clave:'id'},
+  'sgc.nc':           {ruta:['sgc','nc'],            clave:'id'},
+  'sgc.personal':     {ruta:['sgc','personal'],      clave:'id'},
+  'sgc.equipos':      {ruta:['sgc','equipos'],       clave:'id'},
+  'sgc.riesgos':      {ruta:['sgc','riesgos'],       clave:'id'},
+  'sgc.revisiones':   {ruta:['sgc','revisiones'],    clave:'id'},
+  // La bitácora es un registro de solo-añadir: no tiene identificador propio,
+  // así que se reconoce por su contenido para no duplicar una misma entrada
+  // si el envío se reintenta.
+  bitacora:           {ruta:['bitacora'],            clave:null},
+};
+const SINGLETONES = ['config','caja','meta'];
+function claveBitacora(b){
+  return [b.fecha,b.hora,b.responsable,b.tipo,b.descripcion].join('');
+}
+function claveDe(col, reg){
+  return COLECCIONES[col].clave ? reg[COLECCIONES[col].clave] : claveBitacora(reg);
+}
+// Devuelve el arreglo de una colección dentro del estado, creándolo si falta.
+function arregloDe(estado, col){
+  const ruta = COLECCIONES[col].ruta;
+  let nodo = estado;
+  for(let i=0;i<ruta.length-1;i++){
+    if(!nodo[ruta[i]] || typeof nodo[ruta[i]]!=='object') nodo[ruta[i]] = {};
+    nodo = nodo[ruta[i]];
+  }
+  const ultima = ruta[ruta.length-1];
+  if(!Array.isArray(nodo[ultima])) nodo[ultima] = [];
+  return nodo[ultima];
+}
+app.post('/api/estado/delta', auth, (req, res) => {
+  const {cambios={}, borrados={}, singletones={}, seq={}, base} = req.body || {};
+  const estado = leerDB('estado');
+  if(!estado) return res.status(409).json({error:'SIN_BASE',
+    detalle:'El servidor todavía no tiene un estado; envía el estado completo por /api/estado primero.'});
+  // Si el cliente venía de una copia anterior a la del servidor, igual se
+  // aceptan sus registros: mezclarlos no pisa nada de nadie más. `base` solo
+  // se devuelve para que el cliente sepa si conviene bajar el resto.
+  const servidorMasNuevo = !!(estado._ts && base && base < estado._ts);
+
+  let aplicados = 0, quitados = 0;
+  for(const col of Object.keys(cambios)){
+    if(!COLECCIONES[col] || !Array.isArray(cambios[col])) continue;
+    const lista = arregloDe(estado, col);
+    const indice = new Map();
+    lista.forEach((r,i) => indice.set(String(claveDe(col,r)), i));
+    for(const reg of cambios[col]){
+      const k = String(claveDe(col, reg));
+      if(k==='undefined' || k==='null') continue;   // registro sin clave: no se puede mezclar
+      const i = indice.get(k);
+      if(i===undefined){ indice.set(k, lista.length); lista.push(reg); }
+      else lista[i] = reg;
+      aplicados++;
+    }
+  }
+  for(const col of Object.keys(borrados)){
+    if(!COLECCIONES[col] || !Array.isArray(borrados[col])) continue;
+    const fuera = new Set(borrados[col].map(String));
+    if(!fuera.size) continue;
+    const lista = arregloDe(estado, col);
+    const quedan = lista.filter(r => !fuera.has(String(claveDe(col,r))));
+    quitados += lista.length - quedan.length;
+    lista.length = 0; quedan.forEach(r => lista.push(r));
+  }
+  for(const s of SINGLETONES)
+    if(singletones[s] && typeof singletones[s]==='object') estado[s] = singletones[s];
+  /* Los contadores se mezclan por el MÁXIMO, nunca por el último que llegó:
+     si dos equipos avanzaron el suyo por su cuenta, quedarse con el menor
+     repetiría un número de paciente o de orden ya usado. */
+  if(seq && typeof seq==='object'){
+    if(!estado.seq || typeof estado.seq!=='object') estado.seq = {};
+    for(const k of Object.keys(seq)){
+      const n = Number(seq[k]);
+      if(Number.isFinite(n)) estado.seq[k] = Math.max(Number(estado.seq[k])||0, n);
+    }
+  }
+
+  estado._ts  = Date.now();
+  estado._por = req.user.nombre;
+  escribirDB('estado', estado);
+  respaldoDiario(estado);
+  res.json({ok:true, ts:estado._ts, aplicados, quitados, servidorMasNuevo});
+});
+
 // ════════════════════════════════════════════════════════════
 // DOCUMENTOS FISCALES: FACTURAS Y RECIBOS (correlativo atómico)
 // ════════════════════════════════════════════════════════════

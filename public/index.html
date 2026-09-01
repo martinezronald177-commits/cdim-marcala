@@ -1512,15 +1512,81 @@ function guardar(inmediato){
   clearTimeout(_tGuardar);
   _tGuardar=setTimeout(volcarEstado,450);
 }
+/* ── Respaldo local: IndexedDB, con localStorage de reserva ────────────────
+   localStorage tope entre 5 y 10 MB según el navegador, y ahí cabía TODO el
+   estado. El propio servidor documenta que a 3000 órdenes ronda los 11 MB, o
+   sea que el respaldo local iba a dejar de funcionar antes de llegar ahí —y
+   el aviso de "almacenamiento lleno" que hay más abajo se escribió
+   anticipando justamente ese día.
+   IndexedDB no tiene ese techo: el navegador le concede una fracción del
+   disco libre, del orden de gigabytes. El precio es que escribe de forma
+   asíncrona, así que se conserva localStorage como reserva para los estados
+   que todavía quepan y para navegadores donde IndexedDB no esté disponible
+   (modo privado de algunos, políticas de empresa). */
+const IDB_NOMBRE='cdim_estado', IDB_ALMACEN='estado';
+let _idb=null, _idbRoto=false;
+function abrirIDB(){
+  if(_idbRoto)return Promise.resolve(null);
+  if(_idb)return Promise.resolve(_idb);
+  return new Promise(resolve=>{
+    try{
+      if(!self.indexedDB){_idbRoto=true;return resolve(null);}
+      const req=indexedDB.open(IDB_NOMBRE,1);
+      req.onupgradeneeded=()=>{
+        const db=req.result;
+        if(!db.objectStoreNames.contains(IDB_ALMACEN))db.createObjectStore(IDB_ALMACEN);
+      };
+      req.onsuccess=()=>{_idb=req.result;resolve(_idb);};
+      req.onerror=()=>{_idbRoto=true;resolve(null);};
+      req.onblocked=()=>{_idbRoto=true;resolve(null);};
+    }catch(e){_idbRoto=true;resolve(null);}
+  });
+}
+function guardarEnIDB(texto){
+  return abrirIDB().then(db=>{
+    if(!db)return false;
+    return new Promise(resolve=>{
+      try{
+        const tx=db.transaction(IDB_ALMACEN,'readwrite');
+        tx.objectStore(IDB_ALMACEN).put(texto,CLAVE);
+        tx.oncomplete=()=>resolve(true);
+        tx.onerror=()=>resolve(false);
+        tx.onabort=()=>resolve(false);
+      }catch(e){resolve(false);}
+    });
+  }).catch(()=>false);
+}
+function leerDeIDB(){
+  return abrirIDB().then(db=>{
+    if(!db)return null;
+    return new Promise(resolve=>{
+      try{
+        const req=db.transaction(IDB_ALMACEN,'readonly').objectStore(IDB_ALMACEN).get(CLAVE);
+        req.onsuccess=()=>resolve(req.result||null);
+        req.onerror=()=>resolve(null);
+      }catch(e){resolve(null);}
+    });
+  }).catch(()=>null);
+}
 function volcarEstado(){
   clearTimeout(_tGuardar);_tGuardar=null;
   if(!_sucio)return;
-  try{ localStorage.setItem(CLAVE,JSON.stringify(S)); _sucio=false; }
-  catch(e){
-    // Espacio agotado: se avisa una sola vez por minuto para no bloquear el trabajo
-    if(Date.now()-_ultimoError>60000){_ultimoError=Date.now();
-      toast('No se pudo guardar: el almacenamiento del navegador está lleno. Exporta un respaldo y libera espacio.','err');}
-  }
+  const texto=JSON.stringify(S);
+  /* Se marca como guardado sin esperar a IndexedDB: la escritura ya está
+     encolada y el navegador la termina aunque la pestaña se cierre. Esperarla
+     obligaría a volver async a volcarEstado(), que se llama desde
+     beforeunload, donde no se puede esperar nada. */
+  _sucio=false;
+  guardarEnIDB(texto).then(ok=>{
+    if(ok)return;
+    // IndexedDB no está disponible: se intenta la reserva de siempre.
+    try{ localStorage.setItem(CLAVE,texto); }
+    catch(e){
+      // Espacio agotado: se avisa una sola vez por minuto para no bloquear el trabajo
+      if(Date.now()-_ultimoError>60000){_ultimoError=Date.now();
+        toast('No se pudo guardar: el almacenamiento del navegador está lleno. Exporta un respaldo y libera espacio.','err');}
+    }
+  });
 }
 /* En modo web, volcarEstado() solo respalda en ESTE navegador (localStorage);
    subirEstadoEmergencia() (80_bitacora.js) intenta además mandar el estado al
@@ -14823,6 +14889,97 @@ async function comprimirSiSePuede(texto){
     return await new Response(flujo).arrayBuffer();
   }catch(e){ return null; }
 }
+/* ── Qué cambió desde la última sincronización ────────────────────────────
+   Para mandar solo los registros tocados hay que saber cuáles son. En vez de
+   marcarlos en cada una de las cientos de funciones que modifican el estado
+   —invasivo y fácil de olvidar en la siguiente—, se guarda una huella de cómo
+   quedó cada registro la última vez que se sincronizó y se compara. La lógica
+   de negocio no se entera de nada.
+
+   La huella es el JSON del registro. Comparar cadenas es rápido y, sobre
+   todo, no se equivoca: cualquier cambio en cualquier campo, por hondo que
+   esté, cambia la cadena.
+
+   Este mapa debe coincidir con COLECCIONES en cdim-server/server.js: son las
+   dos mitades del mismo acuerdo, y si una agrega una colección sin la otra,
+   esos registros dejan de sincronizarse en silencio. */
+const COLECCIONES_SYNC={
+  pacientes:{ruta:['pacientes'],clave:'codigo'},
+  examenes:{ruta:['examenes'],clave:'id'},
+  perfiles:{ruta:['perfiles'],clave:'id'},
+  medicos:{ruta:['medicos'],clave:'id'},
+  cotizaciones:{ruta:['cotizaciones'],clave:'numero'},
+  ordenes:{ruta:['ordenes'],clave:'numero'},
+  recibos:{ruta:['recibos'],clave:'numero'},
+  facturas:{ruta:['facturas'],clave:'numero'},
+  movimientos:{ruta:['movimientos'],clave:'id'},
+  'almacen.insumos':{ruta:['almacen','insumos'],clave:'id'},
+  'almacen.movs':{ruta:['almacen','movs'],clave:'id'},
+  'cc.controles':{ruta:['cc','controles'],clave:'id'},
+  'cc.datos':{ruta:['cc','datos'],clave:'id'},
+  'sgc.documentos':{ruta:['sgc','documentos'],clave:'id'},
+  'sgc.nc':{ruta:['sgc','nc'],clave:'id'},
+  'sgc.personal':{ruta:['sgc','personal'],clave:'id'},
+  'sgc.equipos':{ruta:['sgc','equipos'],clave:'id'},
+  'sgc.riesgos':{ruta:['sgc','riesgos'],clave:'id'},
+  'sgc.revisiones':{ruta:['sgc','revisiones'],clave:'id'},
+  bitacora:{ruta:['bitacora'],clave:null},
+};
+const SINGLETONES_SYNC=['config','caja','meta'];
+let _huellas=null;      // Map "coleccion clave" -> JSON del registro
+let _huellaSingle={};   // singleton -> su JSON
+
+function _arregloSync(estado,col){
+  const r=COLECCIONES_SYNC[col].ruta;
+  let n=estado;
+  for(let i=0;i<r.length-1;i++){ if(!n[r[i]]||typeof n[r[i]]!=='object')return []; n=n[r[i]]; }
+  const u=n[r[r.length-1]];
+  return Array.isArray(u)?u:[];
+}
+function _claveSync(col,reg){
+  const c=COLECCIONES_SYNC[col].clave;
+  return c?reg[c]:[reg.fecha,reg.hora,reg.responsable,reg.tipo,reg.descripcion].join('');
+}
+/* Toma la foto de referencia: a partir de aquí, "cambiado" significa
+   "distinto de esto". Se llama tras cada sincronización exitosa y cada vez
+   que se baja el estado completo del servidor. */
+function marcarEstadoSincronizado(){
+  _huellas=new Map();
+  for(const col of Object.keys(COLECCIONES_SYNC))
+    for(const reg of _arregloSync(S,col))
+      _huellas.set(col+' '+_claveSync(col,reg), JSON.stringify(reg));
+  _huellaSingle={};
+  for(const s of SINGLETONES_SYNC) _huellaSingle[s]=JSON.stringify(S[s]||null);
+}
+/* Arma el envío. Devuelve null si no hay foto previa (primer arranque): en ese
+   caso hay que subir el estado completo una vez para dejar la referencia. */
+function calcularDelta(){
+  if(!_huellas)return null;
+  const cambios={}, borrados={}, singletones={};
+  const vistos=new Set();
+  for(const col of Object.keys(COLECCIONES_SYNC)){
+    for(const reg of _arregloSync(S,col)){
+      const k=col+' '+_claveSync(col,reg);
+      vistos.add(k);
+      const j=JSON.stringify(reg);
+      if(_huellas.get(k)!==j)(cambios[col]||(cambios[col]=[])).push(reg);
+    }
+  }
+  for(const k of _huellas.keys()){
+    if(vistos.has(k))continue;
+    const i=k.indexOf(' '), col=k.slice(0,i), clave=k.slice(i+1);
+    // La bitácora no se borra nunca; si una entrada no aparece es que se
+    // recortó localmente, no que haya que quitarla del servidor.
+    if(!COLECCIONES_SYNC[col]||!COLECCIONES_SYNC[col].clave)continue;
+    (borrados[col]||(borrados[col]=[])).push(clave);
+  }
+  for(const s of SINGLETONES_SYNC){
+    const j=JSON.stringify(S[s]||null);
+    if(_huellaSingle[s]!==j)singletones[s]=S[s];
+  }
+  const nada=!Object.keys(cambios).length&&!Object.keys(borrados).length&&!Object.keys(singletones).length;
+  return {cambios,borrados,singletones,seq:S.seq||{},vacio:nada};
+}
 async function subirEstado(){
   if(!MODO_WEB||!_syncPendiente)return;
   /* Evita que dos subidas se crucen y usen el mismo _lastTs.
@@ -14841,6 +14998,37 @@ async function subirEstado(){
   _subiendoEstado=true;
   clearTimeout(_syncTimer);
   try{
+    /* Camino normal: mandar solo lo que cambió. Solo se cae al envío del
+       estado completo cuando todavía no hay foto de referencia (el primer
+       guardado de la sesión) o cuando el servidor no conoce el endpoint
+       —una versión anterior, o un servidor sin estado previo—. */
+    const delta=calcularDelta();
+    if(delta){
+      if(delta.vacio){ _syncPendiente=false; actualizarIndicadorSync(true); return; }
+      const cuerpo=JSON.stringify({...delta,base:_lastTs});
+      const gzD=await comprimirSiSePuede(cuerpo);
+      const rd=await apiFetch('/api/estado/delta',{method:'POST',
+        headers:gzD?{'Content-Type':'application/json','Content-Encoding':'gzip'}
+                   :{'Content-Type':'application/json'},
+        body:gzD||cuerpo});
+      if(rd.ok){
+        const d=await rd.json();
+        _lastTs=d.ts; _syncPendiente=false;
+        marcarEstadoSincronizado();
+        actualizarIndicadorSync(true);
+        /* El servidor tenía cambios de otro equipo. Lo de aquí ya quedó
+           guardado —por eso no se pregunta nada ni se pierde nada—; solo hay
+           que bajar lo ajeno, y de eso se encarga el barrido periódico ahora
+           que no queda nada pendiente. */
+        if(d.servidorMasNuevo)await revisarActualizacionesServidor();
+        return;
+      }
+      if(rd.status!==404&&rd.status!==409){
+        console.warn('[CDIM] Error al subir el delta:',rd.status);
+        actualizarIndicadorSync(false); return;
+      }
+      // 404 (servidor viejo) o 409 (servidor sin estado): se sube completo.
+    }
     const texto=JSON.stringify({estado:S,ts:_lastTs});
     const gz=await comprimirSiSePuede(texto);
     const r=await apiFetch('/api/estado',{
@@ -14851,16 +15039,29 @@ async function subirEstado(){
       body: gz || texto
     });
     if(r.status===409){
-      // Conflicto: hay una versión más nueva en el servidor
+      /* Este 409 ya casi no puede pasar: el camino normal es el delta, que
+         mezcla por registro y no choca. Queda para el primer guardado de una
+         sesión que arrancó sin foto de referencia. En vez de pedirle a la
+         persona que elija entre su trabajo y el del otro —sin saber qué está
+         perdiendo—, ahora se toma la foto contra lo que hay en el servidor y
+         se reintenta como delta: lo de aquí y lo de allá se mezclan, y no se
+         descarta nada de nadie. */
       const d=await r.json();
-      const ok=confirm('Otro dispositivo guardó cambios mientras trabajabas.\n\n¿Descargar la versión más reciente del servidor? (Se perderán los cambios locales no guardados.)');
-      if(ok&&d.estado){S=migrarEstado(d.estado);_lastTs=S._ts;invalidarIndices();toast('Estado actualizado desde el servidor');}
+      if(d.estado){
+        const mio=S;
+        _huellas=null; S=migrarEstado(d.estado);
+        marcarEstadoSincronizado();          // referencia = lo que tiene el servidor
+        S=mio; _lastTs=d.estado._ts||_lastTs; // se recupera lo local y se reintenta
+        _subiendoEstado=false;
+        return subirEstado();
+      }
       return;
     }
     if(r.ok){
       const d=await r.json();
       _lastTs=d.ts;
       _syncPendiente=false;
+      marcarEstadoSincronizado();
       actualizarIndicadorSync(true);
     }else{
       console.warn('[CDIM] Error al subir:',r.status);
@@ -14894,24 +15095,26 @@ const TOPE_KEEPALIVE=60000;   // ~64 KB es el tope que fija la especificación
 function subirEstadoEmergencia(){
   if(!MODO_WEB||!_syncPendiente)return;
   try{
-    const texto=JSON.stringify({estado:S,ts:_lastTs});
-    /* keepalive trae un tope de cuerpo de ~64 KB: por encima, el navegador
-       rechaza la petición de entrada y no sale nada. Intentarlo igual no
-       manda ni un byte y encima deja un "Failed to fetch" en la consola cada
-       vez que se cambia de pestaña. Y este estado pasa el tope con facilidad:
-       la firma y los dos sellos viajan dentro de S.config como data URI.
-       Cuando no cabe, la red de seguridad es el respaldo que volcarEstado()
-       acaba de dejar en localStorage; al volver a abrir, la sincronización
-       normal sube lo que falte. (texto.length cuenta unidades UTF-16, no
-       bytes, pero para JSON casi todo ASCII la diferencia es despreciable y
-       el margen contra los 64 KB la cubre.) */
+    /* Se manda el DELTA, no el estado entero. keepalive trae un tope de cuerpo
+       de ~64 KB: el estado completo lo pasa con facilidad —solo la firma y los
+       dos sellos, que viajan como data URI dentro de S.config, ya lo agotan—,
+       así que el navegador rechazaba el envío de entrada y no salía ni un byte.
+       Lo que se cambió en los últimos segundos, en cambio, son unos pocos
+       registros: cabe de sobra, y por eso este respaldo vuelve a servir para
+       lo que fue pensado.
+       Si aun así no cabe, o si todavía no hay foto de referencia, se deja ir:
+       volcarEstado() ya guardó localmente y la sincronización normal subirá lo
+       que falte al volver a abrir. */
+    const delta=calcularDelta();
+    if(!delta||delta.vacio)return;
+    const texto=JSON.stringify({...delta,base:_lastTs});
     if(texto.length>TOPE_KEEPALIVE)return;
     /* .catch() obligatorio: el try/catch de alrededor solo atrapa lo que se
        lance de forma síncrona, y fetch falla RECHAZANDO la promesa. Sin esto,
        cualquier fallo de red -o el propio cierre de la pestaña abortando la
        petición- salía como "Uncaught (in promise) TypeError: Failed to fetch".
        Este envío es de mejor esfuerzo: que falle no debe notarse. */
-    fetch('/api/estado',{method:'POST',headers:{'Content-Type':'application/json'},
+    fetch('/api/estado/delta',{method:'POST',headers:{'Content-Type':'application/json'},
       body:texto,keepalive:true}).catch(()=>{});
   }catch(e){ /* mejor esfuerzo: si falla, ya se guardó localmente como respaldo (volcarEstado) */ }
 }
@@ -14926,7 +15129,7 @@ async function cargarDesdeServidor(){
     await importarCotWebDesdeServidor();
     if(!ts){
       // Servidor vacío → subir el estado local si existe
-      const local=localStorage.getItem(CLAVE);
+      const local=(await leerDeIDB())||localStorage.getItem(CLAVE);
       if(local){
         S=migrarEstado(JSON.parse(local));
         _syncPendiente=true;
@@ -14950,6 +15153,9 @@ async function cargarDesdeServidor(){
           _lastTs=ts;
           localStorage.setItem(CLAVE+'_ts',String(ts));
           invalidarIndices();
+          // Acabamos de igualarnos al servidor: esta es la nueva referencia
+          // contra la que se medirá "qué cambió" de aquí en adelante.
+          marcarEstadoSincronizado();
           if(JSON.stringify(S.meta||{})!==antes){
             console.log('[CDIM] Migraciones aplicadas al estado del servidor');
             _syncPendiente=true;
@@ -15096,6 +15302,7 @@ async function revisarActualizacionesServidor(){
     _lastTs=ts;
     localStorage.setItem(CLAVE+'_ts',String(ts));
     invalidarIndices();
+    marcarEstadoSincronizado();   // nueva referencia: lo que acaba de llegar
     toast('🔄 Datos actualizados: otro usuario guardó cambios');
     if(REFRESCO_AUTOMATICO_SEGURO.includes(_seccionActual))render(_seccionActual);
   }catch(e){
@@ -15570,6 +15777,19 @@ function imprimirBitacora(){
 /* En modo web: detecta el servidor, carga el estado, muestra botones extra.
    En modo local: arranca exactamente igual que antes. */
 (async function arrancar(){
+  /* El respaldo local vive en IndexedDB (ver volcarEstado en 10_nucleo.js);
+     localStorage quedó de reserva. cargar() es síncrono y solo alcanza a leer
+     la reserva, así que aquí —ya en terreno async, antes de que nada toque el
+     estado— se busca la copia de IndexedDB, que es la buena.
+     Se compara por tamaño de contenido: si la de IndexedDB existe y difiere,
+     manda ella, porque es donde se viene escribiendo. */
+  try{
+    const guardadoIDB=await leerDeIDB();
+    if(guardadoIDB){
+      const s=migrarEstado(JSON.parse(guardadoIDB));
+      S=s; invalidarIndices();
+    }
+  }catch(e){ /* respaldo ilegible: se sigue con lo que trajo cargar() */ }
   // Intentar conectar con el servidor (timeout 3 s)
   try{
     const r=await Promise.race([
