@@ -144,6 +144,92 @@ function escribirDB(nombre, datos){
 const BAK_DIR = path.join(DATA_DIR, 'respaldos');
 fs.mkdirSync(BAK_DIR, {recursive:true});
 
+/* ── Copia fuera del servidor ────────────────────────────────
+   Los 30 respaldos diarios viven en la misma carpeta de datos que la base
+   viva. Si ese disco se pierde, se corrompe o la cuenta se cierra, se pierden
+   los 30 con ella — y son expedientes clínicos con obligación legal de
+   conservarse por años.
+
+   Aquí se manda además una copia a un almacenamiento externo compatible con
+   S3 (sirve Backblaze B2, Cloudflare R2, Amazon S3 o Wasabi: todos hablan el
+   mismo protocolo). Se sube el archivo TAL CUAL, ya comprimido y cifrado con
+   DATA_ENCRYPTION_KEY, así que el proveedor nunca ve un dato clínico: sin esa
+   llave, para él es ruido.
+
+   La firma SigV4 se arma a mano con `crypto` en vez de traer el SDK de AWS:
+   son cuarenta líneas contra quince megabytes de dependencia, y esto es lo
+   único que se necesita de todo el protocolo.
+
+   Si no está configurado, no pasa nada: el servidor avisa una vez al arrancar
+   y sigue funcionando igual que antes. */
+const S3 = {
+  endpoint : (process.env.RESPALDO_S3_ENDPOINT||'').replace(/\/+$/,''),
+  bucket   : process.env.RESPALDO_S3_BUCKET   ||'',
+  region   : process.env.RESPALDO_S3_REGION   ||'auto',
+  keyId    : process.env.RESPALDO_S3_KEY_ID   ||'',
+  secret   : process.env.RESPALDO_S3_SECRET   ||'',
+  prefijo  : (process.env.RESPALDO_S3_PREFIJO ||'respaldos').replace(/^\/+|\/+$/g,''),
+  // Cada cuánto se manda la copia. Por defecto una vez por hora: el archivo
+  // pesa menos de un megabyte, así que sale barato y deja como mucho una hora
+  // de trabajo fuera de la copia externa, en vez de un día entero.
+  minutos  : Math.max(5, Number(process.env.RESPALDO_S3_MINUTOS)||60),
+};
+const S3_LISTO = !!(S3.endpoint && S3.bucket && S3.keyId && S3.secret);
+const respaldoExterno = {activo:S3_LISTO, ultimoOk:null, ultimoError:null, subidas:0};
+let _ultimaSubidaS3 = 0;
+
+function _hmac(clave, dato){ return crypto.createHmac('sha256', clave).update(dato).digest(); }
+function _sha256(dato){ return crypto.createHash('sha256').update(dato).digest('hex'); }
+
+async function subirRespaldoExterno(nombre, contenido){
+  const ruta = '/' + [S3.bucket, S3.prefijo, nombre].filter(Boolean)
+    .join('/').split('/').map(encodeURIComponent).join('/');
+  const url  = new URL(S3.endpoint + ruta);
+  const amz  = new Date().toISOString().replace(/[:-]|\.\d{3}/g,'');  // 20260901T120000Z
+  const dia  = amz.slice(0,8);
+  const hash = _sha256(contenido);
+  const cab  = {host:url.host, 'x-amz-content-sha256':hash, 'x-amz-date':amz};
+  const nombres = Object.keys(cab).sort();
+  const canonica = [
+    'PUT', url.pathname, '',
+    nombres.map(h=>`${h}:${cab[h]}\n`).join(''),
+    nombres.join(';'),
+    hash,
+  ].join('\n');
+  const ambito = `${dia}/${S3.region}/s3/aws4_request`;
+  const aFirmar = ['AWS4-HMAC-SHA256', amz, ambito, _sha256(canonica)].join('\n');
+  let k = _hmac('AWS4'+S3.secret, dia);
+  k = _hmac(k, S3.region); k = _hmac(k, 's3'); k = _hmac(k, 'aws4_request');
+  const firma = crypto.createHmac('sha256', k).update(aFirmar).digest('hex');
+  cab.Authorization = `AWS4-HMAC-SHA256 Credential=${S3.keyId}/${ambito},`
+    + ` SignedHeaders=${nombres.join(';')}, Signature=${firma}`;
+  const r = await fetch(url, {method:'PUT', headers:cab, body:contenido});
+  if(!r.ok) throw new Error(`HTTP ${r.status} ${(await r.text()).slice(0,200)}`);
+  return true;
+}
+/* Se llama después de escribir el respaldo del día. Nunca lanza ni espera:
+   que el almacenamiento externo esté caído no puede impedir que se guarde el
+   trabajo del laboratorio. */
+function mandarCopiaExterna(nombre, contenido, forzar){
+  if(!S3_LISTO) return;
+  const ahora = Date.now();
+  if(!forzar && ahora - _ultimaSubidaS3 < S3.minutos*60000) return;
+  _ultimaSubidaS3 = ahora;
+  subirRespaldoExterno(nombre, contenido)
+    .then(()=>{
+      respaldoExterno.ultimoOk = new Date().toISOString();
+      respaldoExterno.ultimoError = null;
+      respaldoExterno.subidas++;
+      console.log(`[CDIM] Respaldo externo subido: ${nombre} (${(contenido.length/1024).toFixed(0)} KB)`);
+    })
+    .catch(e=>{
+      respaldoExterno.ultimoError = e.message;
+      // Se reintenta en la próxima vuelta, no en un bucle que sature la red.
+      _ultimaSubidaS3 = ahora - (S3.minutos*60000) + 5*60000;   // reintento en 5 min
+      console.warn('[CDIM] Falló el respaldo externo:', e.message);
+    });
+}
+
 function respaldoDiario(estado){
   try{
     const hoy = new Date().toISOString().slice(0,10);
@@ -152,7 +238,10 @@ function respaldoDiario(estado){
     // años; sin el cifrado, cada respaldo sería una copia legible de los
     // datos clínicos completos regada en 30 archivos distintos.
     const f = path.join(BAK_DIR, `estado-${hoy}.json.gz`);
-    fs.writeFileSync(f, cifrar(zlib.gzipSync(JSON.stringify(estado), {level:6})));
+    const contenido = cifrar(zlib.gzipSync(JSON.stringify(estado), {level:6}));
+    fs.writeFileSync(f, contenido);
+    // La misma copia, ya cifrada, sale también fuera del servidor.
+    mandarCopiaExterna(`estado-${hoy}.json.gz`, contenido);
     // Se limpian también los respaldos antiguos sin comprimir
     const archivos = fs.readdirSync(BAK_DIR)
       .filter(x => x.startsWith('estado-'))
@@ -1465,7 +1554,41 @@ app.get('/api/salud', auth, (req, res) => {
     ultimoGuardado : estado?._ts ? new Date(estado._ts).toISOString() : null,
     guardadoPor    : estado?._por || null,
     respaldosDiarios : nRespaldos,
+    /* Copia fuera del servidor: lo que de verdad protege de que se pierda el
+       disco. Si "activo" es false, los 30 respaldos viven solo aquí. */
+    respaldoExterno : {
+      activo    : respaldoExterno.activo,
+      destino   : respaldoExterno.activo ? `${S3.endpoint}/${S3.bucket}/${S3.prefijo}` : null,
+      cadaMin   : respaldoExterno.activo ? S3.minutos : null,
+      ultimoOk  : respaldoExterno.ultimoOk,
+      ultimoError : respaldoExterno.ultimoError,
+      subidas   : respaldoExterno.subidas,
+    },
   });
+});
+
+/* Forzar una copia externa ahora mismo, sin esperar el intervalo. Sirve para
+   comprobar la configuración recién puesta sin tener que esperar una hora, y
+   para llevarse una copia antes de un cambio delicado. */
+app.post('/api/respaldo-externo', auth, soloAdmin, async (req, res) => {
+  if(!S3_LISTO) return res.status(400).json({ok:false,
+    error:'El respaldo externo no está configurado. Faltan las variables RESPALDO_S3_*.'});
+  const estado = leerDB('estado');
+  if(!estado) return res.status(400).json({ok:false, error:'Todavía no hay estado que respaldar.'});
+  const hoy = new Date().toISOString().slice(0,10);
+  const contenido = cifrar(zlib.gzipSync(JSON.stringify(estado), {level:6}));
+  try{
+    await subirRespaldoExterno(`estado-${hoy}.json.gz`, contenido);
+    respaldoExterno.ultimoOk = new Date().toISOString();
+    respaldoExterno.ultimoError = null;
+    respaldoExterno.subidas++;
+    _ultimaSubidaS3 = Date.now();
+    res.json({ok:true, archivo:`estado-${hoy}.json.gz`, kb:Math.round(contenido.length/1024),
+      destino:`${S3.endpoint}/${S3.bucket}/${S3.prefijo}`});
+  }catch(e){
+    respaldoExterno.ultimoError = e.message;
+    res.status(502).json({ok:false, error:e.message});
+  }
 });
 
 /* Informe de una orden por su token. La dirección la lleva el QR impreso:
@@ -1604,4 +1727,9 @@ app.listen(PORT, () => {
   console.log(`╚══════════════════════════════════════╝`);
   console.log(`\n  Usuario: admin`);
   console.log(`  Clave:   cdim2024  ← cámbiala al entrar\n`);
+  if(S3_LISTO)
+    console.log(`  Respaldo externo: ${S3.endpoint}/${S3.bucket}/${S3.prefijo} · cada ${S3.minutos} min\n`);
+  else
+    console.warn('  ⚠ Sin respaldo externo: los respaldos viven SOLO en este disco.\n'
+      +'    Configura RESPALDO_S3_ENDPOINT, _BUCKET, _KEY_ID y _SECRET para tener copia fuera.\n');
 });
