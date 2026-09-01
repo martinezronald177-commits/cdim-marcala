@@ -310,10 +310,6 @@ function puedeGestionarUsuarios(user){
   if(p && 'usuarios' in p) return !!p.usuarios;
   return user && user.rol === 'Admin';
 }
-function msDeTTL(ttl){
-  const m = /^(\d+)([hm])$/.exec(ttl);
-  return m ? Number(m[1]) * (m[2]==='h' ? 3600000 : 60000) : 12*3600*1000;
-}
 // Con `trust proxy` activo (ver app.set más abajo), req.ip ya resuelve
 // correctamente la cadena de proxies -- evita repetir a mano el parseo de
 // X-Forwarded-For en cada ruta que necesita la IP del cliente.
@@ -324,11 +320,26 @@ function ipDe(req){ return req.ip || req.socket.remoteAddress || 'sin-ip'; }
 // Chrome nunca manda una cookie Secure por http, y con true el login local
 // dejaría de funcionar para probar.
 const COOKIE_SECURE = process.env.NODE_ENV === 'production';
+/* Cookies de SESIÓN: van SIN maxAge ni expires a propósito, así el navegador
+   las borra al cerrarse y cerrar el navegador cierra la sesión. Antes eran
+   persistentes (15 min el acceso, 7 días la renovación), de modo que quien
+   volviera a abrir el navegador en esa computadora entraba directo al
+   historial clínico sin que nadie le pidiera nada -- en un laboratorio con un
+   equipo compartido en recepción, eso es un problema.
+
+   Los plazos del SERVIDOR no cambian: el JWT sigue venciendo a los
+   ACCESO_TTL y el registro de la sesión en sesiones.json a los
+   RENOVACION_DIAS. Lo que se acorta es cuánto vive la credencial en el
+   navegador, que es lo que importa para el equipo compartido.
+
+   Mientras el navegador siga abierto no molesta a nadie: al vencer el token
+   de 15 minutos, el frontend renueva solo con la cookie de refresh (que sigue
+   ahí hasta que se cierre el navegador). */
 function emitirCookiesSesion(res, usuario, sesionId, cruda){
   const token = jwt.sign({id:usuario.id, sid:sesionId, nombre:usuario.nombre, usuario:usuario.usuario,
     rol:usuario.rol, permisos:usuario.permisos||null}, SECRET, {expiresIn:ACCESO_TTL});
-  res.cookie('token', token, {httpOnly:true, secure:COOKIE_SECURE, sameSite:'lax', maxAge: msDeTTL(ACCESO_TTL)});
-  res.cookie('refresh', cruda, {httpOnly:true, secure:COOKIE_SECURE, sameSite:'lax', path:'/api/auth', maxAge: RENOVACION_DIAS*86400000});
+  res.cookie('token', token, {httpOnly:true, secure:COOKIE_SECURE, sameSite:'lax'});
+  res.cookie('refresh', cruda, {httpOnly:true, secure:COOKIE_SECURE, sameSite:'lax', path:'/api/auth'});
 }
 
 // ── Middleware de autenticación ───────────────────────────────
