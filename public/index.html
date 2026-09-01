@@ -14890,11 +14890,29 @@ async function subirEstado(){
    alcanzar a mandar todo el estado. Aun así, intentarlo es estrictamente
    mejor que no intentarlo: es la diferencia entre perder o no una validación
    reciente si el navegador se cierra justo después de guardar. */
+const TOPE_KEEPALIVE=60000;   // ~64 KB es el tope que fija la especificación
 function subirEstadoEmergencia(){
   if(!MODO_WEB||!_syncPendiente)return;
   try{
     const texto=JSON.stringify({estado:S,ts:_lastTs});
-    fetch('/api/estado',{method:'POST',headers:{'Content-Type':'application/json'},body:texto,keepalive:true});
+    /* keepalive trae un tope de cuerpo de ~64 KB: por encima, el navegador
+       rechaza la petición de entrada y no sale nada. Intentarlo igual no
+       manda ni un byte y encima deja un "Failed to fetch" en la consola cada
+       vez que se cambia de pestaña. Y este estado pasa el tope con facilidad:
+       la firma y los dos sellos viajan dentro de S.config como data URI.
+       Cuando no cabe, la red de seguridad es el respaldo que volcarEstado()
+       acaba de dejar en localStorage; al volver a abrir, la sincronización
+       normal sube lo que falte. (texto.length cuenta unidades UTF-16, no
+       bytes, pero para JSON casi todo ASCII la diferencia es despreciable y
+       el margen contra los 64 KB la cubre.) */
+    if(texto.length>TOPE_KEEPALIVE)return;
+    /* .catch() obligatorio: el try/catch de alrededor solo atrapa lo que se
+       lance de forma síncrona, y fetch falla RECHAZANDO la promesa. Sin esto,
+       cualquier fallo de red -o el propio cierre de la pestaña abortando la
+       petición- salía como "Uncaught (in promise) TypeError: Failed to fetch".
+       Este envío es de mejor esfuerzo: que falle no debe notarse. */
+    fetch('/api/estado',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:texto,keepalive:true}).catch(()=>{});
   }catch(e){ /* mejor esfuerzo: si falla, ya se guardó localmente como respaldo (volcarEstado) */ }
 }
 
