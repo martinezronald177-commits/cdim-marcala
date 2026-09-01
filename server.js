@@ -172,13 +172,30 @@ function normalizarEndpoint(v){
   if(!s) return '';
   return /^https?:\/\//i.test(s) ? s : 'https://'+s;
 }
+/* Todo valor se recorta: al pegar una llave en el panel del proveedor es
+   facilísimo arrastrar un espacio o un salto de línea, y un salto dentro de la
+   cabecera Authorization hace que fetch la rechace de plano con un
+   "invalid header value" que no dice nada de dónde está el problema. */
+const env = k => String(process.env[k]||'').trim();
+/* La región va DENTRO del hostname en Backblaze y en Amazon
+   ("s3.us-east-005.backblazeb2.com"), y tiene que coincidir con la que se
+   firma o el proveedor rechaza la firma. Si el hostname la lleva, esa manda:
+   es la única que puede ser correcta, y escribirla aparte solo da ocasión de
+   equivocarse. */
+function regionDelEndpoint(ep){
+  const m = /^https?:\/\/(?:[a-z0-9-]+\.)?s3[.-]([a-z]{2}-[a-z]+-\d+)\./i.exec(ep||'');
+  return m ? m[1] : '';
+}
+const _endpoint = normalizarEndpoint(env('RESPALDO_S3_ENDPOINT'));
+const _regionDicha = env('RESPALDO_S3_REGION');
+const _regionReal  = regionDelEndpoint(_endpoint);
 const S3 = {
-  endpoint : normalizarEndpoint(process.env.RESPALDO_S3_ENDPOINT),
-  bucket   : process.env.RESPALDO_S3_BUCKET   ||'',
-  region   : process.env.RESPALDO_S3_REGION   ||'auto',
-  keyId    : process.env.RESPALDO_S3_KEY_ID   ||'',
-  secret   : process.env.RESPALDO_S3_SECRET   ||'',
-  prefijo  : (process.env.RESPALDO_S3_PREFIJO ||'respaldos').replace(/^\/+|\/+$/g,''),
+  endpoint : _endpoint,
+  bucket   : env('RESPALDO_S3_BUCKET'),
+  region   : _regionReal || _regionDicha || 'auto',
+  keyId    : env('RESPALDO_S3_KEY_ID'),
+  secret   : env('RESPALDO_S3_SECRET'),
+  prefijo  : (env('RESPALDO_S3_PREFIJO')||'respaldos').replace(/^\/+|\/+$/g,''),
   // Cada cuánto se manda la copia. Por defecto una vez por hora: el archivo
   // pesa menos de un megabyte, así que sale barato y deja como mucho una hora
   // de trabajo fuera de la copia externa, en vez de un día entero.
@@ -195,6 +212,19 @@ const S3_LISTO = (()=>{
   if(faltan.length){ S3_MOTIVO='Faltan variables: '+faltan.map(k=>'RESPALDO_S3_'+k).join(', '); return false; }
   try{ new URL(S3.endpoint); }
   catch{ S3_MOTIVO=`RESPALDO_S3_ENDPOINT no es una dirección válida: "${S3.endpoint}"`; return false; }
+  /* Una llave con un carácter de control (el salto de línea que se arrastra al
+     pegar) no puede ir en una cabecera HTTP. Sin esta comprobación el fallo
+     aparecía cada hora como un "invalid header value" del propio fetch, que no
+     dice qué variable revisar. */
+  for(const [k,v] of [['RESPALDO_S3_KEY_ID',S3.keyId],['RESPALDO_S3_SECRET',S3.secret],
+                      ['RESPALDO_S3_BUCKET',S3.bucket]])
+    if(/[\x00-\x1f\x7f]/.test(v)){
+      S3_MOTIVO=`${k} lleva un salto de línea o un carácter invisible. Vuelve a pegarla sin espacios ni saltos.`;
+      return false;
+    }
+  if(_regionReal && _regionDicha && _regionReal!==_regionDicha)
+    console.warn(`[CDIM] RESPALDO_S3_REGION dice "${_regionDicha}" pero el endpoint es de `
+      +`"${_regionReal}". Se usa la del endpoint, que es la que el proveedor exige al firmar.`);
   return true;
 })();
 const respaldoExterno = {activo:S3_LISTO, ultimoOk:null, ultimoError:null, subidas:0};
