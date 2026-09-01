@@ -15358,13 +15358,20 @@ function vRespaldos(){
       const re=(salud&&salud.respaldoExterno)||{activo:false};
       if(!re.activo)return `<div class="tarjeta">
         <h3 style="margin-bottom:6px">Copia fuera del servidor</h3>
-        <div class="aviso" style="border-left:4px solid var(--ambar);background:var(--ambar-suave)">
+        ${re.malConfigurado
+        ?`<div class="aviso" style="border-left:4px solid var(--rojo);background:var(--rojo-suave)">
+          <b>⚠ Está configurada, pero mal.</b><br>
+          <span style="font-family:monospace;font-size:12px">${esc(re.malConfigurado)}</span><br>
+          <span style="font-size:12px;color:var(--gris)">Corrige esa variable en tu proveedor;
+          al guardarla, el servidor se reinicia solo y vuelve a intentarlo.</span>
+        </div>`
+        :`<div class="aviso" style="border-left:4px solid var(--ambar);background:var(--ambar-suave)">
           <b>⚠ No está configurada.</b> Los respaldos de arriba viven en el mismo disco que
           los datos: si ese disco se pierde, se pierden con él.<br>
           Para activarla, define en tu proveedor las variables <code>RESPALDO_S3_ENDPOINT</code>,
           <code>RESPALDO_S3_BUCKET</code>, <code>RESPALDO_S3_REGION</code>,
           <code>RESPALDO_S3_KEY_ID</code> y <code>RESPALDO_S3_SECRET</code>.
-        </div></div>`;
+        </div>`}</div>`;
       const err=re.ultimoError;
       return `<div class="tarjeta">
         <h3 style="margin-bottom:6px">Copia fuera del servidor</h3>

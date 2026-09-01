@@ -162,8 +162,18 @@ fs.mkdirSync(BAK_DIR, {recursive:true});
 
    Si no está configurado, no pasa nada: el servidor avisa una vez al arrancar
    y sigue funcionando igual que antes. */
+/* El panel de Backblaze (y el de casi todos) muestra el endpoint SIN esquema
+   -- "s3.us-east-005.backblazeb2.com" --, así que es lo que uno copia y pega.
+   Sin el https:// por delante, new URL() lanza un "Invalid URL" opaco y la
+   copia falla cada hora sin decir por qué. Se completa aquí en vez de exigir
+   que se escriba a mano. */
+function normalizarEndpoint(v){
+  const s = String(v||'').trim().replace(/\/+$/,'');
+  if(!s) return '';
+  return /^https?:\/\//i.test(s) ? s : 'https://'+s;
+}
 const S3 = {
-  endpoint : (process.env.RESPALDO_S3_ENDPOINT||'').replace(/\/+$/,''),
+  endpoint : normalizarEndpoint(process.env.RESPALDO_S3_ENDPOINT),
   bucket   : process.env.RESPALDO_S3_BUCKET   ||'',
   region   : process.env.RESPALDO_S3_REGION   ||'auto',
   keyId    : process.env.RESPALDO_S3_KEY_ID   ||'',
@@ -174,7 +184,19 @@ const S3 = {
   // de trabajo fuera de la copia externa, en vez de un día entero.
   minutos  : Math.max(5, Number(process.env.RESPALDO_S3_MINUTOS)||60),
 };
-const S3_LISTO = !!(S3.endpoint && S3.bucket && S3.keyId && S3.secret);
+/* Se comprueba al arrancar y no en cada subida: un endpoint mal escrito debe
+   verse en el primer log, no descubrirse una hora después en un mensaje que
+   solo dice "Invalid URL". */
+let S3_MOTIVO = '';
+const S3_LISTO = (()=>{
+  const faltan = ['ENDPOINT','BUCKET','KEY_ID','SECRET']
+    .filter(k=>!S3[{ENDPOINT:'endpoint',BUCKET:'bucket',KEY_ID:'keyId',SECRET:'secret'}[k]]);
+  if(faltan.length===4) return false;                       // sin configurar, es lo normal
+  if(faltan.length){ S3_MOTIVO='Faltan variables: '+faltan.map(k=>'RESPALDO_S3_'+k).join(', '); return false; }
+  try{ new URL(S3.endpoint); }
+  catch{ S3_MOTIVO=`RESPALDO_S3_ENDPOINT no es una dirección válida: "${S3.endpoint}"`; return false; }
+  return true;
+})();
 const respaldoExterno = {activo:S3_LISTO, ultimoOk:null, ultimoError:null, subidas:0};
 let _ultimaSubidaS3 = 0;
 
@@ -1558,6 +1580,9 @@ app.get('/api/salud', auth, (req, res) => {
        disco. Si "activo" es false, los 30 respaldos viven solo aquí. */
     respaldoExterno : {
       activo    : respaldoExterno.activo,
+      // Cuando está mal configurado, el motivo concreto: sin esto había que ir
+      // a los logs del proveedor para saber qué variable estaba mal escrita.
+      malConfigurado : S3_MOTIVO || null,
       destino   : respaldoExterno.activo ? `${S3.endpoint}/${S3.bucket}/${S3.prefijo}` : null,
       cadaMin   : respaldoExterno.activo ? S3.minutos : null,
       ultimoOk  : respaldoExterno.ultimoOk,
@@ -1729,6 +1754,9 @@ app.listen(PORT, () => {
   console.log(`  Clave:   cdim2024  ← cámbiala al entrar\n`);
   if(S3_LISTO)
     console.log(`  Respaldo externo: ${S3.endpoint}/${S3.bucket}/${S3.prefijo} · cada ${S3.minutos} min\n`);
+  else if(S3_MOTIVO)
+    console.error(`  ⚠ Respaldo externo MAL CONFIGURADO: ${S3_MOTIVO}\n`
+      +'    Los respaldos viven SOLO en este disco hasta que se corrija.\n');
   else
     console.warn('  ⚠ Sin respaldo externo: los respaldos viven SOLO en este disco.\n'
       +'    Configura RESPALDO_S3_ENDPOINT, _BUCKET, _KEY_ID y _SECRET para tener copia fuera.\n');
