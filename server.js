@@ -1604,6 +1604,42 @@ app.post('/api/respaldo/restaurar', auth, soloAdmin, (req, res) => {
   }catch(e){ res.status(500).json({error:'No se pudo leer el respaldo: '+e.message}); }
 });
 
+/* Restaurar el archivo que uno se baja del almacenamiento externo.
+   Sin esto, la copia de Backblaze era un archivo que la aplicación no sabía
+   leer: va comprimida y cifrada, así que "Restaurar desde archivo" —que
+   esperaba un .json plano— la rechazaba, y "Restaurar este" solo mira el disco
+   del servidor, que es justo lo que se habría perdido. Es decir, en el único
+   escenario para el que existe el respaldo externo, no servía.
+   Acepta los tres formatos por su contenido, no por su nombre: el .json plano
+   que descarga el botón de arriba, un .gz sin cifrar y el .json.gz cifrado. */
+app.post('/api/respaldo/restaurar-archivo', auth, soloAdmin,
+  express.raw({type:'*/*', limit:'64mb'}), (req, res) => {
+  const crudo = req.body;
+  if(!crudo || !crudo.length) return res.status(400).json({error:'Archivo vacío'});
+  let estado;
+  try{
+    const esJson = crudo[0]===0x7b || crudo[0]===0x20 || crudo[0]===0x0a;   // '{'
+    estado = JSON.parse(esJson ? crudo.toString('utf8')
+                               : zlib.gunzipSync(descifrar(crudo)).toString('utf8'));
+  }catch(e){
+    return res.status(400).json({error:
+      'No se pudo leer el archivo. Si viene del almacenamiento externo, se descifra con la '
+      +'misma DATA_ENCRYPTION_KEY con la que se guardó: comprueba que sea la de este servidor. '
+      +'('+e.message+')'});
+  }
+  if(!estado || !estado.pacientes)
+    return res.status(400).json({error:'El archivo no parece un respaldo del LIS'});
+  try{
+    respaldarAntesDeRestaurar(leerDB('estado'));
+    estado._ts = Date.now();
+    estado._por = req.user.nombre + ' (restauración desde archivo externo)';
+    escribirDB('estado', estado);
+    console.log(`[CDIM] Estado restaurado desde archivo externo por ${req.user.nombre}`);
+    res.json({ok:true, ts:estado._ts,
+      pacientes:(estado.pacientes||[]).length, ordenes:(estado.ordenes||[]).length});
+  }catch(e){ res.status(500).json({error:e.message}); }
+});
+
 // Subir un respaldo desde la computadora y restaurarlo
 app.post('/api/respaldo/subir', auth, soloAdmin, (req, res) => {
   const { estado } = req.body;

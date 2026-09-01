@@ -15348,7 +15348,7 @@ function vRespaldos(){
       <div style="display:flex;gap:10px;flex-wrap:wrap">
         <a class="btn btn-v" href="/api/respaldo" download>⬇ Descargar respaldo ahora</a>
         <label class="btn btn-g" style="display:inline-block;margin:0">⬆ Restaurar desde archivo
-          <input type="file" accept=".json" style="display:none" onchange="subirRespaldo(this)"></label>
+          <input type="file" accept=".json,.gz" style="display:none" onchange="subirRespaldo(this)"></label>
       </div>
     </div>
     ${(()=>{
@@ -15442,24 +15442,29 @@ async function restaurarRespaldo(archivo,fecha){
     setTimeout(()=>location.reload(),1200);
   }catch(e){toast('Error: '+e.message);}
 }
+/* Restaurar desde un archivo, venga de donde venga.
+   Se manda el archivo TAL CUAL, en bytes, y el servidor decide qué es. Antes
+   se leía como texto y se hacía JSON.parse aquí, así que solo entraba el .json
+   plano: el respaldo del almacenamiento externo —comprimido y cifrado— se
+   rechazaba, y era justamente el que hace falta el día que se pierda el disco
+   del servidor. */
 function subirRespaldo(inp){
   const f=inp.files[0]; if(!f)return;
+  if(!confirm('¿Restaurar desde "'+f.name+'"?\n\n'
+    +'Se reemplazará TODO lo que hay ahora. El estado actual se guarda antes, por si acaso.'))
+    {inp.value='';return;}
   const lector=new FileReader();
   lector.onload=async ev=>{
     try{
-      const estado=JSON.parse(ev.target.result);
-      if(!estado.pacientes){toast('Ese archivo no parece un respaldo del LIS');return;}
-      if(!confirm('¿Restaurar desde este archivo?\n\nPacientes: '+estado.pacientes.length+
-        ' · Órdenes: '+(estado.ordenes||[]).length+'\n\nSe reemplazará todo lo que hay ahora.'))return;
-      const r=await apiFetch('/api/respaldo/subir',{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({estado})});
+      const r=await apiFetch('/api/respaldo/restaurar-archivo',{method:'POST',
+        headers:{'Content-Type':'application/octet-stream'}, body:ev.target.result});
       const d=await r.json();
       if(!r.ok)throw new Error(d.error);
-      toast('Datos restaurados ✓ — recargando…');
-      setTimeout(()=>location.reload(),1200);
-    }catch(e){toast('Error: '+e.message);}
+      toast(`Datos restaurados ✓ — ${d.pacientes} pacientes, ${d.ordenes} órdenes. Recargando…`);
+      setTimeout(()=>location.reload(),1500);
+    }catch(e){toast('Error: '+e.message,'err');}
   };
-  lector.readAsText(f);
+  lector.readAsArrayBuffer(f);
   inp.value='';
 }
 /* Panel de gestión de usuarios (solo Admin) ─────────────────── */
