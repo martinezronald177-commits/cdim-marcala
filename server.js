@@ -256,8 +256,33 @@ async function subirRespaldoExterno(nombre, contenido){
   cab.Authorization = `AWS4-HMAC-SHA256 Credential=${S3.keyId}/${ambito},`
     + ` SignedHeaders=${nombres.join(';')}, Signature=${firma}`;
   const r = await fetch(url, {method:'PUT', headers:cab, body:contenido});
-  if(!r.ok) throw new Error(`HTTP ${r.status} ${(await r.text()).slice(0,200)}`);
+  if(!r.ok) throw new Error(explicarErrorS3(r.status, await r.text()));
   return true;
+}
+/* Los proveedores contestan en XML con códigos como "InvalidAccessKeyId", que
+   no le dicen a nadie QUÉ variable revisar. Se traducen a la acción concreta:
+   este mensaje termina en la tarjeta de Respaldos, y ahí lo que hace falta es
+   saber qué corregir, no el código del error. */
+function explicarErrorS3(estado, xml){
+  const cod = (/<Code>([^<]+)<\/Code>/.exec(xml)||[])[1] || '';
+  const guia = {
+    InvalidAccessKeyId:
+      'RESPALDO_S3_KEY_ID no es válida. En Backblaze es el «keyID» de una Application Key '
+      +'(unos 25 caracteres, empieza por 005…), no el Account ID ni el nombre de la llave.',
+    SignatureDoesNotMatch:
+      'RESPALDO_S3_SECRET no corresponde a esa llave. Backblaze solo muestra el '
+      +'applicationKey al crearla: si no lo guardaste, crea una llave nueva.',
+    NoSuchBucket:
+      `El bucket "${S3.bucket}" no existe en esa cuenta. Revisa RESPALDO_S3_BUCKET.`,
+    AccessDenied:
+      'La llave no tiene permiso de escritura sobre ese bucket. Vuelve a crearla con '
+      +'«Read and Write» y, si la limitaste a un bucket, que sea a este.',
+    RequestTimeTooSkewed:
+      'La hora del servidor está desfasada respecto al proveedor. Es del proveedor de '
+      +'hosting, no de esta aplicación.',
+  }[cod];
+  if(guia) return `${cod}: ${guia}`;
+  return `HTTP ${estado} ${String(xml).replace(/\s+/g,' ').slice(0,200)}`;
 }
 /* Se llama después de escribir el respaldo del día. Nunca lanza ni espera:
    que el almacenamiento externo esté caído no puede impedir que se guarde el
