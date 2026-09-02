@@ -1809,6 +1809,28 @@ function fmtTexto(s,sep){
   t=t.replace(/~~([^~]+)~~/g,'<s>$1</s>');            // ~~tachado~~
   return t.replace(/\n/g,sep||'<br>');
 }
+
+/* Nombre del mes en español a partir de 'AAAA-MM' (también acepta una fecha
+   completa 'AAAA-MM-DD'). Lo usa el consolidado mensual de facturas, tanto
+   para el título del documento como para el nombre del archivo que propone
+   el navegador (Facturas_Septiembre_2026). Ningún mes en español lleva
+   tilde, así que nombreArchivo() no tiene nada que limpiar aquí. */
+const MESES_LARGOS=['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+  'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+function nombreMes(mes){
+  const m=parseInt(String(mes||'').slice(5,7),10);
+  return (m>=1&&m<=12)?MESES_LARGOS[m-1]:'';
+}
+function etiquetaMes(mes){
+  const n=nombreMes(mes);
+  return n?n+' '+String(mes).slice(0,4):String(mes||'');
+}
+/* Último día del mes 'AAAA-MM' — el 28, 29, 30 o 31 que corresponda, con los
+   años bisiestos incluidos (día 0 del mes siguiente = último del actual). */
+function ultimoDiaDelMes(mes){
+  const a=parseInt(String(mes).slice(0,4),10), m=parseInt(String(mes).slice(5,7),10);
+  return new Date(Date.UTC(a,m,0)).getUTCDate();
+}
 /* =============== CATÁLOGO SEMILLA =============== */
 function semillaExamenes(){
   // Catálogo oficial CDI Marcala — precios y tiempos de entrega del Cotizador v5.1 (30-06-2026)
@@ -7115,7 +7137,13 @@ function vFacturas(){
   const restantes=facturasRestantes();
   vista.innerHTML=`
   <div class="cabecera"><h2>Facturas</h2>
-    <button class="btn btn-p" onclick="modalFactura()">+ Nueva factura</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${/* Consolidado mensual: se ofrece desde la cabecera y no dentro del
+           filtro de "Mes", para que se encuentre sin tener que saber antes
+           que el filtro existe. El mes se elige en el propio modal. */''}
+      <button class="btn btn-d" onclick="modalFacturasMes()" title="Todas las facturas de un mes en un solo PDF">📄 Facturas del mes</button>
+      <button class="btn btn-p" onclick="modalFactura()">+ Nueva factura</button>
+    </div>
   </div>
   ${!facturaConfigLista()?`<div class="aviso" style="border-left-color:var(--rojo)">
     <b>Falta configurar el C.A.I.</b> Ve a Configuración → “C.A.I. de la Factura (autoimpresor SAR)” y completa
@@ -7629,7 +7657,7 @@ function imprimirFactura(num){
    imprimirFactura) o un borrador construido en memoria sin guardar (desde
    previsualizarBorradorFactura, para el botón "Ver factura" del modal antes
    de emitir). Nunca lee ni escribe S directamente más que para leer S.config. */
-function renderizarFactura(f){
+function renderizarFactura(f,opciones){
   const c=S.config, t=calcFactura(f);
   const o=f.ot?S.ordenes.find(x=>x.numero===f.ot):null;
   const pac=o?(S.pacientes.find(x=>x.codigo===o.pacCodigo)||{}):{};
@@ -7746,11 +7774,219 @@ function renderizarFactura(f){
       ${esc(c.anclaSGC)} · Conserve esta factura como comprobante fiscal de su compra.
     </div>
   </div>`;
+  /* opciones.devolver: el consolidado mensual (imprimirFacturasDelMes, mas
+     abajo) arma UNA sola ventana de impresion con todas las facturas del mes,
+     asi que necesita el HTML de cada una en vez de que cada llamada abra su
+     propio dialogo. Ahi va una sola hoja por factura: el consolidado ES el
+     archivo del laboratorio, duplicar cada una doblaria el papel sin aportar
+     nada. opciones.copia es la leyenda de esa hoja (“Factura 12 de 47”),
+     que permite ver de un vistazo si al PDF le falta alguna. */
+  if(opciones&&opciones.devolver)
+    return cuerpo(opciones.copia||'Copia — Archivo del laboratorio','');
   const conCopia=c.facCopia!==false;
   const html=conCopia
     ? cuerpo('Original — Cliente','1 de 2')+cuerpo('Copia — Archivo del laboratorio','2 de 2')
     : cuerpo('Original — Cliente','1 de 1');
   ventanaImpresion(html,cssReciboVenta,nombreArchivo('Factura',f.numero,f.clienteNombre,f.fecha));
+}
+
+/* =============== CONSOLIDADO MENSUAL DE FACTURAS ===============
+   Un solo PDF con todas las facturas emitidas del día 1 al último día de un
+   mes, en orden correlativo y una por hoja, encabezado por una hoja de
+   resumen con los totales fiscales del periodo. Es el documento que se
+   archiva y el que se le entrega al contador: en papel suelto, factura por
+   factura, cuadrar un mes obliga a sumar a mano y no hay forma de notar que
+   falta un número del rango autorizado.
+
+   No se reimprime nada: cada hoja la arma el MISMO renderizarFactura() que
+   usa la impresión individual (con opciones.devolver), así que lo que sale
+   aquí es idéntico —C.A.I., desglose de I.S.V., leyendas SAR— a lo que se le
+   entregó al cliente el día de la emisión. */
+function facturasDelMes(mes){
+  mes=String(mes||'').slice(0,7);
+  /* Orden correlativo, no de captura: el número de factura lleva la
+     secuencia autorizada por la SAR con relleno de ceros, así que ordenarlo
+     como texto ya deja el rango en orden ascendente. */
+  return S.facturas.filter(x=>String(x.fecha||'').startsWith(mes))
+    .slice().sort((a,b)=>String(a.numero||'').localeCompare(String(b.numero||'')));
+}
+/* Suma los totales fiscales del mes. Las anuladas NO suman: conservan su
+   número (el correlativo no puede tener huecos) pero no son ingreso ni
+   generan I.S.V. */
+function totalesFacturasMes(lista){
+  const t={sub:0,descuento:0,exento:0,exonerado:0,gravado15:0,isv15:0,gravado18:0,isv18:0,total:0};
+  lista.filter(x=>!x.anulado).forEach(f=>{const c=calcFactura(f);
+    Object.keys(t).forEach(k=>{t[k]+=Number(c[k])||0;});});
+  return t;
+}
+/* Números del rango autorizado que no aparecen en el mes. Dentro de un mismo
+   mes la secuencia tiene que ser continua: un salto significa una factura
+   emitida que no quedó registrada, que es justo lo que revisa la SAR. Se
+   avisa en la hoja de resumen en vez de dejarlo pasar en silencio. */
+function huecosCorrelativo(lista){
+  const nums=lista.map(x=>{const m=/(\d+)\s*$/.exec(String(x.numero||''));
+      return m?parseInt(m[1],10):null;})
+    .filter(n=>n!==null&&!isNaN(n)).sort((a,b)=>a-b);
+  const huecos=[];
+  for(let i=1;i<nums.length;i++){
+    const desde=nums[i-1]+1, hasta=nums[i]-1;
+    if(hasta>=desde) huecos.push(desde===hasta?String(desde):desde+' a '+hasta);
+  }
+  return huecos;
+}
+const cssResumenFacturasMes=`
+ /* La hoja de resumen NO usa .rv: aquella tiene alto fijo de una carta con
+    overflow:hidden, y un mes de 200 facturas recortaría la tabla sin avisar.
+    Esta fluye por las páginas que haga falta. */
+ .res-mes{page-break-after:always;font-size:9pt}
+ .res-tit{display:flex;justify-content:space-between;align-items:flex-end;
+   margin-top:10px;border-bottom:1.4px solid #111;padding-bottom:6px}
+ .res-t1{font-size:15pt;font-weight:800;letter-spacing:1.5px}
+ .res-t2{font-size:9.4pt;color:#333;margin-top:2px}
+ .res-num{text-align:right}
+ .res-num .n{font-size:20pt;font-weight:800;line-height:1}
+ .res-num .f{font-size:8.4pt;color:#333}
+ table.res-tab{width:100%;border-collapse:collapse;margin-top:10px}
+ /* El encabezado se repite en cada página impresa: sin esto, de la segunda
+    hoja en adelante las columnas quedan sin rótulo. */
+ table.res-tab thead{display:table-header-group}
+ table.res-tab tr{page-break-inside:avoid}
+ table.res-tab th{border-bottom:1.2px solid #111;font-size:8.4pt;font-weight:800;
+   text-align:left;padding:5px 5px}
+ /* .num alinea a la derecha las cifras, pero la regla de arriba se lo comia
+    al encabezado: quedaba el rotulo "Total" a la izquierda de su columna. */
+ table.res-tab th.num{text-align:right}
+ table.res-tab td{padding:4px 5px;font-size:8.6pt;border-bottom:.4px solid #e6e6e6;vertical-align:top}
+ table.res-tab .mono{font-variant-numeric:tabular-nums}
+ /* "RTN 0801-1981-01001" son 19 caracteres: partido en dos renglones duplica
+    el alto de TODAS las filas y empuja el resumen a una segunda hoja sin
+    necesidad. Se le da el ancho que pide y se prohibe el corte. */
+ table.res-tab .ident{white-space:nowrap;font-size:8pt}
+ table.res-tab .nw{white-space:nowrap}
+ table.res-tab tr.anul td{color:#777}
+ table.res-tab tr.anul .est{color:#cc0000;font-weight:800}
+ .res-cierre{display:flex;justify-content:space-between;gap:18px;margin-top:12px;
+   align-items:flex-start;page-break-inside:avoid}
+ .res-nota{flex:1;font-size:8.8pt;line-height:1.7}
+ .res-alerta{border:1.2px solid #cc0000;color:#cc0000;padding:5px 8px;margin-top:6px;
+   font-size:8.4pt;line-height:1.5}
+ .res-firma{margin-top:15mm;border-top:1.1px solid #111;padding-top:2.5mm;
+   max-width:80mm;text-align:center;font-size:8.4pt;color:#333}`;
+function hojaResumenFacturasMes(mes,lista){
+  const c=S.config, t=totalesFacturasMes(lista);
+  const vivas=lista.filter(x=>!x.anulado).length, anuladas=lista.length-vivas;
+  const huecos=huecosCorrelativo(lista);
+  const mm=String(mes).slice(5,7), aa=String(mes).slice(0,4);
+  const ult=String(ultimoDiaDelMes(mes)).padStart(2,'0');
+  return `
+  <div class="res-mes">
+    ${bloqueCab(c,{razonSocial:true,claseContacto:''})}
+    <div class="res-tit">
+      <div>
+        <div class="res-t1">FACTURAS EMITIDAS</div>
+        <div class="res-t2">${esc(etiquetaMes(mes))} &nbsp;·&nbsp; del 01/${mm}/${aa} al ${ult}/${mm}/${aa}</div>
+      </div>
+      <div class="res-num">
+        <div class="n">${lista.length}</div>
+        <div class="f">factura(s) en el periodo</div>
+        <div class="f">C.A.I.: ${esc(c.facCAI||'—')}</div>
+      </div>
+    </div>
+    <table class="res-tab">
+      <thead><tr>
+        <th style="width:24px">#</th><th style="width:132px">No. de factura</th>
+        <th style="width:62px">Fecha</th><th>Cliente</th>
+        <th style="width:136px">Identificación</th>
+        <th style="width:58px">Estado</th><th style="width:76px" class="num">Total</th>
+      </tr></thead>
+      <tbody>${lista.map((f,i)=>{const ft=calcFactura(f);
+        return `<tr class="${f.anulado?'anul':''}">
+        <td>${i+1}</td>
+        <td class="mono nw"><b>${esc(f.numero)}</b></td>
+        <td>${fmtFecha(f.fecha)}</td>
+        <td>${esc(f.clienteNombre)}</td>
+        <td class="mono ident">${f.clienteId?esc((f.clienteIdTipo||'RTN')+' '+f.clienteId):'Consumidor Final'}</td>
+        <td class="est">${f.anulado?'ANULADA':'Emitida'}</td>
+        <td class="num">${f.anulado?'—':moneda(ft.total)}</td>
+      </tr>`;}).join('')}</tbody>
+    </table>
+    <div class="res-cierre">
+      <div class="res-nota">
+        <b>Resumen del periodo</b><br>
+        Facturas válidas: <b>${vivas}</b> &nbsp;·&nbsp; Anuladas: <b>${anuladas}</b><br>
+        Correlativo: <b>${lista.length?esc(lista[0].numero)+' a '+esc(lista[lista.length-1].numero):'—'}</b><br>
+        <span style="color:#444">Las facturas anuladas conservan su número y aparecen en este listado,
+        como exige el control correlativo, pero no suman a los totales.</span>
+        ${huecos.length?`<div class="res-alerta"><b>Faltan números en el correlativo de este mes:</b>
+          ${esc(huecos.join(', '))}. Cada número del rango autorizado debe estar respaldado por una
+          factura emitida o anulada.</div>`:''}
+        <div class="res-firma">${esc((typeof USUARIO_WEB!=='undefined'&&USUARIO_WEB&&USUARIO_WEB.nombre)||'')}<br>
+          <span style="font-size:7.4pt">Consolidado generado el ${fmtFecha(hoy())}</span></div>
+      </div>
+      <div class="rv-caja"><table>
+        <tr><td class="lbl">Sub Total:</td><td class="val">${moneda(t.sub)}</td></tr>
+        <tr><td class="lbl">Descuentos:</td><td class="val">${moneda(t.descuento)}</td></tr>
+        <tr><td class="lbl">Importe exento:</td><td class="val">${moneda(t.exento)}</td></tr>
+        <tr><td class="lbl">Importe exonerado:</td><td class="val">${moneda(t.exonerado)}</td></tr>
+        <tr><td class="lbl">Importe gravado 15%:</td><td class="val">${moneda(t.gravado15)}</td></tr>
+        <tr><td class="lbl">I.S.V. 15 %:</td><td class="val">${moneda(t.isv15)}</td></tr>
+        <tr><td class="lbl">Importe gravado 18%:</td><td class="val">${moneda(t.gravado18)}</td></tr>
+        <tr><td class="lbl">I.S.V. 18 %:</td><td class="val">${moneda(t.isv18)}</td></tr>
+        <tr class="fila-total"><td class="lbl">TOTAL ${esc(c.moneda||'L')}:</td><td class="val">${moneda(t.total)}</td></tr>
+      </table></div>
+    </div>
+  </div>`;
+}
+/* El navegador propone el <title> como nombre del archivo al "Guardar como
+   PDF": Facturas_Septiembre_2026. */
+function nombreConsolidadoMes(mes){
+  return nombreArchivo('Facturas',nombreMes(mes),String(mes).slice(0,4));
+}
+function imprimirFacturasDelMes(mes){
+  mes=String(mes||'').slice(0,7);
+  const lista=facturasDelMes(mes);
+  if(!lista.length){toast('No hay facturas emitidas en '+etiquetaMes(mes));return;}
+  const n=lista.length;
+  const html=hojaResumenFacturasMes(mes,lista)
+    +lista.map((f,i)=>renderizarFactura(f,{devolver:true,
+        copia:'Copia — Archivo del laboratorio · Factura '+(i+1)+' de '+n})).join('');
+  ventanaImpresion(html,cssReciboVenta+'\n'+cssResumenFacturasMes,nombreConsolidadoMes(mes));
+}
+/* Elegir el mes antes de generar. Se abre desde el encabezado de Facturas,
+   para no obligar a poner primero el filtro en "Mes" para encontrarlo. */
+function modalFacturasMes(mes){
+  mes=String(mes||((_facModo==='mes'&&_facMes)?_facMes:hoy().slice(0,7))).slice(0,7);
+  const lista=facturasDelMes(mes);
+  const t=totalesFacturasMes(lista);
+  const anuladas=lista.filter(x=>x.anulado).length;
+  const hay=lista.length>0;
+  abrirModal(`
+  <h3>Facturas del mes en un solo PDF</h3>
+  <p style="font-size:12.5px;color:var(--gris);margin:0 0 10px">
+    Reúne todas las facturas emitidas entre el día 1 y el último día del mes, en orden correlativo
+    y cada una en su hoja, con una hoja de resumen al frente que trae los totales del periodo.</p>
+  <div class="rejilla c2">
+    <div class="campo"><label>Mes</label>
+      <input type="month" value="${esc(mes)}" onchange="modalFacturasMes(this.value)"></div>
+    <div class="campo"><label>Se guardará como</label>
+      <input value="${esc(nombreConsolidadoMes(mes))}.pdf" readonly
+        style="font-family:ui-monospace,monospace;font-size:12px"></div>
+  </div>
+  ${hay?`<div class="kpis" style="grid-template-columns:repeat(4,1fr);margin:4px 0 10px">
+    <div class="kpi"><div class="n">${lista.length}</div><div class="t">Facturas del mes</div></div>
+    <div class="kpi" style="border-left-color:var(--verde)"><div class="n" style="color:var(--verde)">${lista.length-anuladas}</div><div class="t">Válidas</div></div>
+    <div class="kpi" style="border-left-color:var(--rojo)"><div class="n" style="color:var(--rojo)">${anuladas}</div><div class="t">Anuladas</div></div>
+    <div class="kpi" style="border-left-color:var(--dorado)"><div class="n" style="color:var(--dorado)">${L(t.total)}</div><div class="t">Total facturado</div></div>
+  </div>
+  <div class="aviso" style="margin-bottom:10px">Son <b>${lista.length+1}</b> hojas: la de resumen más una por factura.
+    ${lista.length>60?'Con este volumen, la vista previa puede tardar unos segundos en dibujarse.':''}</div>`
+  :`<div class="aviso" style="border-left-color:var(--ambar)">No hay ninguna factura emitida en
+    <b>${esc(etiquetaMes(mes))}</b>. Elige otro mes.</div>`}
+  <div class="modal-pie">
+    <button class="btn btn-g" onclick="cerrarModal()">Cancelar</button>
+    ${hay?`<button class="btn btn-d" onclick="previsualizar(()=>imprimirFacturasDelMes('${esc(mes)}'),'Facturas de ${esc(etiquetaMes(mes))}','Imprimir todas',true)">👁 Vista previa</button>
+    <button class="btn btn-p" onclick="modalPDF('facturasMes','${esc(mes)}')">⬇ Generar PDF</button>`:''}
+  </div>`,true);
 }
 /* =============== CONTROL DE CALIDAD INTERNO =============== */
 /* Cada material control tiene su media y desviación estándar (del inserto o
@@ -10074,6 +10310,8 @@ function modalPDF(tipo,id){
           :tipo==='informeValidados'?(()=>imprimirSoloValidados(id))
           :tipo==='recibo'?(()=>imprimirReciboVenta(id))
           :tipo==='factura'?(()=>imprimirFactura(id))
+          // Consolidado mensual: aqui el "id" es el mes 'AAAA-MM'.
+          :tipo==='facturasMes'?(()=>imprimirFacturasDelMes(id))
           :tipo==='instructivo'?(()=>imprimirInstructivos(id))
           :tipo==='instructivoCot'?(()=>imprimirInstructivosCotizacion(id))
           :tipo==='instructivoUno'?(()=>imprimirInstructivoSuelto(id))
@@ -10082,7 +10320,7 @@ function modalPDF(tipo,id){
   const esInstructivo=/^instructivo/.test(tipo);
   // Firmar y sellar solo tiene sentido en los documentos con línea de firma
   // propia: cotización, factura, recibo de venta y sobre (bloqueFirmaSello()).
-  const conFirma=['cotizacion','factura','recibo','sobre'].includes(tipo);
+  const conFirma=['cotizacion','factura','recibo','sobre','facturasMes'].includes(tipo);
   abrirModal(`
   <h3>${esInstructivo?'Instructivo en PDF':'Descargar en PDF'}</h3>
   ${conFirma?filaOpcionesFirma(S.config,'alternarOpcionFirmaPDF'):''}
