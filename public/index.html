@@ -3438,6 +3438,18 @@ function filtrarVistaCotizaciones(){
 }
 function irCotizacionesHoy(){_cotFecha=hoy();_cotQ='';_topeCot=150;vCotizaciones();}
 function verTodoHistorialCotizaciones(){_cotFecha='';_cotQ='';_topeCot=150;vCotizaciones();}
+/* Estado de una cotizacion. No hay campo que lo guarde: se deduce de si ya
+   se convirtio en orden, si espera aprobacion del portal, y de su validez en
+   dias. Lo usan la tabla de la vista y la hoja de resumen del consolidado
+   mensual, para que las dos digan lo mismo. */
+function estadoCot(c){
+  if(c.ot)return {txt:'Aceptada', chip:'chip-vd', etiqueta:'→ '+c.ot};
+  if(c.estadoCot==='Pendiente')return {txt:'Por aprobar', chip:'chip-am', etiqueta:'⏳ Por aprobar'};
+  const d=new Date(c.fecha+'T12:00:00'); d.setDate(d.getDate()+(c.validez||30));
+  return d.toISOString().slice(0,10)<hoy()
+    ? {txt:'Vencida', chip:'chip-rj', etiqueta:'Vencida', mal:true}
+    : {txt:'Vigente', chip:'chip-do', etiqueta:'Vigente'};
+}
 function tablaCotizaciones(cs){
   if(!cs.length)return '<div class="vacio">Sin cotizaciones que mostrar.</div>';
   return `<table class="tabla-ordenes cot"><thead><tr>
@@ -3447,14 +3459,8 @@ function tablaCotizaciones(cs){
     <th style="width:11%">Estado</th><th style="width:14%;text-align:right">Acciones</th>
   </tr></thead><tbody>
     ${cs.map(c=>{const t=calcCot(c);const esWeb=c.origen==='web';
-      const estadoChip=(()=>{
-        if(c.ot)return '<span class="chip chip-vd">→ '+esc(c.ot)+'</span>';
-        if(c.estadoCot==='Pendiente')return '<span class="chip chip-am">⏳ Por aprobar</span>';
-        const d=new Date(c.fecha+'T12:00:00');d.setDate(d.getDate()+(c.validez||30));
-        return d.toISOString().slice(0,10)<hoy()
-          ?'<span class="chip chip-rj">Vencida</span>'
-          :'<span class="chip chip-do">Vigente</span>';
-      })();
+      const est=estadoCot(c);
+      const estadoChip=`<span class="chip ${est.chip}">${esc(est.etiqueta)}</span>`;
       return `<tr>
         <td><b class="num-largo">${esc(c.numero)}</b>
           <div class="solo-movil" style="margin-top:4px">${estadoChip}</div></td>
@@ -3480,6 +3486,7 @@ function vCotizaciones(){
   <div class="cabecera"><h2>Cotizaciones</h2>
     <div style="display:flex;gap:10px">
       <button class="btn btn-g btn-min" onclick="importarCotWeb();vCotizaciones()">⟳ Refrescar</button>
+      <button class="btn btn-d" onclick="modalCotizacionesMes()" title="Todas las cotizaciones de un mes en un solo PDF">📄 Cotizaciones del mes</button>
       <button class="btn btn-p" onclick="modalCotizacion()">+ Nueva cotización</button>
     </div>
   </div>
@@ -3963,6 +3970,79 @@ function crearOrdenDesdeCot(nCot,pacCodigo){
    de Cotizaciones. Cambio puramente mecánico — ver el comentario de
    cabecera de ese archivo. */
 
+/* =============== CONSOLIDADO MENSUAL DE COTIZACIONES ===============
+   Mismo motor que Facturas y Recibos (imprimirConsolidadoMes, en
+   50b_plantillas_comunes.js), pero la cotización se aparta de aquellas en
+   cuatro cosas, y las cuatro están aquí:
+
+   1. Ocupa VARIAS hojas y se repagina midiendo, así que cada una va envuelta
+      en .grupo-doc para que repaginarPaginas() no funda todas las del mes en
+      una sola cotización gigante.
+   2. Su cálculo (calcCot) tiene otras columnas: gravado/exento/impuesto al
+      15 %, sin las de 18 % ni exonerado de la factura.
+   3. No se anula: se borra. Por eso los huecos en la numeración son
+      NORMALES y no se avisan -sacar una alerta roja por algo corriente
+      enseña a ignorar las alertas-.
+   4. No es un documento fiscal: no lleva C.A.I., y su total es lo cotizado,
+      no lo cobrado. */
+function resumenCotizacionesMes(cfg,lista){
+  const aceptadas=lista.filter(c=>c.ot);
+  const totalAceptado=aceptadas.reduce((a,c)=>a+calcCot(c).total,0);
+  const pct=lista.length?Math.round(aceptadas.length/lista.length*100):0;
+  const porAprobar=lista.filter(c=>!c.ot&&c.estadoCot==='Pendiente').length;
+  const vencidas=lista.filter(c=>estadoCot(c).txt==='Vencida').length;
+  const web=lista.filter(c=>c.origen==='web').length;
+  return `Aceptadas (convertidas en orden): <b>${aceptadas.length}</b> de ${lista.length}
+      &nbsp;·&nbsp; <b>${pct} %</b> &nbsp;·&nbsp; ${moneda(totalAceptado)}<br>
+    Por aprobar: <b>${porAprobar}</b> &nbsp;·&nbsp; Vencidas: <b>${vencidas}</b><br>
+    Origen: <b>${web}</b> del portal web &nbsp;·&nbsp; <b>${lista.length-web}</b> internas<br>
+    <span style="color:#444">${esc(cfg.txt.notaAnulados)}</span>`;
+}
+const CONS_COTIZACION={
+  archivo:'Cotizaciones', tipoPDF:'cotizacionesMes',
+  fnModal:'modalCotizacionesMes', fnImprimir:'imprimirCotizacionesDelMes',
+  lista:()=>S.cotizaciones||[],
+  calc:c=>calcCot(c),
+  dibujar:(c,op)=>imprimirCotizacion(c.numero,op),
+  css:()=>cssCotizacion,
+  envuelve:true,          // varias hojas por documento: ver .grupo-doc
+  cai:null,               // no es un documento fiscal
+  avisaHuecos:false,      // una cotizacion se puede borrar: los huecos son normales
+  cliente:c=>c.nombre||'',
+  ident:c=>c.idNumero||c.identificacion||'—',
+  anulado:()=>false,
+  estado:c=>estadoCot(c),
+  resumen:resumenCotizacionesMes,
+  clavesTotal:['sub','descuento','exento','gravado','impuesto','total'],
+  filasTotal:t=>[['Sub Total',t.sub],['Descuentos',t.descuento],
+    ['Importe exento',t.exento],['Importe gravado',t.gravado],
+    ['Impuesto (I.S.V. 15 %)',t.impuesto]],
+  mesActual:()=>(_cotFecha?_cotFecha.slice(0,7):hoy().slice(0,7)),
+  txt:{
+    titulo:'COTIZACIONES EMITIDAS', uno:'Cotización', unoMin:'cotización',
+    contador:'cotización(es) en el periodo',
+    columnaCliente:'Cliente / Paciente',
+    validos:'Vigentes', anulados:'Vencidas',
+    tituloModal:'Cotizaciones del mes en un solo PDF',
+    tituloPrevia:'Cotizaciones de',
+    intro:'Reúne todas las cotizaciones emitidas entre el día 1 y el último día del mes, '
+      +'en orden correlativo, con una hoja de resumen al frente que trae los totales del '
+      +'periodo y cuántas terminaron convirtiéndose en orden de trabajo.',
+    kpiCuenta:'Cotizaciones del mes', kpiValidos:'No vencidas', kpiTotal:'Total cotizado',
+    sinNada:'No hay ninguna cotización emitida en',
+    sinNadaToast:'No hay cotizaciones emitidas en',
+    notaAnulados:'El total del periodo es lo COTIZADO, no lo cobrado: una cotización no es '
+      +'un ingreso hasta que se convierte en orden de trabajo y se factura.',
+    huecoFin:'',   // no se avisa: ver avisaHuecos
+    /* A diferencia de la factura y el recibo, una cotización larga ocupa mas
+       de una hoja, asi que aqui no se puede prometer un numero exacto. */
+    hojas:n=>'Son la hoja de resumen más las de cada cotización: al menos '+(n+1)
+      +' hojas, y alguna más por cada cotización con muchos exámenes.',
+  },
+};
+function cotizacionesDelMes(mes){ return docsDelMes(S.cotizaciones,mes); }
+function imprimirCotizacionesDelMes(mes){ return imprimirConsolidadoMes(CONS_COTIZACION,mes); }
+function modalCotizacionesMes(mes){ return modalConsolidadoMes(CONS_COTIZACION,mes); }
 /* =============== COTIZACIONES: REPOSITORIO =============== */
 /* Acceso a datos puro sobre S.cotizaciones. Sin DOM, sin confirm(), sin
    reglas de negocio — eso vive en 22c_srv_cotizaciones.js. Ninguna función
@@ -7060,11 +7140,22 @@ const CONS_RECIBO={
   dibujar:(r,op)=>renderizarReciboVenta(r,op),
   cai:()=>S.config.facturaCAI||'',
   ident:r=>r.clienteId?((r.clienteIdTipo||'RTN')+' '+r.clienteId):'Consumidor Final',
+  css:()=>cssReciboVenta,
+  envuelve:false,        // una sola hoja por documento
+  avisaHuecos:true,      // documento fiscal: la secuencia no puede saltar
+  cliente:r=>r.clienteNombre||'',
+  anulado:r=>!!r.anulado,
+  estado:r=>r.anulado?{txt:'ANULADO',mal:true}:{txt:'Emitido'},
+  resumen:resumenFiscalMes,
+  clavesTotal:['sub','descuento','exento','exonerado','gravado15','isv15','gravado18','isv18','total'],
+  filasTotal:t=>[['Sub Total',t.sub],['Descuentos',t.descuento],
+    ['Importe exento',t.exento],['Importe exonerado',t.exonerado],
+    ['Importe gravado 15%',t.gravado15],['I.S.V. 15 %',t.isv15],
+    ['Importe gravado 18%',t.gravado18],['I.S.V. 18 %',t.isv18]],
   mesActual:()=>((_recModo==='mes'&&_recMes)?_recMes:hoy().slice(0,7)),
   txt:{
     titulo:'RECIBOS EMITIDOS', uno:'Recibo', unoMin:'recibo',
     contador:'recibo(s) en el periodo',
-    estadoOk:'Emitido', estadoNo:'ANULADO',
     validos:'Recibos válidos', anulados:'Anulados',
     tituloModal:'Recibos del mes en un solo PDF',
     tituloPrevia:'Recibos de',
@@ -7078,10 +7169,11 @@ const CONS_RECIBO={
       +'como exige el control correlativo, pero no suman a los totales.',
     huecoFin:'Cada número del rango autorizado debe estar respaldado por un recibo '
       +'emitido o anulado.',
+    hojas:n=>'Son '+(n+1)+' hojas: la de resumen más una por recibo.',
   },
 };
 function recibosDelMes(mes){ return docsDelMes(S.recibos,mes); }
-function totalesRecibosMes(lista){ return totalesDocsMes(lista,calcRecibo); }
+function totalesRecibosMes(lista){ return totalesDocsMes(lista,CONS_RECIBO); }
 function imprimirRecibosDelMes(mes){ return imprimirConsolidadoMes(CONS_RECIBO,mes); }
 function modalRecibosMes(mes){ return modalConsolidadoMes(CONS_RECIBO,mes); }
 /* =============== FACTURAS (Régimen de Facturación SAR · Autoimpresor) ===============
@@ -7850,12 +7942,23 @@ const CONS_FACTURA={
   dibujar:(f,op)=>renderizarFactura(f,op),
   cai:()=>S.config.facCAI||'',
   ident:f=>f.clienteId?((f.clienteIdTipo||'RTN')+' '+f.clienteId):'Consumidor Final',
+  css:()=>cssReciboVenta,
+  envuelve:false,        // una sola hoja por documento
+  avisaHuecos:true,      // documento fiscal: la secuencia no puede saltar
+  cliente:f=>f.clienteNombre||'',
+  anulado:f=>!!f.anulado,
+  estado:f=>f.anulado?{txt:'ANULADA',mal:true}:{txt:'Emitida'},
+  resumen:resumenFiscalMes,
+  clavesTotal:['sub','descuento','exento','exonerado','gravado15','isv15','gravado18','isv18','total'],
+  filasTotal:t=>[['Sub Total',t.sub],['Descuentos',t.descuento],
+    ['Importe exento',t.exento],['Importe exonerado',t.exonerado],
+    ['Importe gravado 15%',t.gravado15],['I.S.V. 15 %',t.isv15],
+    ['Importe gravado 18%',t.gravado18],['I.S.V. 18 %',t.isv18]],
   // El mes que ya se está mirando en la vista, si el filtro está en "Mes".
   mesActual:()=>((_facModo==='mes'&&_facMes)?_facMes:hoy().slice(0,7)),
   txt:{
     titulo:'FACTURAS EMITIDAS', uno:'Factura', unoMin:'factura',
     contador:'factura(s) en el periodo',
-    estadoOk:'Emitida', estadoNo:'ANULADA',
     validos:'Facturas válidas', anulados:'Anuladas',
     tituloModal:'Facturas del mes en un solo PDF',
     tituloPrevia:'Facturas de',
@@ -7869,10 +7972,11 @@ const CONS_FACTURA={
       +'como exige el control correlativo, pero no suman a los totales.',
     huecoFin:'Cada número del rango autorizado debe estar respaldado por una factura '
       +'emitida o anulada.',
+    hojas:n=>'Son '+(n+1)+' hojas: la de resumen más una por factura.',
   },
 };
 function facturasDelMes(mes){ return docsDelMes(S.facturas,mes); }
-function totalesFacturasMes(lista){ return totalesDocsMes(lista,calcFactura); }
+function totalesFacturasMes(lista){ return totalesDocsMes(lista,CONS_FACTURA); }
 function imprimirFacturasDelMes(mes){ return imprimirConsolidadoMes(CONS_FACTURA,mes); }
 function modalFacturasMes(mes){ return modalConsolidadoMes(CONS_FACTURA,mes); }
 /* =============== CONTROL DE CALIDAD INTERNO =============== */
@@ -10200,6 +10304,7 @@ function modalPDF(tipo,id){
           // Consolidados mensuales: aqui el "id" es el mes 'AAAA-MM'.
           :tipo==='facturasMes'?(()=>imprimirFacturasDelMes(id))
           :tipo==='recibosMes'?(()=>imprimirRecibosDelMes(id))
+          :tipo==='cotizacionesMes'?(()=>imprimirCotizacionesDelMes(id))
           :tipo==='instructivo'?(()=>imprimirInstructivos(id))
           :tipo==='instructivoCot'?(()=>imprimirInstructivosCotizacion(id))
           :tipo==='instructivoUno'?(()=>imprimirInstructivoSuelto(id))
@@ -10208,7 +10313,7 @@ function modalPDF(tipo,id){
   const esInstructivo=/^instructivo/.test(tipo);
   // Firmar y sellar solo tiene sentido en los documentos con línea de firma
   // propia: cotización, factura, recibo de venta y sobre (bloqueFirmaSello()).
-  const conFirma=['cotizacion','factura','recibo','sobre','facturasMes','recibosMes'].includes(tipo);
+  const conFirma=['cotizacion','factura','recibo','sobre','facturasMes','recibosMes','cotizacionesMes'].includes(tipo);
   abrirModal(`
   <h3>${esInstructivo?'Instructivo en PDF':'Descargar en PDF'}</h3>
   ${conFirma?filaOpcionesFirma(S.config,'alternarOpcionFirmaPDF'):''}
@@ -10522,7 +10627,7 @@ const cssCotizacion=`
  .pie-dir{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:12px;font-size:7pt;color:#333;margin-top:6px;line-height:1.5}
  .pie-web{text-align:center;font-size:7.6pt;font-weight:700;color:#111;letter-spacing:1.5px;margin-top:5px}`;
 
-function imprimirCotizacion(n){
+function imprimirCotizacion(n,opciones){
   const c=S.cotizaciones.find(x=>x.numero===n);
   const cf=S.config;
   const t=calcCot(c);
@@ -10550,7 +10655,12 @@ function imprimirCotizacion(n){
      }<span style="text-align:right"><b>Página</b> <span class="pag-num">${np}</span> de <span class="pag-total">${totalPag}</span></span>
     <span><b>Fecha de emisión:</b> ${fmtFecha(c.fecha)}</span>
     <span><b>Elaborado por:</b> ${esc(c.elaboradoPor||cf.regente)}</span>
-    <span></span>
+    ${/* La casilla que sobraba en la rejilla se aprovecha, solo dentro del
+          consolidado mensual, para decir que lugar ocupa esta cotizacion en
+          el PDF -asi se nota de un vistazo si falta alguna-. Suelta, sigue
+          vacia y el documento no cambia en nada. */''
+     }<span>${opciones&&opciones.posicion
+        ?`<b>Consolidado:</b> ${opciones.posicion.n} de ${opciones.posicion.de}`:''}</span>
   </div>
   ${bloqueDatosPersona({
     // Mismo orden/etiquetas/estilo que el informe de resultados (ago. 2026,
@@ -10673,6 +10783,11 @@ function imprimirCotizacion(n){
       ${pie}
     </div>`;
   }).join('');
+  /* opciones.devolver: el consolidado mensual arma UNA sola ventana de
+     impresion con todas las cotizaciones del mes, asi que necesita el HTML de
+     cada una en vez de que cada llamada abra su propio dialogo. Mismo trato
+     que renderizarFactura() y renderizarReciboVenta(). */
+  if(opciones&&opciones.devolver)return html;
   ventanaImpresion(html,cssCotizacion,nombreArchivo('Cotizacion',c.numero,c.nombre,c.fecha));
 }
 
@@ -11093,8 +11208,22 @@ function repaginarHojas(win){
    previa pagina idéntico a lo que sale por la impresora. */
 function repaginarPaginas(win){
   try{
-    const doc=win.document;
-    const originales=[...doc.querySelectorAll('.pagina')];
+    /* El consolidado mensual de cotizaciones mete varias cotizaciones en un
+       mismo documento, cada una envuelta en .grupo-doc. Repaginarlas todas
+       juntas las fundiria en una sola: las filas de todas terminarian bajo el
+       encabezado de la primera -con SU numero y SU codigo de barras- y el
+       "Pagina X de Y" contaria el documento entero en vez de cada cotizacion.
+       Por eso se repagina grupo por grupo. Sin grupos -una cotizacion suelta,
+       que es el caso de siempre- el documento entero es el grupo y el
+       comportamiento no cambia en nada. */
+    const grupos=win.document.querySelectorAll('.grupo-doc');
+    if(grupos.length)grupos.forEach(g=>repaginarGrupo(win,g));
+    else repaginarGrupo(win,win.document);
+  }catch(e){ /* igual que repaginarHojas: nunca debe bloquear una impresion */ }
+}
+function repaginarGrupo(win,raiz){
+  try{
+    const originales=[...raiz.querySelectorAll('.pagina')];
     if(!originales.length)return;
     const FILAS='table.items tbody';
     const COLA='.totales,.nota,.cot-firma,.rv-tot,.rv-letras,.rv-sar,.rv-caja,.rv-firmas';
@@ -11190,43 +11319,48 @@ function repaginarPaginas(win){
 
 /* =============== CONSOLIDADO MENSUAL DE DOCUMENTOS ===============
    Un solo PDF con todos los documentos de un tipo emitidos del día 1 al
-   último día de un mes, en orden correlativo y uno por hoja, encabezado por
-   una hoja de resumen con los totales fiscales del periodo. Es lo que se
-   archiva y lo que se le entrega al contador: en papel suelto, documento por
-   documento, cuadrar un mes obliga a sumar a mano y no hay forma de notar
-   que falta un número del rango autorizado.
+   último día de un mes, en orden correlativo, encabezado por una hoja de
+   resumen con los totales del periodo. Es lo que se archiva y lo que se le
+   entrega al contador: en papel suelto, documento por documento, cuadrar un
+   mes obliga a sumar a mano.
 
-   Factura y Recibo son el mismo documento con otro rótulo -misma plantilla
-   .rv, mismo calcRecibo(), mismo desglose de I.S.V.-, así que el consolidado
-   es uno solo y cada módulo aporta un descriptor con lo poco que cambia:
-   de dónde sale la lista, quién la dibuja y cómo se llaman las cosas
-   (ver CONS_FACTURA en 25_facturas.js y CONS_RECIBO en 24_recibos.js).
+   Lo usan Facturas, Recibos y Cotizaciones. Cada módulo aporta un descriptor
+   (CONS_FACTURA, CONS_RECIBO, CONS_COTIZACION) con lo que cambia de uno a
+   otro; el resto —el rango de fechas, el orden correlativo, la hoja de
+   resumen, el modal y el nombre del archivo— es común.
 
-   No se reimprime nada: cada hoja la arma el MISMO renderizador que usa la
-   impresión individual (con opciones.devolver), así que lo que sale aquí es
-   idéntico -C.A.I., desglose de I.S.V., leyendas SAR- a lo que se le entregó
-   al cliente el día de la emisión. */
+   Factura y Recibo son casi el mismo documento: misma plantilla .rv, mismo
+   calcRecibo(), una hoja cada uno. La Cotización no: usa .pagina, puede
+   ocupar varias hojas, se repagina midiendo (ver repaginarPaginas más
+   arriba), su cálculo tiene otras columnas fiscales y sus números SÍ pueden
+   tener huecos porque una cotización se puede borrar. Por eso el descriptor
+   lleva ganchos y no solo rótulos.
+
+   No se reimprime nada: cada documento lo arma el MISMO renderizador que usa
+   la impresión individual (con opciones.devolver), así que lo que sale aquí
+   es idéntico a lo que se le entregó al cliente el día de la emisión. */
 function docsDelMes(lista,mes){
   mes=String(mes||'').slice(0,7);
-  /* Orden correlativo, no de captura: el número lleva la secuencia
-     autorizada con relleno de ceros, así que ordenarlo como texto ya deja el
-     rango en orden ascendente. */
+  /* Orden correlativo, no de captura: el número lleva la secuencia con
+     relleno de ceros, así que ordenarlo como texto ya deja el rango en orden
+     ascendente. */
   return (lista||[]).filter(x=>String(x.fecha||'').startsWith(mes))
     .slice().sort((a,b)=>String(a.numero||'').localeCompare(String(b.numero||'')));
 }
-/* Suma los totales fiscales del mes. Los anulados NO suman: conservan su
-   número (el correlativo no puede tener huecos) pero no son ingreso ni
-   generan I.S.V. */
-function totalesDocsMes(lista,calc){
-  const t={sub:0,descuento:0,exento:0,exonerado:0,gravado15:0,isv15:0,gravado18:0,isv18:0,total:0};
-  (lista||[]).filter(x=>!x.anulado).forEach(d=>{const c=calc(d);
-    Object.keys(t).forEach(k=>{t[k]+=Number(c[k])||0;});});
+/* Suma las columnas que pida el descriptor. Lo anulado no suma: conserva su
+   número (el correlativo no puede tener huecos) pero no es ingreso ni genera
+   I.S.V. Qué cuenta como anulado también lo decide el descriptor: la
+   cotización no tiene ese concepto. */
+function totalesDocsMes(lista,cfg){
+  const t={};
+  cfg.clavesTotal.forEach(k=>{t[k]=0;});
+  (lista||[]).filter(d=>!cfg.anulado(d)).forEach(d=>{const c=cfg.calc(d);
+    cfg.clavesTotal.forEach(k=>{t[k]+=Number(c[k])||0;});});
   return t;
 }
-/* Números del rango autorizado que no aparecen en el mes. Dentro de un mismo
-   mes la secuencia tiene que ser continua: un salto significa un documento
-   emitido que no quedó registrado, que es justo lo que revisa la SAR. Se
-   avisa en la hoja de resumen en vez de dejarlo pasar en silencio. */
+/* Números de la secuencia que no aparecen en el mes. En un documento fiscal
+   la secuencia tiene que ser continua: un salto significa uno emitido que no
+   quedó registrado, que es justo lo que revisa la SAR. */
 function huecosCorrelativo(lista){
   const nums=(lista||[]).map(x=>{const m=/(\d+)\s*$/.exec(String(x.numero||''));
       return m?parseInt(m[1],10):null;})
@@ -11238,11 +11372,24 @@ function huecosCorrelativo(lista){
   }
   return huecos;
 }
+/* El bloque de "Resumen del periodo" de un documento fiscal: cuántos valen,
+   cuántos se anularon y qué tramo del rango autorizado cubre el mes. Lo
+   comparten Facturas y Recibos; Cotizaciones tiene el suyo. */
+function resumenFiscalMes(cfg,lista){
+  const T=cfg.txt;
+  const vivos=lista.filter(d=>!cfg.anulado(d)).length;
+  return `${esc(T.validos)}: <b>${vivos}</b> &nbsp;·&nbsp; ${esc(T.anulados)}: <b>${lista.length-vivos}</b><br>
+    Correlativo: <b>${lista.length?esc(lista[0].numero)+' a '+esc(lista[lista.length-1].numero):'—'}</b><br>
+    <span style="color:#444">${esc(T.notaAnulados)}</span>`;
+}
 const cssResumenMensual=`
- /* La hoja de resumen NO usa .rv: aquella tiene alto fijo de una carta con
-    overflow:hidden, y un mes de 200 documentos recortaría la tabla sin
-    avisar. Esta fluye por las páginas que haga falta. */
- .res-mes{page-break-after:always;font-size:9pt}
+ /* La hoja de resumen NO usa .rv ni .pagina: aquellas tienen alto fijo de una
+    carta con overflow:hidden, y un mes de 200 documentos recortaría la tabla
+    sin avisar. Esta fluye por las páginas que haga falta.
+    Se define entera aquí -incluida la caja de totales- para no depender de
+    qué CSS de documento la acompañe: va con cssReciboVenta en Facturas y
+    Recibos, y con cssCotizacion en Cotizaciones. */
+ .res-mes{page-break-after:always;font-size:9pt;color:#000}
  .res-tit{display:flex;justify-content:space-between;align-items:flex-end;
    margin-top:10px;border-bottom:1.4px solid #111;padding-bottom:6px}
  .res-t1{font-size:15pt;font-weight:800;letter-spacing:1.5px}
@@ -11257,9 +11404,7 @@ const cssResumenMensual=`
  table.res-tab tr{page-break-inside:avoid}
  table.res-tab th{border-bottom:1.2px solid #111;font-size:8.4pt;font-weight:800;
    text-align:left;padding:5px 5px}
- /* .num alinea a la derecha las cifras, pero la regla de arriba se lo comía
-    al encabezado: quedaba el rótulo "Total" a la izquierda de su columna. */
- table.res-tab th.num{text-align:right}
+ table.res-tab .num{text-align:right;white-space:nowrap}
  table.res-tab td{padding:4px 5px;font-size:8.6pt;border-bottom:.4px solid #e6e6e6;vertical-align:top}
  table.res-tab .mono{font-variant-numeric:tabular-nums}
  /* "RTN 0801-1981-01001" son 19 caracteres: partido en dos renglones duplica
@@ -11267,25 +11412,35 @@ const cssResumenMensual=`
     el ancho que pide y se prohíbe el corte. */
  table.res-tab .ident{white-space:nowrap;font-size:8pt}
  table.res-tab .nw{white-space:nowrap}
- table.res-tab tr.anul td{color:#777}
- table.res-tab tr.anul .est{color:#cc0000;font-weight:800}
+ table.res-tab tr.apag td{color:#777}
+ table.res-tab tr.apag .est{color:#cc0000;font-weight:800}
  .res-cierre{display:flex;justify-content:space-between;gap:18px;margin-top:12px;
    align-items:flex-start;page-break-inside:avoid}
  .res-nota{flex:1;font-size:8.8pt;line-height:1.7}
  .res-alerta{border:1.2px solid #cc0000;color:#cc0000;padding:5px 8px;margin-top:6px;
    font-size:8.4pt;line-height:1.5}
  .res-firma{margin-top:15mm;border-top:1.1px solid #111;padding-top:2.5mm;
-   max-width:80mm;text-align:center;font-size:8.4pt;color:#333}`;
+   max-width:80mm;text-align:center;font-size:8.4pt;color:#333}
+ .res-caja{width:280px}
+ .res-caja table{width:100%;border-collapse:collapse}
+ .res-caja td{padding:3.5px 6px;font-size:9.4pt}
+ .res-caja .lbl{font-weight:800;text-align:right}
+ .res-caja .val{text-align:right;font-variant-numeric:tabular-nums}
+ .res-caja .fila-total td{border-top:1.3px solid #111;font-size:12pt;font-weight:800;padding-top:5px}
+ /* Documentos de varias hojas (la cotización) van envueltos en .grupo-doc.
+    Sin esto, ".pagina:last-child" haría que la última hoja de CADA
+    cotización no rompiera página y la siguiente arrancara pegada debajo. */
+ .grupo-doc .pagina{page-break-after:always}
+ .grupo-doc:last-child .pagina:last-child{page-break-after:auto}`;
 /* El navegador propone el <title> como nombre del archivo al "Guardar como
-   PDF": Facturas_Septiembre_2026, Recibos_Septiembre_2026. */
+   PDF": Facturas_Septiembre_2026, Recibos_…, Cotizaciones_… */
 function nombreConsolidadoMes(cfg,mes){
   return nombreArchivo(cfg.archivo,nombreMes(mes),String(mes).slice(0,4));
 }
 function hojaResumenMensual(cfg,mes,lista){
-  const c=S.config, T=cfg.txt, t=totalesDocsMes(lista,cfg.calc);
-  const vivos=lista.filter(x=>!x.anulado).length, anulados=lista.length-vivos;
-  const huecos=huecosCorrelativo(lista);
-  const cai=cfg.cai();
+  const c=S.config, T=cfg.txt, t=totalesDocsMes(lista,cfg);
+  const huecos=cfg.avisaHuecos?huecosCorrelativo(lista):[];
+  const cai=cfg.cai?cfg.cai():'';
   const mm=String(mes).slice(5,7), aa=String(mes).slice(0,4);
   const ult=String(ultimoDiaDelMes(mes)).padStart(2,'0');
   return `
@@ -11305,41 +11460,32 @@ function hojaResumenMensual(cfg,mes,lista){
     <table class="res-tab">
       <thead><tr>
         <th style="width:24px">#</th><th style="width:132px">No. de ${esc(T.unoMin)}</th>
-        <th style="width:62px">Fecha</th><th>Cliente</th>
+        <th style="width:62px">Fecha</th><th>${esc(T.columnaCliente||'Cliente')}</th>
         <th style="width:136px">Identificación</th>
-        <th style="width:58px">Estado</th><th style="width:76px" class="num">Total</th>
+        <th style="width:72px">Estado</th><th style="width:76px" class="num">Total</th>
       </tr></thead>
-      <tbody>${lista.map((d,i)=>{const dt=cfg.calc(d);
-        return `<tr class="${d.anulado?'anul':''}">
+      <tbody>${lista.map((d,i)=>{const dt=cfg.calc(d), e=cfg.estado(d);
+        return `<tr class="${e.mal?'apag':''}">
         <td>${i+1}</td>
         <td class="mono nw"><b>${esc(d.numero)}</b></td>
         <td>${fmtFecha(d.fecha)}</td>
-        <td>${esc(d.clienteNombre)}</td>
+        <td>${esc(cfg.cliente(d))}</td>
         <td class="mono ident">${esc(cfg.ident(d))}</td>
-        <td class="est">${d.anulado?esc(T.estadoNo):esc(T.estadoOk)}</td>
-        <td class="num">${d.anulado?'—':moneda(dt.total)}</td>
+        <td class="est">${esc(e.txt)}</td>
+        <td class="num">${cfg.anulado(d)?'—':moneda(dt.total)}</td>
       </tr>`;}).join('')}</tbody>
     </table>
     <div class="res-cierre">
       <div class="res-nota">
         <b>Resumen del periodo</b><br>
-        ${esc(T.validos)}: <b>${vivos}</b> &nbsp;·&nbsp; ${esc(T.anulados)}: <b>${anulados}</b><br>
-        Correlativo: <b>${lista.length?esc(lista[0].numero)+' a '+esc(lista[lista.length-1].numero):'—'}</b><br>
-        <span style="color:#444">${esc(T.notaAnulados)}</span>
+        ${cfg.resumen(cfg,lista)}
         ${huecos.length?`<div class="res-alerta"><b>Faltan números en el correlativo de este mes:</b>
           ${esc(huecos.join(', '))}. ${esc(T.huecoFin)}</div>`:''}
         <div class="res-firma">${esc((typeof USUARIO_WEB!=='undefined'&&USUARIO_WEB&&USUARIO_WEB.nombre)||'')}<br>
           <span style="font-size:7.4pt">Consolidado generado el ${fmtFecha(hoy())}</span></div>
       </div>
-      <div class="rv-caja"><table>
-        <tr><td class="lbl">Sub Total:</td><td class="val">${moneda(t.sub)}</td></tr>
-        <tr><td class="lbl">Descuentos:</td><td class="val">${moneda(t.descuento)}</td></tr>
-        <tr><td class="lbl">Importe exento:</td><td class="val">${moneda(t.exento)}</td></tr>
-        <tr><td class="lbl">Importe exonerado:</td><td class="val">${moneda(t.exonerado)}</td></tr>
-        <tr><td class="lbl">Importe gravado 15%:</td><td class="val">${moneda(t.gravado15)}</td></tr>
-        <tr><td class="lbl">I.S.V. 15 %:</td><td class="val">${moneda(t.isv15)}</td></tr>
-        <tr><td class="lbl">Importe gravado 18%:</td><td class="val">${moneda(t.gravado18)}</td></tr>
-        <tr><td class="lbl">I.S.V. 18 %:</td><td class="val">${moneda(t.isv18)}</td></tr>
+      <div class="res-caja"><table>
+        ${cfg.filasTotal(t).map(([et,v])=>`<tr><td class="lbl">${esc(et)}:</td><td class="val">${moneda(v)}</td></tr>`).join('')}
         <tr class="fila-total"><td class="lbl">TOTAL ${esc(c.moneda||'L')}:</td><td class="val">${moneda(t.total)}</td></tr>
       </table></div>
     </div>
@@ -11351,13 +11497,19 @@ function imprimirConsolidadoMes(cfg,mes){
   if(!lista.length){toast(cfg.txt.sinNadaToast+' '+etiquetaMes(mes));return;}
   const n=lista.length;
   const html=hojaResumenMensual(cfg,mes,lista)
-    /* Una sola hoja por documento: el consolidado ES el archivo del
-       laboratorio, y sacar además la copia doblaría el papel sin aportar
-       nada. La leyenda dice qué lugar ocupa dentro del PDF, para notar de un
-       vistazo si falta alguno. */
-    +lista.map((d,i)=>cfg.dibujar(d,{devolver:true,
-        copia:'Copia — Archivo del laboratorio · '+cfg.txt.uno+' '+(i+1)+' de '+n})).join('');
-  ventanaImpresion(html,cssReciboVenta+'\n'+cssResumenMensual,nombreConsolidadoMes(cfg,mes));
+    /* Una sola copia de cada documento: el consolidado ES el archivo del
+       laboratorio, y sacar además la copia del cliente doblaría el papel sin
+       aportar nada. La leyenda dice qué lugar ocupa dentro del PDF, para
+       notar de un vistazo si falta alguno.
+       Los documentos de varias hojas van envueltos en .grupo-doc para que
+       repaginarPaginas() los mida de uno en uno y no los funda. */
+    +lista.map((d,i)=>{
+      const cuerpo=cfg.dibujar(d,{devolver:true,
+        copia:'Copia — Archivo del laboratorio · '+cfg.txt.uno+' '+(i+1)+' de '+n,
+        posicion:{n:i+1, de:n}});
+      return cfg.envuelve?`<div class="grupo-doc">${cuerpo}</div>`:cuerpo;
+    }).join('');
+  ventanaImpresion(html,cfg.css()+'\n'+cssResumenMensual,nombreConsolidadoMes(cfg,mes));
 }
 /* Elegir el mes antes de generar. Se abre desde el encabezado de la vista,
    para no obligar a poner primero el filtro en "Mes" para encontrarlo. */
@@ -11365,8 +11517,8 @@ function modalConsolidadoMes(cfg,mes){
   const T=cfg.txt;
   mes=String(mes||cfg.mesActual()).slice(0,7);
   const lista=docsDelMes(cfg.lista(),mes);
-  const t=totalesDocsMes(lista,cfg.calc);
-  const anulados=lista.filter(x=>x.anulado).length;
+  const t=totalesDocsMes(lista,cfg);
+  const apagados=lista.filter(d=>cfg.estado(d).mal).length;
   const hay=lista.length>0;
   abrirModal(`
   <h3>${esc(T.tituloModal)}</h3>
@@ -11380,11 +11532,11 @@ function modalConsolidadoMes(cfg,mes){
   </div>
   ${hay?`<div class="kpis" style="grid-template-columns:repeat(4,1fr);margin:4px 0 10px">
     <div class="kpi"><div class="n">${lista.length}</div><div class="t">${esc(T.kpiCuenta)}</div></div>
-    <div class="kpi" style="border-left-color:var(--verde)"><div class="n" style="color:var(--verde)">${lista.length-anulados}</div><div class="t">${esc(T.kpiValidos)}</div></div>
-    <div class="kpi" style="border-left-color:var(--rojo)"><div class="n" style="color:var(--rojo)">${anulados}</div><div class="t">${esc(T.anulados)}</div></div>
+    <div class="kpi" style="border-left-color:var(--verde)"><div class="n" style="color:var(--verde)">${lista.length-apagados}</div><div class="t">${esc(T.kpiValidos)}</div></div>
+    <div class="kpi" style="border-left-color:var(--rojo)"><div class="n" style="color:var(--rojo)">${apagados}</div><div class="t">${esc(T.anulados)}</div></div>
     <div class="kpi" style="border-left-color:var(--dorado)"><div class="n" style="color:var(--dorado)">${L(t.total)}</div><div class="t">${esc(T.kpiTotal)}</div></div>
   </div>
-  <div class="aviso" style="margin-bottom:10px">Son <b>${lista.length+1}</b> hojas: la de resumen más una por ${esc(T.unoMin)}.
+  <div class="aviso" style="margin-bottom:10px">${esc(T.hojas(lista.length))}
     ${lista.length>60?'Con este volumen, la vista previa puede tardar unos segundos en dibujarse.':''}</div>`
   :`<div class="aviso" style="border-left-color:var(--ambar)">${esc(T.sinNada)}
     <b>${esc(etiquetaMes(mes))}</b>. Elige otro mes.</div>`}
