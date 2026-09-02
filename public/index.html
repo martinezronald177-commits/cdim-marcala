@@ -2129,7 +2129,7 @@ function vInicio(){
   const hoyF=hoy();
   const desde=new Date(hoyF+'T12:00:00');desde.setDate(desde.getDate()-30);const d30=desde.toISOString().slice(0,10);
   // UNA sola pasada por las órdenes en vez de seis recorridos completos
-  let pend=0;const criticos=[],deltas=[],vencidas=[],hoyEntrega=[],sinValidar=[],porCobrar=[],conteo={};
+  let pend=0;const criticos=[],deltas=[],vencidas=[],hoyEntrega=[],sinValidar=[],parciales=[],porCobrar=[],conteo={};
   S.ordenes.forEach(o=>{
     const activa=o.estado!=='Entregada';
     if(activa)pend++;
@@ -2146,6 +2146,16 @@ function vInicio(){
       if(cfg.avisoEntrega&&o.entrega&&o.entrega<hoyF)vencidas.push(o);
       else if(cfg.avisoEntrega&&o.entrega===hoyF)hoyEntrega.push(o);
       if(o.examenes.some(e=>!e.validado&&e.params.some(p=>p.valor!=='')))sinValidar.push(o);
+      /* Validada A MEDIAS: alguien firmó una parte de los exámenes y dejó el
+         resto. Es un estado distinto de "por validar" —ahí los resultados ya
+         están capturados y solo falta la firma— y era el único que no
+         aparecía en ninguna parte del tablero: la orden sigue en "Pendiente",
+         cuenta como activa, y si al examen que falta todavía no le han
+         capturado ni un valor tampoco entra en sinValidar, así que el
+         contador "Por validar" marcaba 0 y el Centro de alertas no decía
+         nada. Una orden a medio validar es justo la que se olvida. */
+      const validados=o.examenes.filter(e=>e.validado).length;
+      if(validados>0&&validados<o.examenes.length)parciales.push(o);
     }
     if(!o.pagada)porCobrar.push(o);
     if(o.fecha>=d30)o.examenes.forEach(e=>conteo[e.nombre]=(conteo[e.nombre]||0)+1);
@@ -2181,7 +2191,11 @@ function vInicio(){
     <div class="kpi" style="border-left-color:${sinValidar.length?'var(--ambar)':'var(--verde)'}"><div class="n" style="color:${sinValidar.length?'var(--ambar)':'var(--verde)'}">${sinValidar.length}</div><div class="t">Por validar</div></div>
     <div class="kpi" style="border-left-color:${criticos.length?'var(--rojo)':'var(--verde)'}"><div class="n" style="color:${criticos.length?'var(--rojo)':'var(--verde)'}">${criticos.length}</div><div class="t">Valores críticos</div></div>
   </div>
-  ${(criticos.length||deltas.length||vencidas.length||hoyEntrega.length||porCobrar.length||necesitaResp)?`
+  ${/* Sin parciales ni sinValidar en esta condición, una orden a medio
+        validar dejaba el tablero diciendo "Sin alertas pendientes. Todas las
+        órdenes están al día", que era sencillamente falso. */''
+   }${(criticos.length||deltas.length||vencidas.length||hoyEntrega.length
+      ||parciales.length||sinValidar.length||porCobrar.length||necesitaResp)?`
   <div class="tarjeta">
     <h3 style="color:var(--azul);margin-bottom:10px">Centro de alertas</h3>
     ${criticos.slice(0,15).map(c=>`<div class="alerta-critica">⚠ CRÍTICO · ${c.o.numero} · ${esc(c.o.pacienteNombre)} — ${esc(c.a)}
@@ -2195,6 +2209,13 @@ function vInicio(){
     ${hoyEntrega.slice(0,10).map(o=>`<div class="aviso">📅 ENTREGA HOY · ${o.numero} · ${esc(o.pacienteNombre)} — prometida para hoy, aún pendiente de enviar
       <button class="btn btn-g btn-min" style="float:right" onclick="modalResultados('${o.numero}')">Ver</button></div>`).join('')}
     ${hoyEntrega.length>10?`<div style="font-size:11.5px;color:var(--gris);margin:4px 0 8px">y ${hoyEntrega.length-10} entrega(s) más que vencen hoy.</div>`:''}
+    ${parciales.slice(0,10).map(o=>`<div class="aviso" style="border-left-color:var(--ambar)">◐ VALIDADA A MEDIAS · ${o.numero} · ${esc(o.pacienteNombre)} — ${o.examenes.filter(e=>e.validado).length} de ${o.examenes.length} exámenes validados
+      <button class="btn btn-g btn-min" style="float:right" onclick="modalResultados('${o.numero}')">Ver</button></div>`).join('')}
+    ${parciales.length>10?`<div style="font-size:11.5px;color:var(--gris);margin:4px 0 8px">y ${parciales.length-10} orden(es) más a medio validar.</div>`:''}
+    ${/* Las que ya salen arriba como "a medias" no se repiten aquí: seria el
+          mismo aviso dos veces para la misma orden. */''
+     }${sinValidar.filter(o=>!parciales.includes(o)).slice(0,10).map(o=>`<div class="aviso">⧗ RESULTADOS SIN VALIDAR · ${o.numero} · ${esc(o.pacienteNombre)} — capturados, esperando validación
+      <button class="btn btn-g btn-min" style="float:right" onclick="modalResultados('${o.numero}')">Ver</button></div>`).join('')}
     ${porCobrar.length?`<div class="aviso">L ${porCobrar.length} orden(es) pendientes de cobro por ${L(porCobrar.reduce((a,o)=>a+o.total,0))}
       <button class="btn btn-g btn-min" style="float:right" onclick="verOrdenesPorCobrar()">Ver órdenes</button></div>`:''}
     ${necesitaResp?`<div class="aviso">💾 Han pasado ${S.meta.ultimoRespaldo?Math.round((new Date(hoy())-new Date(S.meta.ultimoRespaldo))/86400000)+' días desde el último respaldo':'varios días sin respaldo registrado'}. Exporta uno hoy.
