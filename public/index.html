@@ -4712,7 +4712,8 @@ function calcularLDLOrden(orden,conAlarma){
       'Si continúas, se recalculará automáticamente y esa validación quedará ANULADA (pendiente de volver a '+
       'validarse); el cambio quedará registrado en Bitácora.\n\n¿Deseas continuar?'))return false;
     marcarEdicionTrasValidar(orden,e,orden.numero,'Recálculo automático de "'+p.nombre+'" tras cambiar Colesterol '+
-      'Total/HDL/Triglicéridos en otro examen de la orden: "'+(p.valor||'—')+'" → "'+nuevoValor+'"');
+      'Total/HDL/Triglicéridos en otro examen de la orden: "'+(p.valor||'—')+'" → "'+nuevoValor+'"',
+      'Recálculo automático del colesterol LDL al corregir otro valor de la misma orden');
     return true;
   }
   orden.examenes.forEach(e=>{
@@ -4853,6 +4854,18 @@ function terminarValidacion(n,r){
      lea, no un toast que se va solo. */
   if(r.correccion){
     const c=r.correccion;
+    /* Queda un camino sin momento donde preguntar: elegir una opción de la
+       lista sobre un examen ya validado no pasa por "Habilitar edición". Si
+       la corrección llegó hasta aquí sin motivo, se pide ahora —el registro
+       de la corrección ya existe igual; lo que falta es el porqué. */
+    if(!c.motivo){
+      const m=prompt('Se emitió la VERSIÓN '+c.version+' del informe de la orden '+n+'.\n\n'+
+        'Motivo de la corrección (se imprime en el informe corregido):');
+      c.motivo=String(m||'').trim();
+      if(c.motivo)_bitacora('Incidencia / No conformidad',
+        'Motivo de la corrección de la orden '+n+' (versión '+c.version+'): '+c.motivo);
+      guardar(true);
+    }
     refrescarResultados(n);
     alert('Se emitió la VERSIÓN '+c.version+' del informe de la orden '+n+'.\n\n'+
       (c.cambios&&c.cambios.length
@@ -5649,11 +5662,29 @@ function examenDesbloqueado(n,ei){return _examenesDesbloqueados.has(claveExamen(
 function habilitarEdicionResultado(n,ei){
   const o=S.ordenes.find(x=>x.numero===n);const e=o&&o.examenes[ei];
   if(!e)return;
-  if(!confirm('⚠ El examen "'+e.nombre+'" ya fue validado por '+(e.validadoPor||'—')+' el '+
-    (e.fechaValidacion?fmtFecha(e.fechaValidacion):'—')+'.\n\n'+
-    'Vas a habilitar la edición de su resultado. En cuanto cambies un valor, esa validación quedará '+
-    'ANULADA (pendiente de volver a validarse) y el cambio quedará registrado en Bitácora.\n\n'+
-    '¿Deseas continuar?'))return;
+  const base='⚠ El examen "'+e.nombre+'" ya fue validado por '+(e.validadoPor||'—')+' el '+
+    (e.fechaValidacion?fmtFecha(e.fechaValidacion):'—')+'.\n\n';
+  /* Si el informe ya salió del laboratorio, esto no es "editar": es emitir una
+     versión corregida que sustituye a la que tienen el paciente y el médico.
+     Se dice con esas palabras y se pide el motivo aquí, que es el único
+     momento en que hay algo que contestar. */
+  if(informeYaEmitido(o)){
+    const entregado=o.estado==='Entregada';
+    const m=prompt(base+
+      'El informe de esta orden YA FUE EMITIDO'+
+      (entregado?(o.fechaEntrega?' y ENTREGADO el '+fmtFecha(o.fechaEntrega):' y ENTREGADO'):'')+'.\n\n'+
+      'Si cambias un valor se emitirá una VERSIÓN CORREGIDA que sustituye a la anterior, '+
+      'marcada como tal en el informe impreso'+
+      (entregado?', y habrá que hacérsela llegar a quien recibió la otra':'')+'.\n\n'+
+      'Motivo de la corrección (se imprime en el informe corregido):');
+    if(m===null)return;
+    _motivoCorreccion.set(claveExamen(n,ei), String(m||'').trim());
+  }else{
+    if(!confirm(base+
+      'Vas a habilitar la edición de su resultado. En cuanto cambies un valor, esa validación quedará '+
+      'ANULADA (pendiente de volver a validarse) y el cambio quedará registrado en Bitácora.\n\n'+
+      '¿Deseas continuar?'))return;
+  }
   _examenesDesbloqueados.add(claveExamen(n,ei));
   refrescarResultados(n);
 }
@@ -6070,14 +6101,36 @@ function infoLayout(n){
    todos modos, se lo hace re-entrar a "no validado" automáticamente y queda
    constancia en bitácora de qué cambió y bajo la firma de quién estaba —
    nunca un valor distinto detrás de una firma que ya no le corresponde. */
-function marcarEdicionTrasValidar(o,e,n,detalle){
+/* El motivo se pregunta en "Habilitar edición", que es el único momento en
+   que hay algo que contestar: valorCapturado() se dispara en CADA tecla, así
+   que preguntarlo ahí sería insoportable. Se guarda solo para esta sesión,
+   hasta que la edición lo consume. */
+let _motivoCorreccion=new Map();
+function marcarEdicionTrasValidar(o,e,n,detalle,motivo){
   const firmaAnterior=(e.validadoPor||'—')+' · '+(e.fechaValidacion?fmtFecha(e.fechaValidacion):'—');
+  /* Este es el OTRO camino por el que un examen validado se desvalida, y es
+     el que se usa de verdad: "Habilitar edición" y cambiar el valor. Lo
+     comparten tres sitios —captura manual, selección de una opción y la
+     importación desde el analizador—, además del recálculo automático del
+     LDL. Por eso la corrección se abre aquí y no en cada uno de ellos.
+     El orden importa: srvCapturarValor() llama a esta función ANTES de
+     escribir el valor nuevo, así que aquí p.valor todavía es el que se
+     entregó, que es justo el que hay que conservar. */
+  const _ei=o.examenes.indexOf(e);
+  if(informeYaEmitido(o)){
+    const _k=claveExamen(n,_ei);
+    abrirCorreccionInforme(o,_ei, motivo||_motivoCorreccion.get(_k)||'');
+    _motivoCorreccion.delete(_k);
+  }
   e.validado=false;e.validadoPor='';e.fechaValidacion='';e.horaValidacion='';
   // El valor acaba de cambiar: cualquier notificación de crítico registrada
   // antes describía el valor VIEJO. Se pide notificar de nuevo si el nuevo
   // valor lo amerita (tieneAlertaSinNotificar se re-evalúa en la próxima validación).
   e.notificacionCritico=null;
-  if(o.estado==='Validada')o.estado='En proceso';
+  /* También desde Entregada: antes se quedaba en "Entregada" mientras se le
+     cambiaban los resultados por debajo, y nada obligaba a volver a firmarla
+     ni a entregarla de nuevo. */
+  if(o.estado==='Validada'||o.estado==='Entregada')o.estado='En proceso';
   S.bitacora.push({fecha:hoy(),hora:ahoraHora(),responsable:usuarioActivo().nombre,
     tipo:'Incidencia / No conformidad',
     descripcion:'Resultado modificado DESPUÉS de validado en la orden '+n+' ('+e.nombre+'). '+
@@ -6353,7 +6406,8 @@ function aplicarImportar(n,ei){
   calcularLDLOrden(o);
   if(o.estado==='Pendiente')o.estado='En proceso';
   if(yaEstabaValidado)
-    marcarEdicionTrasValidar(o,e,n,'Importación de '+hallados.length+' resultado(s) desde texto del analizador, reemplazando el valor validado');
+    marcarEdicionTrasValidar(o,e,n,'Importación de '+hallados.length+' resultado(s) desde texto del analizador, reemplazando el valor validado',
+      'Importación de resultados desde el analizador sobre un examen ya validado');
   S.bitacora.push({fecha:hoy(),hora:ahoraHora(),responsable:usuarioActivo().nombre,tipo:'Actividad de rutina',
     descripcion:'Importación de '+hallados.length+' resultado(s) de '+e.nombre+' en la orden '+n+' desde texto del analizador.'});
   guardar(yaEstabaValidado?true:undefined);modalResultados(n);
@@ -6811,6 +6865,17 @@ function cerrarCorreccionInforme(o){
                       antes:String(pa.valor||''), despues:vNuevo});
     });
   });
+  /* Sin cambios en los valores no hay informe corregido que emitir: volver a
+     firmar lo mismo no altera lo que dice el documento, y subir la versión
+     por eso llenaría el historial de versiones idénticas. Se registra que se
+     volvió a firmar y se cierra sin numerar nada. */
+  if(!cambios.length){
+    o.correccionEnCurso=null;
+    _bitacora('Actividad de rutina',
+      'La orden '+o.numero+' se volvió a firmar sin cambios en los valores reportados; '+
+      'el informe sigue siendo la versión '+versionInforme(o)+'.');
+    return null;
+  }
   c.cambios=cambios;
   c.cerrada={fecha:hoy(), hora:ahoraHora(), por:usuarioActivo().nombre};
   (o.correcciones=o.correcciones||[]).push(c);
