@@ -4847,9 +4847,58 @@ function validarExamen(n,ei){
   terminarValidacion(n,r);
 }
 function terminarValidacion(n,r){
+  /* Cerrar una correccion no es "una validacion mas": salio una version nueva
+     del informe que sustituye a la anterior, y si aquella ya se habia
+     entregado hay que avisar a quien la recibio. Eso merece un aviso que se
+     lea, no un toast que se va solo. */
+  if(r.correccion){
+    const c=r.correccion;
+    refrescarResultados(n);
+    alert('Se emitió la VERSIÓN '+c.version+' del informe de la orden '+n+'.\n\n'+
+      (c.cambios&&c.cambios.length
+        ? 'Cambió:\n'+c.cambios.map(x=>'  · '+x.examen+' · '+x.parametro+': "'+
+            (x.antes||'(vacío)')+'" → "'+(x.despues||'(vacío)')+'"').join('\n')
+        : 'No cambió ningún valor reportado.')+
+      '\n\nAl imprimirlo saldrá marcado como INFORME CORREGIDO.'+
+      (c.yaEntregado
+        ? '\n\nATENCIÓN: la versión anterior YA HABÍA SIDO ENTREGADA. Hay que hacerle llegar '+
+          'esta al paciente y al médico tratante, y dejar constancia de a quién se le avisó.'
+        : ''));
+    return;
+  }
   if(r.ordenCompleta)toast('Orden '+n+' completamente validada ✓');
   else toast(r.nombre+' validado ✓');
   refrescarResultados(n);
+}
+/* El original que la norma obliga a conservar, a la vista: que dijo cada
+   version anterior, quien la firmo y quien la corrigio. */
+function modalVersionesInforme(n){
+  const o=S.ordenes.find(x=>x.numero===n);
+  if(!o||!(o.correcciones||[]).length){toast('Esta orden no tiene correcciones');return;}
+  abrirModal(`
+  <h3>Historial del informe · ${esc(o.numero)}</h3>
+  <div style="font-size:12.5px;color:var(--gris);margin-bottom:10px">${esc(o.pacienteNombre)}
+    · versión vigente: <b>${versionInforme(o)}</b></div>
+  ${o.correcciones.map(c=>`<div class="tarjeta" style="margin:0 0 10px;border-left:4px solid var(--rojo)">
+    <b>Versión ${c.version}</b>
+    <span style="font-size:12px;color:var(--gris)">· corregida el ${fmtFecha(c.cerrada&&c.cerrada.fecha)}
+      ${c.cerrada&&c.cerrada.hora?'a las '+hora12(c.cerrada.hora):''} por ${esc((c.cerrada&&c.cerrada.por)||'')}</span>
+    ${c.yaEntregado?'<div class="chip chip-rj" style="margin-top:5px">El informe anterior ya se había entregado</div>':''}
+    <div style="font-size:12.5px;margin-top:6px"><b>Motivo:</b> ${esc(c.motivo||'no indicado')}</div>
+    <div style="font-size:12.5px;margin-top:4px"><b>Sustituyó al informe</b>
+      ${c.sustituyeA&&c.sustituyeA.fecha?'firmado el '+fmtFecha(c.sustituyeA.fecha)+
+        (c.sustituyeA.hora?' a las '+hora12(c.sustituyeA.hora):'')+
+        (c.sustituyeA.por?' por '+esc(c.sustituyeA.por):''):'anterior'}.</div>
+    ${(c.cambios&&c.cambios.length)?`<table style="margin-top:8px"><thead><tr>
+        <th>Análisis</th><th>Parámetro</th><th>Decía</th><th>Dice ahora</th></tr></thead><tbody>
+      ${c.cambios.map(x=>`<tr>
+        <td style="font-size:12px">${esc(x.examen)}</td>
+        <td style="font-size:12px">${esc(x.parametro)}</td>
+        <td style="font-size:12px;color:var(--rojo);text-decoration:line-through">${esc(x.antes||'(vacío)')}</td>
+        <td style="font-size:12px;font-weight:700">${esc(x.despues||'(vacío)')}</td></tr>`).join('')}
+    </tbody></table>`:'<div class="ayuda" style="margin-top:6px">No cambió ningún valor reportado.</div>'}
+  </div>`).join('')}
+  <div class="modal-pie"><button class="btn btn-g" onclick="modalResultados('${esc(n)}')">Volver a la orden</button></div>`,true);
 }
 /* Botón "Validar sección" (modalResultados): valida de una vez todos los
    exámenes pendientes de UN área, en vez de tener que entrar examen por
@@ -4882,9 +4931,21 @@ function validarSeccion(n,area){
 function anularValidacion(n,ei){
   const o=S.ordenes.find(x=>x.numero===n),e=o.examenes[ei];
   if(!puedeValidar()){toast('Solo un usuario con rol Dr o Admin puede anular una validación');return;}
-  const motivo=prompt('Motivo de la anulación de la validación (queda en bitácora):');
+  /* Un informe que ya salio del laboratorio no se "corrige y ya": la copia
+     que tienen el paciente o el medico sigue diciendo lo anterior. */
+  const emitido=informeYaEmitido(o);
+  if(o.estado==='Entregada'&&!confirm(
+      'Este informe YA FUE ENTREGADO'+(o.fechaEntrega?' el '+fmtFecha(o.fechaEntrega):'')+'.\n\n'+
+      'Si cambias un resultado ahora, la copia que tienen el paciente o el médico queda '+
+      'desactualizada: habrá que entregarles la versión corregida y avisarles.\n\n¿Continuar?'))return;
+  const motivo=prompt(emitido
+    ? 'Motivo de la corrección (se imprime en el informe corregido y queda en bitácora):'
+    : 'Motivo de la anulación de la validación (queda en bitácora):');
   if(motivo===null)return;
-  e.validado=false;e.validadoPor='';e.fechaValidacion='';
+  /* Se guarda lo que este examen decia ANTES de tocarlo: es el original que
+     la norma obliga a conservar. */
+  if(emitido)abrirCorreccionInforme(o,ei,motivo);
+  e.validado=false;e.validadoPor='';e.fechaValidacion='';e.horaValidacion='';
   // Se pide notificar de nuevo antes de re-validar: la próxima vez que se firme
   // este examen puede ser con un valor distinto, y la notificación anterior ya
   // no necesariamente describe lo que se está reportando.
@@ -4892,9 +4953,14 @@ function anularValidacion(n,ei){
   // Lo mismo para el control de calidad: la próxima validación debe volver a
   // comprobar si sigue habiendo una corrida de HOY en Rechazo sin resolver.
   e.qcRechazadoObservado=null;
-  if(o.estado==='Validada')o.estado='En proceso';
+  /* Tambien desde Entregada: antes se quedaba en "Entregada" mientras se le
+     cambiaban los resultados por debajo, y nada obligaba a volver a
+     entregarla. Ahora vuelve a "En proceso" y hay que firmarla y entregarla
+     otra vez. */
+  if(o.estado==='Validada'||o.estado==='Entregada')o.estado='En proceso';
   S.bitacora.push({fecha:hoy(),hora:ahoraHora(),responsable:usuarioActivo().nombre,tipo:'Incidencia / No conformidad',
-    descripcion:'Anulación de validación de '+e.nombre+' en la orden '+n+'. Motivo: '+(motivo||'no indicado')});
+    descripcion:(emitido?'Corrección':'Anulación')+' de validación de '+e.nombre+' en la orden '+n+
+      '. Motivo: '+(motivo||'no indicado')});
   guardar(true);refrescarResultados(n);toast('Validación anulada');
 }
 /* ── Registro obligatorio de notificación de valor crítico ──
@@ -5607,7 +5673,13 @@ function modalResultados(n,desde,sinScroll,areaActiva){
   const alertas=alertasOrden(o);
   const nPrevias=ordenesDe(o.pacCodigo).filter(x=>x.numero!==n).length;
   abrirModal(`
-  <h3>${o.numero} · ${esc(o.pacienteNombre)} <span class="chip ${chipEstado(o.estado)}" style="margin-left:8px">${o.estado}</span></h3>
+  <h3>${o.numero} · ${esc(o.pacienteNombre)} <span class="chip ${chipEstado(o.estado)}" style="margin-left:8px">${o.estado}</span>
+    ${esInformeCorregido(o)?`<span class="chip chip-rj" style="margin-left:6px;cursor:pointer"
+      title="Ver qué decía cada versión anterior" onclick="modalVersionesInforme('${o.numero}')">✎ Informe corregido · v${versionInforme(o)}</span>`:''}</h3>
+  ${o.correccionEnCurso?`<div class="aviso" style="border-left-color:var(--rojo);margin-bottom:8px">
+    <b>Corrección en curso.</b> Al volver a firmar la orden completa se emitirá la
+    versión ${o.correccionEnCurso.version} del informe, marcada como corregida.
+    ${o.correccionEnCurso.yaEntregado?'El informe anterior <b>ya fue entregado</b>: habrá que hacerle llegar la nueva versión a quien lo recibió.':''}</div>`:''}
   ${desde?`<div class="aviso" style="margin-bottom:8px">Estás viendo una orden anterior del paciente.
     <button class="btn btn-p btn-min" style="float:right" onclick="modalResultados('${desde}')">← Volver a ${desde}</button></div>`:''}
   ${desglosarOrden(o.numero)?(dg=>`<div style="font-size:11px;color:var(--gris);margin-top:-10px;margin-bottom:8px">
@@ -6650,7 +6722,7 @@ function srvValidarExamen(n, ei, opts={}){
   S.bitacora.push({fecha:hoy(),hora:ahoraHora(),responsable:usuarioActivo().nombre,tipo:'Control de calidad',
     descripcion:'Validación técnica de '+e.nombre+' en la orden '+n+'.'});
   // Si todos los exámenes quedan validados, la orden pasa a Validada
-  let ordenCompleta=false;
+  let ordenCompleta=false, correccion=null;
   if(o.examenes.every(x=>x.validado)){
     o.estado='Validada';o.validadoPor=usuarioActivo().nombre;
     // La fecha y la HORA de validación quedan fijas: son el momento en que se
@@ -6658,9 +6730,109 @@ function srvValidarExamen(n, ei, opts={}){
     // cuya hora cambia en cada copia no sirve como registro.
     o.fechaValidacion=hoy(); o.horaValidacion=ahoraHora();
     ordenCompleta=true;
+    /* Si venia una correccion en curso, aqui termina: la orden vuelve a estar
+       firmada y ESTA es la version nueva del informe. Solo en este punto sube
+       el numero de version. */
+    correccion=cerrarCorreccionInforme(o);
   }
   guardar(true);
-  return {ok:true, ordenCompleta, nombre:e.nombre};
+  return {ok:true, ordenCompleta, nombre:e.nombre, correccion};
+}
+
+/* =============== INFORME CORREGIDO ===============
+   La norma pide que, cuando un informe se modifica DESPUÉS de haberse
+   emitido, se conserve lo que decía el original, la copia nueva se
+   identifique como corregida, y quede constancia de quién la corrigió y por
+   qué. Antes nada de eso existía: se podía desvalidar un examen, volver a
+   firmarlo con otro valor, y el informe nuevo salía como si el anterior no
+   hubiera existido nunca. Si un médico tomó una decisión con la primera
+   versión, no había forma de demostrar cuál vio.
+
+   El ciclo tiene dos momentos, porque el valor nuevo no se conoce en el
+   primero:
+     1. Al desvalidar un examen de una orden YA EMITIDA se abre la corrección
+        y se guarda lo que ese examen decía.
+     2. Cuando la orden vuelve a quedar firmada entera se cierra, se calcula
+        qué cambió respecto de lo guardado, y SOLO ENTONCES sube el número de
+        versión: mientras está a medias no hay ningún informe que emitir. */
+function informeYaEmitido(o){
+  return o.estado==='Validada'||o.estado==='Entregada'||!!o.fechaValidacion;
+}
+function versionInforme(o){ return Math.max(1, Number(o&&o.versionInforme)||1); }
+function esInformeCorregido(o){ return versionInforme(o)>1; }
+function ultimaCorreccion(o){
+  const c=(o&&o.correcciones)||[];
+  return c.length?c[c.length-1]:null;
+}
+/* Guarda lo que ESTE examen decía antes de tocarlo. Una sola vez por examen y
+   corrección: si se desvalida dos veces seguidas antes de volver a firmar, el
+   original sigue siendo el de la primera vez — que es el que se entregó. */
+function abrirCorreccionInforme(o, ei, motivo){
+  const e=o.examenes[ei];
+  if(!e)return null;
+  if(!o.correccionEnCurso){
+    o.correccionEnCurso={
+      version:versionInforme(o)+1,
+      motivo:motivo||'',
+      abierta:{fecha:hoy(), hora:ahoraHora(), por:usuarioActivo().nombre},
+      /* Que el informe anterior ya estuviera EN MANOS del paciente o del
+         médico es lo que cambia qué hay que hacer después: no basta con
+         corregirlo, hay que entregarles la versión nueva y avisarles. */
+      yaEntregado:o.estado==='Entregada',
+      /* Cuándo se firmó el informe que queda sustituido: es lo que el
+         informe corregido tiene que declarar que reemplaza. */
+      sustituyeA:{fecha:o.fechaValidacion||'', hora:o.horaValidacion||'',
+                  por:o.validadoPor||''},
+      examenes:{},
+    };
+  }
+  if(o.correccionEnCurso.examenes[ei])return o.correccionEnCurso;
+  o.correccionEnCurso.examenes[ei]={
+    nombre:e.nombre,
+    validadoPor:e.validadoPor||'', fecha:e.fechaValidacion||'', hora:e.horaValidacion||'',
+    params:(e.params||[]).map(p=>({nombre:p.nombre, valor:String(p.valor==null?'':p.valor)})),
+  };
+  return o.correccionEnCurso;
+}
+/* Cierra la corrección cuando la orden vuelve a estar firmada entera, y deja
+   escrito qué cambió exactamente respecto de la versión anterior. */
+function cerrarCorreccionInforme(o){
+  const c=o.correccionEnCurso;
+  if(!c)return null;
+  const cambios=[];
+  Object.keys(c.examenes).forEach(k=>{
+    const antes=c.examenes[k], e=o.examenes[k];
+    if(!e)return;
+    antes.params.forEach(pa=>{
+      const ahora=(e.params||[]).find(p=>p.nombre===pa.nombre);
+      const vNuevo=String(ahora&&ahora.valor!=null?ahora.valor:'');
+      if(String(pa.valor||'')!==vNuevo)
+        cambios.push({examen:antes.nombre, parametro:pa.nombre,
+                      antes:String(pa.valor||''), despues:vNuevo});
+    });
+  });
+  c.cambios=cambios;
+  c.cerrada={fecha:hoy(), hora:ahoraHora(), por:usuarioActivo().nombre};
+  (o.correcciones=o.correcciones||[]).push(c);
+  o.versionInforme=c.version;
+  o.correccionEnCurso=null;
+  _bitacora('Incidencia / No conformidad',
+    'Informe corregido de la orden '+o.numero+': se emite la versión '+c.version+
+    (c.yaEntregado?', y el anterior YA HABÍA SIDO ENTREGADO':'')+'. Motivo: '+
+    (c.motivo||'no indicado')+'. '+
+    (cambios.length
+      ? 'Cambios: '+cambios.map(x=>x.examen+' · '+x.parametro+': "'+(x.antes||'(vacío)')+
+          '" → "'+(x.despues||'(vacío)')+'"').join(' | ')
+      : 'Sin cambios en los valores reportados.'));
+  return c;
+}
+/* Qué analitos se corrigieron en la última versión. Es lo que el informe
+   corregido declara: al médico que recibió el anterior le importa saber QUÉ
+   cambió, no solo que algo cambió. */
+function analitosCorregidos(o){
+  const c=ultimaCorreccion(o);
+  if(!c||!c.cambios||!c.cambios.length)return [];
+  return [...new Set(c.cambios.map(x=>x.parametro))];
 }
 /* =============== RESULTADOS (solo consulta) ===============
    Archivo de informes ya validados, separado de Órdenes de Trabajo.
@@ -11948,8 +12120,18 @@ function imprimirResultados(n,forzarTodo){
   // siempre aquí reproduce exactamente el gate original
   // "c.portalPaciente && !preliminar && !o._parcial" (cabeceraInforme aplica
   // el resto de esa condición internamente).
+  /* Si esta orden ya se corrigio, el informe tiene que decirlo: es lo que
+     distingue la copia valida de la que anda circulando por ahi. */
+  const corr=esInformeCorregido(o)?ultimaCorreccion(o):null;
   const html=construirHojasInforme(o,p,c,{
     preliminar,
+    corregido:corr?{
+      version:versionInforme(o),
+      sustituyeA:(corr.sustituyeA&&corr.sustituyeA.fecha)||'',
+      horaSustituida:(corr.sustituyeA&&corr.sustituyeA.hora)||'',
+      motivo:corr.motivo||'',
+      analitos:analitosCorregidos(o),
+    }:null,
     urlQR:urlInforme(o),
     calcularAnteriores:exsHoja=>exsHoja.some(e=>e.params.some(pp=>valorPrevio(o.pacCodigo,e.id,pp.nombre,n))),
     alertas,
@@ -12386,6 +12568,13 @@ const cssInforme=`
  /* Informe parcial: SÍ está validado (lo que se muestra es firme), a
     diferencia de "preliminar" — por eso lleva un tono informativo (azul),
     no la advertencia ámbar de "no validado". */
+ /* El informe corregido no es un aviso "blando" como el parcial: sustituye a
+    uno que ya salio del laboratorio, asi que se marca en rojo y a toda
+    anchura, para que nadie confunda cual de las dos copias manda. */
+ .marca-corregido{border:2px solid #b3261e;background:#fdeceb;color:#8c1d18;font-weight:800;
+   text-align:center;padding:5px 8px;border-radius:6px;margin-top:6px;font-size:8.8pt;
+   letter-spacing:.3px;line-height:1.5}
+ .marca-corregido .det{display:block;font-weight:600;font-size:8pt;letter-spacing:0;margin-top:2px}
  .marca-parcial{border:2px dashed #285068;color:#285068;font-weight:800;text-align:center;padding:4px;border-radius:6px;margin-top:6px;font-size:8.6pt;letter-spacing:.4px}
  .nota-crit{background:#fbe9e9;border:1.2px solid #cc0000;color:#cc0000;font-weight:700;border-radius:6px;padding:5px 9px;margin-top:6px;font-size:8.4pt}
  /* Firma */
@@ -12784,6 +12973,16 @@ function cabeceraInforme(o,p,c,opts){
   </div>`;
 }
 
+/* hora12() ya termina en punto ("04:24 p.m."), asi que encadenar la frase
+   siguiente dejaba un "p.m.." en el informe. Se compone aparte y se le quita
+   el punto final antes de cerrar la oracion. */
+function fraseSustituyeInforme(corr){
+  const cuando=corr.sustituyeA
+    ? ' emitido el '+fmtFecha(corr.sustituyeA)+
+      (corr.horaSustituida?' a las '+hora12(corr.horaSustituida):'')
+    : ' anterior';
+  return ('Sustituye al informe'+cuando).replace(/\.$/,'')+'.';
+}
 /* Arma el HTML de TODAS las hojas del informe (una por cada entrada de
    agruparHojas(), más lo que repaginarHojas() termine de dividir después
    por altura real). Extraída, sin ningún cambio de regla, del bloque
@@ -12855,6 +13054,16 @@ function construirHojasInforme(o,p,c,opts){
       ${cabeceraInforme(o,p,c,{pagina:idx+1,totalPaginas:totalPag,preliminar:opts.preliminar,parcial:o._parcial,urlQR:opts.urlQR})}
       ${o._demo?'<div class="marca-demo">MUESTRA DE PLANTILLA · DOCUMENTO SIN VALIDEZ CLÍNICA · DATOS FICTICIOS</div>':''}
       ${(idx===0&&opts.preliminar&&!o._demo)?'<div class="marca-prelim">INFORME PRELIMINAR · NO VALIDADO POR EL PROFESIONAL · USO INTERNO — NO ENTREGAR AL PACIENTE</div>':''}
+      ${/* Informe corregido: identifica la version, declara a cual sustituye y
+            dice QUE se corrigio -- al medico que recibio el anterior le importa
+            saber cual dato cambio, no solo que algo cambio. */''
+       }${(idx===0&&opts.corregido&&!o._demo)?`<div class="marca-corregido">
+        INFORME CORREGIDO · VERSIÓN ${opts.corregido.version}
+        <span class="det">${fraseSustituyeInforme(opts.corregido)} Esta versión es la válida.</span>
+        ${opts.corregido.analitos&&opts.corregido.analitos.length
+          ?`<span class="det">Se corrigió: ${opts.corregido.analitos.map(esc).join(' · ')}.</span>`:''}
+        ${opts.corregido.motivo?`<span class="det">Motivo: ${esc(opts.corregido.motivo)}</span>`:''}
+      </div>`:''}
       ${(idx===0&&o._parcial)?`<div class="marca-parcial">INFORME PARCIAL · Incluye únicamente los análisis ya validados a esta fecha${(o._pendientesNombres&&o._pendientesNombres.length)?' · Pendiente(s): '+esc(o._pendientesNombres.join(', ')):''}</div>`:''}
       ${idx===0&&opts.alertas&&opts.alertas.length?`<div class="nota-crit">⚠ VALORES CRÍTICOS: ${opts.alertas.map(esc).join(' · ')} — Notificado al médico tratante.</div>`:''}
       ${secciones}
