@@ -2306,6 +2306,8 @@ function filasPacientes(filtro=''){
       <td style="text-align:right;white-space:nowrap">
         <button class="btn btn-d btn-min" onclick="modalHistorial('${p.codigo}')">☰ Historial</button>
         <button class="btn btn-g btn-min" onclick="modalPaciente('${p.codigo}')">Editar</button>
+        ${/* Unir fichas es destructivo y clinico: mismo alcance que firmar. */''
+         }${puedeValidar()?`<button class="btn btn-g btn-min" title="Esta ficha es un duplicado: unirla con la correcta" onclick="_fusionQ='';modalFusionPaciente('${p.codigo}')">⇉</button>`:''}
         <button class="btn btn-r btn-min" onclick="borrarPaciente('${p.codigo}')">✕</button>
       </td></tr>`;}).join('')}
   </tbody></table>`:`<div class="vacio">${filtro?'Ningún paciente coincide con “'+esc(filtro)+'”.':'Sin pacientes registrados. Agrega el primero con “+ Nuevo paciente”.'}</div>`}`;
@@ -2521,9 +2523,28 @@ function guardarPaciente(cod){
    Esto se topó de frente con un paciente duplicado real (mismo DNI, dos
    fichas) que ya tenía una orden asociada: antes de esta protección, borrar
    el duplicado a mano habría destruido esa trazabilidad en silencio. */
+/* El borrado bloqueado por historial deja de ser un callejon sin salida:
+   explica por que no se puede y ofrece unir la ficha con la correcta. */
+function modalBorradoBloqueado(cod, motivo){
+  abrirModal(`
+  <h3>Esta ficha no se puede eliminar</h3>
+  <div class="aviso" style="border-left-color:var(--ambar);white-space:pre-line">${esc(motivo)}</div>
+  ${puedeValidar()?`<div class="aviso" style="border-left-color:var(--azul);margin-top:10px">
+    <b>Si es un duplicado</b>, no hay que borrarla: se une con la ficha correcta y su historial
+    se traslada entero, sin perder nada.</div>`:''}
+  <div class="modal-pie">
+    <button class="btn btn-g" onclick="cerrarModal()">Entendido</button>
+    ${puedeValidar()?`<button class="btn btn-p" onclick="_fusionQ='';modalFusionPaciente('${esc(cod)}')">
+      ⇉ Unir con otra ficha</button>`:''}
+  </div>`,true);
+}
 function borrarPaciente(cod){
   const chk=srvVerificarPacienteEliminable(cod);
   if(chk.codigo==='NO_ENCONTRADO')return;
+  /* Antes esto era un alert() sin salida: decia "primero hay que trasladar
+     ese historial a la ficha correcta" y no habia ninguna forma de hacerlo.
+     Ahora el mismo aviso ofrece la herramienta. */
+  if(chk.codigo==='TIENE_HISTORIAL'){ modalBorradoBloqueado(cod, chk.motivo); return; }
   if(!chk.ok){alert(chk.motivo);return;}
   if(!confirm('¿Eliminar este paciente?'))return;
   const r=srvEliminarPaciente(cod);
@@ -2531,6 +2552,110 @@ function borrarPaciente(cod){
   vPacientes();
 }
 
+/* =============== UNIR DOS FICHAS DEL MISMO PACIENTE (pantalla) ===============
+   Se llega aquí de dos formas: intentando borrar una ficha duplicada que ya
+   tiene historial (borrarPaciente, más abajo), y desde la propia ficha.
+   La operación no tiene vuelta atrás, así que el modal enseña ANTES qué se
+   mueve y qué se completa, y solo entonces ofrece el botón. */
+let _fusionQ='';
+function modalFusionPaciente(codOrigen, codDestino){
+  const a=buscarPaciente(codOrigen);
+  if(!a){toast('Paciente no encontrado');return;}
+  if(!puedeValidar()){toast('Unir fichas corresponde a un usuario con rol Dr o Admin');return;}
+  const h=_historialPaciente(codOrigen);
+  const filtro=normTxt(_fusionQ||'');
+  /* Los más parecidos arriba: quien busca un duplicado suele encontrarlo en
+     la primera línea, sin escribir nada. */
+  const candidatos=S.pacientes.filter(p=>p.codigo!==codOrigen)
+    .map(p=>({p, parecido:_parecidoPaciente(a,p)}))
+    .filter(x=>!filtro||normTxt(nombreCompleto(x.p)+' '+(x.p.idNumero||'')+' '+x.p.codigo).includes(filtro))
+    .sort((x,y)=>y.parecido-x.parecido||nombreCompleto(x.p).localeCompare(nombreCompleto(y.p)))
+    .slice(0,40);
+  const prev=codDestino?srvVistaPreviaFusion(codOrigen,codDestino):null;
+
+  abrirModal(`
+  <h3>Unir esta ficha con otra</h3>
+  <div class="aviso" style="border-left-color:var(--rojo);margin-bottom:10px">
+    <b>La ficha ${esc(codOrigen)} · ${esc(nombreCompleto(a))} va a desaparecer.</b>
+    Todo su historial pasa a la ficha que elijas abajo. Esto no se puede deshacer.
+  </div>
+  <div class="rejilla c2" style="margin-bottom:10px">
+    <div class="tarjeta" style="margin:0;border-left:4px solid var(--rojo)">
+      <b style="color:var(--rojo)">Desaparece</b>
+      <div style="font-size:13px;margin-top:4px"><b>${esc(nombreCompleto(a))}</b></div>
+      <div style="font-size:12px;color:var(--gris)">${esc(codOrigen)}${a.idNumero?' · '+esc(a.idTipo||'DNI')+' '+esc(a.idNumero):''}</div>
+      <div style="font-size:12px;color:var(--gris)">${h.ordenes.length} orden(es) · ${h.cotizaciones.length} cotización(es)</div>
+    </div>
+    <div class="tarjeta" style="margin:0;border-left:4px solid ${prev&&prev.ok?'var(--verde)':'var(--linea)'}">
+      <b style="color:${prev&&prev.ok?'var(--verde)':'var(--gris)'}">Se queda</b>
+      ${prev&&prev.ok?`<div style="font-size:13px;margin-top:4px"><b>${esc(nombreCompleto(prev.destino))}</b></div>
+        <div style="font-size:12px;color:var(--gris)">${esc(prev.destino.codigo)}${prev.destino.idNumero?' · '+esc(prev.destino.idTipo||'DNI')+' '+esc(prev.destino.idNumero):''}</div>
+        <div style="font-size:12px;color:var(--gris)">${edadDetallada(prev.destino.fnac)} · ${sexoTexto(prev.destino.sexo)}</div>`
+      :`<div style="font-size:12.5px;color:var(--gris);margin-top:4px">Elige abajo la ficha que conserva el expediente.</div>`}
+    </div>
+  </div>
+  <div class="campo" style="margin-bottom:8px">
+    <label>Buscar la ficha que se queda</label>
+    <input id="fus_q" value="${esc(_fusionQ)}" placeholder="Nombre, identificación o código…"
+      oninput="_fusionQ=this.value;modalFusionPaciente('${esc(codOrigen)}','${esc(codDestino||'')}')">
+  </div>
+  <div style="max-height:190px;overflow:auto;border:1px solid var(--linea);border-radius:8px;margin-bottom:10px">
+    ${candidatos.length?`<table style="margin:0"><tbody>
+      ${candidatos.map(({p,parecido})=>`<tr style="${p.codigo===codDestino?'background:#eaf5e6':''}">
+        <td style="font-size:12.5px">
+          <b>${esc(nombreCompleto(p))}</b>
+          ${parecido>=100?'<span class="chip chip-rj" style="font-size:9px">mismo documento</span>':
+            parecido>=50?'<span class="chip chip-am" style="font-size:9px">mismo nombre</span>':''}
+          <div style="font-size:11px;color:var(--gris)">${esc(p.codigo)}${p.idNumero?' · '+esc(p.idTipo||'DNI')+' '+esc(p.idNumero):' · sin documento'}${p.fnac?' · '+edadDetallada(p.fnac):''}</div>
+        </td>
+        <td style="text-align:right;white-space:nowrap">
+          <button class="btn ${p.codigo===codDestino?'btn-v':'btn-g'} btn-min"
+            onclick="modalFusionPaciente('${esc(codOrigen)}','${esc(p.codigo)}')">
+            ${p.codigo===codDestino?'✓ Elegida':'Elegir'}</button>
+        </td></tr>`).join('')}
+    </tbody></table>`:'<div class="vacio" style="padding:14px">Ninguna ficha coincide con la búsqueda.</div>'}
+  </div>
+  ${prev?(prev.ok?`
+    <div class="aviso" style="border-left-color:var(--azul)">
+      <b>Esto es lo que va a pasar:</b>
+      <div style="font-size:12.5px;margin-top:5px;line-height:1.7">
+        ${prev.ordenes.length?`· <b>${prev.ordenes.length}</b> orden(es) de trabajo pasan a ${esc(prev.destino.codigo)}:
+           <span style="color:var(--gris)">${prev.ordenes.slice(0,8).map(o=>esc(o.numero)).join(', ')}${prev.ordenes.length>8?' y '+(prev.ordenes.length-8)+' más':''}</span><br>`:''}
+        ${prev.cotizaciones.length?`· <b>${prev.cotizaciones.length}</b> cotización(es) pasan a ${esc(prev.destino.codigo)}<br>`:''}
+        ${(!prev.ordenes.length&&!prev.cotizaciones.length)?'· La ficha que desaparece no tiene historial que trasladar.<br>':''}
+        ${prev.campos.length?`· Se completan campos que están vacíos en la ficha que se queda:
+           <b>${prev.campos.map(c=>esc(c.etiqueta)).join(', ')}</b>. Ningún dato existente se pisa.<br>`:
+          '· No hay campos vacíos que completar; la ficha que se queda conserva todos sus datos.<br>'}
+        ${prev.ordenes.length?`· Las órdenes trasladadas pasan a mostrar el nombre <b>${esc(nombreCompleto(prev.destino))}</b>.<br>`:''}
+        · Los recibos y facturas ya emitidos <b>no se tocan</b>: un comprobante fiscal no se reescribe.
+      </div>
+      ${prev.idBloqueado?`<div style="margin-top:7px;color:var(--rojo);font-size:12.5px">
+        <b>Ojo:</b> la identificación de la ficha que desaparece ya pertenece a ${esc(prev.idBloqueado)},
+        así que no se copiará. Revisa cuál de las tres fichas tiene el documento correcto.</div>`:''}
+    </div>`
+  :`<div class="aviso" style="border-left-color:var(--rojo)">${esc(prev.motivo)}</div>`):''}
+  <div class="modal-pie">
+    <button class="btn btn-g" onclick="cerrarModal()">Cancelar</button>
+    ${prev&&prev.ok?`<button class="btn btn-r" onclick="confirmarFusionPaciente('${esc(codOrigen)}','${esc(codDestino)}')">
+      ⇉ Unir y eliminar ${esc(codOrigen)}</button>`:''}
+  </div>`,true);
+  const q=document.getElementById('fus_q');
+  if(q&&_fusionQ){q.focus();q.setSelectionRange(q.value.length,q.value.length);}
+}
+function confirmarFusionPaciente(codOrigen, codDestino){
+  const a=buscarPaciente(codOrigen), b=buscarPaciente(codDestino);
+  if(!a||!b)return;
+  if(!confirm('Vas a unir dos fichas.\n\n'+
+    'DESAPARECE: '+codOrigen+' · '+nombreCompleto(a)+'\n'+
+    'SE QUEDA:   '+codDestino+' · '+nombreCompleto(b)+'\n\n'+
+    'Todo el historial de la primera pasa a la segunda. Esto no se puede deshacer.\n\n¿Continuar?'))return;
+  const r=srvFusionarPacientes(codOrigen, codDestino);
+  if(!r.ok){alert(r.motivo||'No se pudo unir');return;}
+  _fusionQ='';
+  cerrarModal(); vPacientes();
+  toast('Fichas unidas ✓ · '+r.movido.ordenes+' orden(es) y '+r.movido.cotizaciones+
+        ' cotización(es) pasaron a '+r.codDestino);
+}
 /* =============== PACIENTES: REPOSITORIO =============== */
 /* Acceso a datos puro sobre S.pacientes. Sin DOM, sin confirm(), sin reglas
    de negocio — eso vive en 20c_srv_pacientes.js. Ninguna función de aquí
@@ -2557,6 +2682,25 @@ function actualizarPaciente(cod, datos){
   Object.assign(p, datos);
   S.ordenes.forEach(o=>{ if(o.pacCodigo===cod) o.pacienteNombre=datos.nombre; });
   return p;
+}
+/* Traslada a otra ficha TODO lo que apunta a esta. Acceso a datos puro: quien
+   puede hacerlo, con que confirmacion y que queda en la bitacora lo decide el
+   Servicio (srvFusionarPacientes).
+
+   Solo dos colecciones guardan el codigo del paciente: las ordenes y las
+   cotizaciones. Recibos y facturas NO lo guardan -se cuelgan de la orden y
+   llevan congelado el nombre del dia que se emitieron- y a proposito se
+   quedan como estan: un comprobante fiscal ya emitido no se reescribe. */
+function reasignarHistorial(desde, hacia){
+  const p=buscarPaciente(hacia);
+  const nombre=p?(nombreCompleto(p)||p.nombre||''):'';
+  let ordenes=0, cotizaciones=0;
+  S.ordenes.forEach(o=>{ if(o.pacCodigo===desde){
+    o.pacCodigo=hacia;
+    if(nombre)o.pacienteNombre=nombre;
+    ordenes++; } });
+  S.cotizaciones.forEach(c=>{ if(c.pacCodigo===desde){ c.pacCodigo=hacia; cotizaciones++; } });
+  return {ordenes, cotizaciones};
 }
 function eliminarPaciente(cod){
   S.pacientes=S.pacientes.filter(x=>x.codigo!==cod);
@@ -2639,6 +2783,110 @@ function srvEliminarPaciente(cod){
   eliminarPaciente(cod);
   guardar();
   return {ok:true, nombre:nombreCompleto(p)};
+}
+
+/* =============== UNIR DOS FICHAS DEL MISMO PACIENTE ===============
+   Los duplicados entran igual que en cualquier laboratorio: un DNI mal
+   escrito, un apellido cambiado, la misma persona registrada dos veces el
+   mismo día. Hasta ahora solo se podían PREVENIR — la ficha duplicada que ya
+   tenía historial no se podía borrar (borrarla dejaría órdenes apuntando a un
+   paciente inexistente) ni unir, así que el expediente quedaba partido en dos
+   y el delta check, que compara contra el resultado anterior del MISMO
+   paciente, dejaba de ver la mitad. Justo cuando más falta hace.
+
+   Es destructivo: la ficha de origen desaparece. Por eso hay una vista previa
+   aparte, que no toca nada, para que la pantalla pueda enseñar exactamente
+   qué se va a mover antes de que nadie confirme. */
+
+/* Lo que se puede traer de la ficha que desaparece, y SOLO si en la que queda
+   está vacío: nunca se pisa un dato existente. Los nombres no entran a
+   propósito — el nombre de la ficha que queda es el bueno por definición, y
+   es el que ya aparece impreso en sus informes. */
+const CAMPOS_FUSION=['idTipo','idNumero','fnac','sexo','tel','correo','dir','medico','obs',
+  'respNombre','respId','respParentesco','respTel','respCorreo'];
+const ETIQUETA_CAMPO_PAC={idTipo:'Tipo de documento', idNumero:'Número de documento',
+  fnac:'Fecha de nacimiento', sexo:'Sexo', tel:'Teléfono', correo:'Correo',
+  dir:'Dirección', medico:'Médico de cabecera', obs:'Observaciones',
+  respNombre:'Responsable', respId:'Documento del responsable',
+  respParentesco:'Parentesco', respTel:'Teléfono del responsable',
+  respCorreo:'Correo del responsable'};
+
+/* Cuánto se parecen dos fichas. Solo sirve para ordenar los candidatos y
+   poner arriba los que probablemente son la misma persona; la decisión la
+   toma quien mira, no este número. */
+function _parecidoPaciente(a,b){
+  let n=0;
+  const idA=soloDigitos(a.idNumero||''), idB=soloDigitos(b.idNumero||'');
+  if(idA&&idA===idB)n+=100;
+  const nomA=normTxt(nombreCompleto(a)), nomB=normTxt(nombreCompleto(b));
+  if(nomA&&nomA===nomB)n+=50;
+  else if(normTxt((a.apellido1||'')+' '+(a.nombre1||''))===normTxt((b.apellido1||'')+' '+(b.nombre1||'')))n+=25;
+  if(a.fnac&&a.fnac===b.fnac)n+=15;
+  const telA=soloDigitos(a.tel||''), telB=soloDigitos(b.tel||'');
+  if(telA&&telA===telB)n+=10;
+  return n;
+}
+
+/* Qué pasaría si se unieran, SIN tocar nada. La pantalla lo usa para enseñar
+   las consecuencias antes de pedir confirmación, y srvFusionarPacientes() lo
+   reusa para no repetir las validaciones. */
+function srvVistaPreviaFusion(codOrigen, codDestino){
+  /* Quien puede firmar un informe puede decidir que dos fichas son la misma
+     persona; recepción no. Es una decisión clínica y no tiene vuelta atrás. */
+  if(!puedeValidar())
+    return {ok:false, codigo:'SIN_PERMISO',
+      motivo:'Unir dos fichas corresponde a un usuario con rol Dr o Admin.'};
+  const a=buscarPaciente(codOrigen), b=buscarPaciente(codDestino);
+  if(!a||!b) return {ok:false, codigo:'NO_ENCONTRADO', motivo:'No se encontró alguna de las dos fichas.'};
+  if(codOrigen===codDestino)
+    return {ok:false, codigo:'MISMA_FICHA', motivo:'Hay que elegir dos fichas distintas.'};
+  const h=_historialPaciente(codOrigen);
+  const campos=[]; let idBloqueado='';
+  CAMPOS_FUSION.forEach(k=>{
+    const vOrigen=String(a[k]==null?'':a[k]).trim();
+    const vDestino=String(b[k]==null?'':b[k]).trim();
+    if(!vOrigen||vDestino) return;            // no hay nada que traer, o ya hay dato
+    if(k==='idNumero'){
+      /* Copiar la identificación puede chocar con un TERCER paciente que ya
+         la tenga registrada. En ese caso no se copia y se avisa, en vez de
+         dejar dos fichas distintas con el mismo documento. */
+      const d=soloDigitos(vOrigen);
+      const otro=S.pacientes.find(x=>x.codigo!==codOrigen&&x.codigo!==codDestino&&
+        x.idNumero&&soloDigitos(x.idNumero)===d);
+      if(otro){ idBloqueado=otro.codigo; return; }
+    }
+    campos.push({campo:k, etiqueta:ETIQUETA_CAMPO_PAC[k]||k, valor:vOrigen});
+  });
+  return {ok:true, origen:a, destino:b, ordenes:h.ordenes, cotizaciones:h.cotizaciones,
+    campos, idBloqueado};
+}
+
+function srvFusionarPacientes(codOrigen, codDestino){
+  const prev=srvVistaPreviaFusion(codOrigen, codDestino);
+  if(!prev.ok) return prev;
+  const {origen, destino, campos}=prev;
+  const nombreOrigen=nombreCompleto(origen), nombreDestino=nombreCompleto(destino);
+
+  // 1. Completar los huecos de la ficha que se queda
+  campos.forEach(({campo,valor})=>{
+    destino[campo]=valor;
+    // Si la fecha de nacimiento venía calculada a partir de la edad, esa
+    // salvedad viaja con ella: si no, quedaría como si fuera un dato exacto.
+    if(campo==='fnac'&&origen.fnacAproximada)destino.fnacAproximada=true;
+  });
+  // 2. Trasladar el historial
+  const movido=reasignarHistorial(codOrigen, codDestino);
+  // 3. La ficha duplicada ya no tiene nada apuntándole: desaparece
+  eliminarPaciente(codOrigen);
+  // 4. Constancia de un cambio que no tiene vuelta atrás
+  _bitacora('Actividad de rutina',
+    'Fusión de fichas de paciente: '+codOrigen+' ('+nombreOrigen+') se unió a '+
+    codDestino+' ('+nombreDestino+'). Se trasladaron '+movido.ordenes+' orden(es) y '+
+    movido.cotizaciones+' cotización(es)'+
+    (campos.length?'; se completaron campos vacíos de la ficha que queda: '+
+      campos.map(c=>c.etiqueta).join(', '):'')+'.');
+  guardar(true);
+  return {ok:true, movido, campos, nombreOrigen, nombreDestino, codDestino};
 }
 /* =============== EXÁMENES / PLANTILLAS =============== */
 function filasExamenes(filtro=''){
