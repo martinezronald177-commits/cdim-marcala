@@ -198,6 +198,21 @@ img{max-width:100%;height:auto}
 .chk-multi{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:800;color:var(--verde-osc);
   cursor:pointer;text-transform:none;letter-spacing:0;margin:0}
 .chk-multi input{width:auto;margin:0}
+/* Captura de resultados: la casilla donde se escribe el resultado tenia el
+   15 % del ancho de la tabla y, con el boton de la lista al lado, dejaba unos
+   70 px de texto visible -- "No se observan" se leia "No se o". Ahora la
+   columna es del 25 % y nunca baja de 168 px: caben las respuestas de texto
+   que se usan en coproanalisis y microbiologia sin cortarse. */
+.tabla-captura .c-resultado{min-width:168px}
+.celda-res{display:flex;gap:4px;align-items:center}
+/* min-width:0 es lo que permite que el campo se encoja dentro del flex en vez
+   de desbordar la celda y empujar al boton fuera de la vista. */
+.celda-res input{flex:1 1 auto;min-width:0}
+/* Menos relleno lateral SOLO aqui: son cuatro pixeles mas de texto visible, y
+   es lo que hace que quepa entera la respuesta mas larga del catalogo
+   ("Muestra no apta para el estudio"). */
+.tabla-captura .c-resultado input{padding-left:8px;padding-right:8px}
+.celda-res .btn{flex:0 0 auto}
 @media (max-width:1100px){
   .pt-cab{grid-template-columns:1fr 1fr 42px}
   .pt-cab .pt-nombre{grid-column:1/-1}
@@ -5455,7 +5470,7 @@ function modalResultados(n,desde,sinScroll,areaActiva){
                 :`<span class="chip chip-am" title="La validación corresponde a un usuario con rol Dr o Admin">⏳ Pendiente de validación</span>`}`)}
           </div>
         </div>
-        <table><thead><tr><th style="width:24%">Análisis</th><th style="width:15%">Resultado</th><th style="width:10%">Unidad</th><th style="width:20%">Referencia</th><th style="width:23%">3 resultados anteriores</th><th></th></tr></thead><tbody>
+        <table class="tabla-captura"><thead><tr><th style="width:22%">Análisis</th><th class="c-resultado" style="width:27%">Resultado</th><th style="width:7%">Unidad</th><th style="width:18%">Referencia</th><th style="width:18%">3 resultados anteriores</th><th></th></tr></thead><tbody>
         ${(()=>{let gA=null;
           return e.params.map((pp,pi)=>{const r=evalParam(pp,sx,em);const prevs=valoresPrevios(o.pacCodigo,e.id,pp.nombre,n,3);
           const cab=(pp.grupo&&pp.grupo!==gA)?(gA=pp.grupo,`<tr class="fila-sub"><td colspan="6">${esc(pp.grupo)}</td></tr>`):'';
@@ -5464,16 +5479,20 @@ function modalResultados(n,desde,sinScroll,areaActiva){
             ${pp.formula?'<span class="chip chip-vd" style="font-size:9px" title="'+esc(pp.formula)+'">ƒ calculado</span>':''}
             ${(!pp.formula&&pp.valorCalculado)?'<span class="chip chip-vd" style="font-size:9px" title="'+esc(pp.notaCalculo||'')+'">ƒ Martin-Hopkins</span>':''}
             ${pp.ldlManual?'<span class="chip chip-am" style="font-size:9px">valor manual</span>':''}</td>
-          <td>${(pp.opciones&&pp.opciones.length)?`
-            <div style="display:flex;gap:4px">
+          <td class="c-resultado">${(pp.opciones&&pp.opciones.length)?`
+            <div class="celda-res">
               <input data-pos="${ei}-${pi}" list="dl_${ei}_${pi}" value="${esc(pp.valor)}"
-                placeholder="Elige o escribe…" ${bloqueado?`readonly title="${tituloBloqueo}"`:''}
+                placeholder="Elige o escribe…" ${bloqueado?'readonly':''}
+                ${/* Un solo title: el del bloqueo cuando lo hay, y si no el valor
+                      completo -- asi una respuesta larga que no quepa en la casilla
+                      se puede leer entera pasando el raton por encima. */''
+                 }title="${bloqueado?tituloBloqueo:esc(pp.valor||'')}"
                 oninput="valorCapturado('${n}',${ei},${pi},this.value)" onchange="guardar()">
               <datalist id="dl_${ei}_${pi}">${pp.opciones.map(op=>`<option value="${esc(op)}">`).join('')}</datalist>
               <button class="btn btn-g btn-min" style="flex:0 0 auto" ${bloqueado?'disabled':''} title="Ver la lista completa" onclick="modalOpciones('${n}',${ei},${pi})">☰</button>
             </div>`:`
             <input data-pos="${ei}-${pi}" value="${esc(pp.valor)}" ${(pp.formula||bloqueado)?'readonly':''}
-              title="${bloqueado?tituloBloqueo:esc(pp.notaCalculo||(pp.formula?'Se calcula automáticamente':''))}"
+              title="${bloqueado?tituloBloqueo:esc(pp.notaCalculo||(pp.formula?'Se calcula automáticamente':'')||pp.valor||'')}"
               style="${(pp.formula||pp.valorCalculado)?'background:#eef6e2;font-weight:800;color:var(--verde-osc)':''}"
               oninput="valorCapturado('${n}',${ei},${pi},this.value)" onchange="guardar()">`}</td>
           <td>${esc(pp.unidad)}</td><td style="font-size:12px;line-height:1.45">${esc(refTexto(pp,sx,em)).replace(/\n/g,'<br>')}</td>
