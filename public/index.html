@@ -43,6 +43,25 @@ nav button{display:flex;align-items:center;gap:10px;width:100%;background:none;b
 nav button:hover{background:rgba(255,255,255,.07);color:#fff}
 nav button.activo{background:rgba(184,151,74,.18);border-left-color:var(--dorado);color:#fff}
 nav .ico{width:20px;text-align:center;font-size:15px}
+/* Indicador de sincronizacion. La funcion que lo pinta existia desde hace
+   tiempo, pero el elemento #sync-status nunca se creo: la buscaba, no lo
+   encontraba y se iba sin hacer nada. En la practica una caida de conexion
+   era completamente silenciosa. */
+.sync-pill{flex:0 0 auto;margin:0 14px 10px;padding:8px 10px;border-radius:8px;
+  font-size:10.5px;line-height:1.45;display:flex;flex-direction:column;gap:3px}
+.sync-pill .s-t{font-weight:700;display:flex;align-items:center;gap:7px;font-size:11px}
+.sync-pill .s-d{color:rgba(255,255,255,.62);font-size:9.5px}
+.sync-pill .s-punto{width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:currentColor}
+.sync-ok{background:rgba(112,160,32,.15);color:#a9d95c}
+.sync-mal{background:rgba(190,60,42,.24);color:#ffb8a6;
+  border:1px solid rgba(255,120,90,.5)}
+/* Solo late el punto, no el recuadro entero: un bloque de texto parpadeando
+   se vuelve ilegible y se acaba ignorando, que es lo contrario de lo que
+   este aviso tiene que conseguir. */
+@media (prefers-reduced-motion:no-preference){
+  .sync-mal .s-punto{animation:latido-sync 1.6s ease-in-out infinite}
+}
+@keyframes latido-sync{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.78)}}
 .pie-nav{padding:14px 20px;font-size:10px;color:rgba(255,255,255,.45);line-height:1.5;flex:0 0 auto}
 /* Dos problemas encimados, no uno: (1) el width:100% que convivía con
    "flex:1" -- la barra lateral es position:fixed, así que #app la trata
@@ -626,6 +645,8 @@ kbd{background:#fff;border:1px solid var(--linea);border-bottom-width:2px;border
   .pie-nav{padding:9px 20px calc(9px + env(safe-area-inset-bottom));font-size:9.5px;
     border-top:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.14)}
   .pie-nav b{display:inline}
+  .sync-pill{margin:0 14px 7px;padding:6px 9px;font-size:10px}
+  .sync-pill .s-d{font-size:9px}
   /* El menú del teléfono se desplaza con el dedo */
   aside{overflow:hidden}
   nav{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
@@ -786,6 +807,7 @@ td,th,.ci-txt b,.ci-sub{overflow-wrap:anywhere}
     <button onclick="cambiarUsuario()" id="btn-cambiar" style="display:none" aria-label="Cambiar de usuario"><span class="ico" aria-hidden="true">⇄</span>Cambiar de usuario</button>
     <button onclick="cerrarSesion()" id="btn-logout" style="display:none;margin-top:4px;background:rgba(192,57,43,.15);color:#e88" aria-label="Cerrar sesión"><span class="ico" aria-hidden="true">⏻</span>Cerrar sesión</button>
   </nav>
+  <div id="sync-status" class="sync-pill" hidden></div>
   <div class="pie-nav" style="border-top:1px solid rgba(255,255,255,.12);padding-top:12px">
     <div style="margin-bottom:8px;color:rgba(255,255,255,.55)">Atajos: <b style="color:rgba(255,255,255,.8)">/</b> buscar · <b style="color:rgba(255,255,255,.8)">Esc</b> cerrar</div>
     Microbiólogo Regente:<br><b style="color:rgba(255,255,255,.8)">Doctor Ronald Martínez</b><br>CMQCH 2023-2105</div>
@@ -16278,12 +16300,66 @@ function importarCotWeb(){
   }catch(e){return 0;}
 }
 
-/* Indicador visual de sincronización ───────────────────────── */
-function actualizarIndicadorSync(ok){
+/* Indicador de sincronización ─────────────────────────────────
+   Esto ya estaba escrito, pero el elemento #sync-status nunca se creó en la
+   pantalla: la función lo buscaba, no lo encontraba y se iba sin hacer nada.
+   En la práctica, una caída de conexión era completamente SILENCIOSA — se
+   seguía capturando, los cambios se encolaban en IndexedDB, y nadie se
+   enteraba de que no habían llegado al servidor. Es exactamente el momento
+   en que deja de cumplirse la regla de que todo vive en la nube, así que
+   tiene que verse.
+
+   "Pendiente" no es lo mismo que "roto": guardar() marca pendiente y sube
+   entre 0,8 y 3 segundos después, así que avisar por cada tecla convertiría
+   el aviso en ruido y se acabaría ignorando. Solo se avisa cuando una subida
+   FALLÓ, o cuando lleva demasiado tiempo pendiente sin haber fallado —que es
+   la forma silenciosa del mismo problema. */
+let _ultimoSyncOk=0, _syncFallido=false, _tickerSync=null;
+/* El reintento periódico va cada 30 s: pasado minuto y medio sin subir, algo
+   no está funcionando aunque no haya saltado ningún error. */
+const SYNC_TOLERANCIA_MS=90000;
+
+function haceCuanto(ms){
+  if(!ms)return '';
+  const s=Math.max(0,Math.round((Date.now()-ms)/1000));
+  if(s<45)return 'hace unos segundos';
+  const m=Math.round(s/60);
+  if(m<60)return 'hace '+m+' minuto'+(m===1?'':'s');
+  const h=Math.floor(m/60), r=m%60;
+  return 'hace '+h+' hora'+(h===1?'':'s')+(r?' y '+r+' min':'');
+}
+function syncEnProblemas(){
+  if(_syncFallido)return true;
+  return _syncPendiente && !!_ultimoSyncOk && (Date.now()-_ultimoSyncOk)>SYNC_TOLERANCIA_MS;
+}
+function pintarIndicadorSync(){
   const el=document.getElementById('sync-status');
-  if(!el||!MODO_WEB)return;
-  el.textContent=ok?'● Sincronizado':'⚠ Sin conexión';
-  el.style.color=ok?'#70A020':'#b8974a';
+  if(!el)return;
+  // En modo local no hay nube que vigilar: el estado vive en este equipo.
+  if(!MODO_WEB){el.hidden=true;return;}
+  el.hidden=false;
+  const mal=syncEnProblemas();
+  el.className='sync-pill '+(mal?'sync-mal':'sync-ok');
+  el.title=mal
+    ? 'Hay cambios guardados solo en esta computadora. Se reintenta cada 30 segundos.'
+    : 'Todo lo capturado está guardado en el servidor.';
+  el.innerHTML=mal
+    ? `<span class="s-t"><span class="s-punto"></span>Sin guardar en la nube</span>
+       <span class="s-d">Hay cambios que solo están en esta computadora.
+         ${_ultimoSyncOk?'Último guardado '+esc(haceCuanto(_ultimoSyncOk))+'. ':''}Se reintenta
+         cada 30 s; no cierres el navegador hasta que vuelva a decir «Guardado».</span>`
+    : `<span class="s-t"><span class="s-punto"></span>Guardado en la nube</span>
+       <span class="s-d">${esc(_ultimoSyncOk?haceCuanto(_ultimoSyncOk):'al día')}</span>`;
+}
+function actualizarIndicadorSync(ok){
+  if(ok){_ultimoSyncOk=Date.now();_syncFallido=false;}
+  else _syncFallido=true;
+  pintarIndicadorSync();
+  /* Latido propio: el texto dice "hace X minutos" y, sin esto, se quedaría
+     congelado en "hace unos segundos" mientras la conexión sigue caída.
+     También es lo que hace aparecer el aviso cuando la subida ni siquiera
+     llega a fallar —el caso en que el navegador se queda esperando. */
+  if(!_tickerSync)_tickerSync=setInterval(pintarIndicadorSync,15000);
 }
 
 /* Sincronización periódica (cada 30 s comprueba si hay cambios) */
@@ -16921,6 +16997,11 @@ function imprimirBitacora(){
     const u=await r.json();
     USUARIO_WEB=u;                    // quien entró por la pantalla de acceso
     console.log('[CDIM] Modo web · usuario:',u.nombre,'·',u.rol);
+    /* Se pinta ya: si la primera subida tardara en llegar, el indicador no
+       aparecería hasta entonces y el arranque sería justo el momento con
+       menos información sobre si hay conexión. */
+    _ultimoSyncOk=Date.now();
+    actualizarIndicadorSync(true);
     // Mostrar botones de web
     const bc=document.getElementById('btn-cambiar');
     if(bc)bc.style.display='';
