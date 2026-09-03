@@ -1044,6 +1044,22 @@ td input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:
   #c_items{overflow-x:auto}
   #c_items>table{min-width:680px}
 }
+
+/* ---------- Listas por hojas ---------- */
+.hojas{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  flex-wrap:wrap;padding:9px 2px;font-size:12.5px;color:var(--gris)}
+.hojas-info b{color:var(--tinta);font-weight:700}
+.hojas-btn{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+/* Cuadrados y del mismo ancho: una fila de números de distinto tamaño se lee
+   como un renglón de texto, no como una serie por la que se salta. */
+.hojas-btn .btn{min-width:32px;padding-left:8px;padding-right:8px;
+  font-variant-numeric:tabular-nums}
+.hojas-btn .btn[disabled]{opacity:.4;cursor:default}
+.hojas-sep{padding:0 2px;color:var(--gris)}
+@media (max-width:560px){
+  .hojas{justify-content:center}
+  .hojas-info{width:100%;text-align:center}
+}
 </style>
 </head>
 <body>
@@ -2242,6 +2258,58 @@ function ultimoDiaDelMes(mes){
   const a=parseInt(String(mes).slice(0,4),10), m=parseInt(String(mes).slice(5,7),10);
   return new Date(Date.UTC(a,m,0)).getUTCDate();
 }
+
+/* =============== LISTAS POR HOJAS ===============
+   Una tira de cientos de registros no se recorre: se pierde uno. Por hojas se
+   sabe siempre dónde se está y cuánto falta.
+
+   Vive aquí, y no dentro de Pacientes, porque la misma barra vale para
+   cualquier lista larga: se le pasa el arreglo ya filtrado, la hoja actual y el
+   nombre de la función que cambia de hoja. Escrito tres veces se comportaría
+   distinto las tres. */
+
+/* Recorta la lista y, de paso, corrige la hoja: si se borró el último registro
+   de la hoja 4 y ya solo hay 3, devuelve la 3 en vez de una hoja vacía. */
+function trozoHoja(lista, hoja, porHoja){
+  const total=(lista||[]).length;
+  const hojas=Math.max(1, Math.ceil(total/porHoja));
+  const h=Math.min(Math.max(1, Math.floor(hoja)||1), hojas);
+  const desde=(h-1)*porHoja;
+  return {hoja:h, hojas, total, desde, hasta:Math.min(desde+porHoja,total),
+          items:(lista||[]).slice(desde, desde+porHoja)};
+}
+
+/* Qué números se enseñan. Con pocas hojas, todas. Con muchas, la primera, la
+   última y una ventana alrededor de la actual: una fila de cuarenta botones no
+   se lee, y lo que se busca casi siempre está cerca de donde uno está. */
+function numerosHoja(hoja, hojas){
+  if(hojas<=7) return Array.from({length:hojas},(_,i)=>i+1);
+  const s=new Set([1, hojas, hoja, hoja-1, hoja+1]);
+  if(hoja<=3)      [2,3,4].forEach(x=>s.add(x));
+  if(hoja>=hojas-2)[hojas-1,hojas-2,hojas-3].forEach(x=>s.add(x));
+  const ns=[...s].filter(x=>x>=1&&x<=hojas).sort((a,b)=>a-b);
+  const salida=[];
+  ns.forEach((x,i)=>{ if(i && x-ns[i-1]>1) salida.push('…'); salida.push(x); });
+  return salida;
+}
+
+/* `ir` es el NOMBRE de la función que cambia de hoja, no la función: el botón
+   se pinta como HTML y necesita el nombre para el onclick. */
+function barraHojas(t, ir, nombre){
+  if(!t.total) return '';
+  const boton=x=> x==='…'
+    ? '<span class="hojas-sep">…</span>'
+    : `<button class="btn btn-min ${x===t.hoja?'btn-p':'btn-g'}" `+
+      `onclick="${ir}(${x})" ${x===t.hoja?'aria-current="page"':''}>${x}</button>`;
+  return `<div class="hojas">
+    <span class="hojas-info">Mostrando <b class="nw">${t.desde+1}–${t.hasta}</b> de <b>${t.total}</b>${nombre?' '+esc(nombre):''}${t.hojas>1?` · hoja <b>${t.hoja}</b> de <b>${t.hojas}</b>`:''}</span>
+    ${t.hojas>1?`<div class="hojas-btn">
+      <button class="btn btn-g btn-min" ${t.hoja<=1?'disabled':''} title="Hoja anterior" onclick="${ir}(${t.hoja-1})">‹</button>
+      ${numerosHoja(t.hoja,t.hojas).map(boton).join('')}
+      <button class="btn btn-g btn-min" ${t.hoja>=t.hojas?'disabled':''} title="Hoja siguiente" onclick="${ir}(${t.hoja+1})">›</button>
+    </div>`:''}
+  </div>`;
+}
 /* =============== CATÁLOGO SEMILLA =============== */
 function semillaExamenes(){
   // Catálogo oficial CDI Marcala — precios y tiempos de entrega del Cotizador v5.1 (30-06-2026)
@@ -2461,7 +2529,11 @@ function render(v,arg){
     document.querySelectorAll('#menu button').forEach(x=>x.classList.toggle('activo',x.dataset.v==='inicio'));}
   _seccionActual=v;
   if(v==='inicio')vInicio();
-  else if(v==='pacientes')vPacientes();
+  /* Entrar a la sección empieza por la primera hoja. Guardar o borrar un
+     paciente también repinta la vista, pero por otro camino y sin tocar
+     _hojaPac: quien estaba en la hoja 3 se queda en la 3, que es lo que uno
+     espera después de editar. */
+  else if(v==='pacientes'){_hojaPac=1;vPacientes();}
   else if(v==='examenes')vExamenes();
   else if(v==='perfiles')vPerfiles();
   else if(v==='medicos')vMedicos();
@@ -2701,17 +2773,26 @@ function _bitacora(tipo, descripcion){
   S.bitacora.push({fecha:hoy(), hora:ahoraHora(), responsable:usuarioActivo().nombre, tipo, descripcion});
 }
 /* =============== PACIENTES =============== */
-let _topePac=150;
-function verMasPacientes(){_topePac+=150;document.getElementById('lista_pac').innerHTML=filasPacientes(document.getElementById('q_pac')?.value||'');}
+/* Antes la lista crecía de 150 en 150 con un botón "ver más": seguía siendo
+   una tira larga, y no se sabía cuánto faltaba. Por hojas sí. */
+let _hojaPac=1;
+const POR_HOJA_PAC=15;
+function irHojaPac(n){
+  _hojaPac=n;
+  const c=document.getElementById('lista_pac');
+  if(c)c.innerHTML=filasPacientes(document.getElementById('q_pac')?.value||'');
+  /* Al cambiar de hoja se vuelve arriba: si no, se cae en mitad de la hoja
+     nueva y parece que no pasó nada. */
+  if(c&&c.scrollIntoView)c.scrollIntoView({block:'start',behavior:'auto'});
+}
 function filasPacientes(filtro=''){
   const f=normTxt(filtro);
   const todos=S.pacientes.filter(p=>normTxt(nombreCompleto(p)+' '+(p.idNumero||'')+' '+p.codigo+' '+(p.tel||'')).includes(f));
-  // Con muchos registros se dibuja por tramos: la lista aparece al instante
-  const lista=todos.slice(0,_topePac);
-  const resto=todos.length-lista.length;
-  return `${resto>0?`<div class="aviso" style="margin-bottom:8px">Mostrando ${lista.length} de ${todos.length} pacientes.
-    <button class="btn btn-g btn-min" onclick="verMasPacientes()">Ver 150 más</button>
-    <span style="color:var(--gris)">· usa el buscador para llegar directo a uno</span></div>`:''}
+  const t=trozoHoja(todos, _hojaPac, POR_HOJA_PAC);
+  _hojaPac=t.hoja;                 // por si la hoja se quedó fuera de rango
+  const lista=t.items;
+  const barra=barraHojas(t,'irHojaPac','paciente(s)');
+  return `${barra}
   ${lista.length?`<table><thead><tr><th>Código</th><th>Nombre</th><th>Identificación</th><th>Edad</th><th>Sexo</th><th>Teléfono</th><th></th></tr></thead><tbody>
     ${lista.map(p=>{const menor=p.fnac&&esMenor(p.fnac);return `<tr>
       <td><b class="nw">${p.codigo}</b></td>
@@ -2728,7 +2809,8 @@ function filasPacientes(filtro=''){
          }${puedeValidar()?`<button class="btn btn-g btn-min" title="Esta ficha es un duplicado: unirla con la correcta" onclick="_fusionQ='';modalFusionPaciente('${p.codigo}')">⇉</button>`:''}
         <button class="btn btn-r btn-min" onclick="borrarPaciente('${p.codigo}')">✕</button>
       </td></tr>`;}).join('')}
-  </tbody></table>`:`<div class="vacio">${filtro?'Ningún paciente coincide con “'+esc(filtro)+'”.':'Sin pacientes registrados. Agrega el primero con “+ Nuevo paciente”.'}</div>`}`;
+  </tbody></table>
+  ${t.hojas>1?barra:''}`:`<div class="vacio">${filtro?'Ningún paciente coincide con “'+esc(filtro)+'”.':'Sin pacientes registrados. Agrega el primero con “+ Nuevo paciente”.'}</div>`}`;
 }
 function vPacientes(filtro=''){
   // La caja de búsqueda se dibuja UNA sola vez; al teclear solo se repinta la lista,
@@ -2737,7 +2819,7 @@ function vPacientes(filtro=''){
   <div class="cabecera"><h2>Pacientes</h2>
     <div style="display:flex;gap:10px">
       <input class="busqueda" id="q_pac" placeholder="Buscar por nombre, identificación, código o teléfono…"
-        value="${esc(filtro)}" oninput="_topePac=150;document.getElementById('lista_pac').innerHTML=filasPacientes(this.value)">
+        value="${esc(filtro)}" oninput="_hojaPac=1;document.getElementById('lista_pac').innerHTML=filasPacientes(this.value)">
       <button class="btn btn-p" onclick="modalPaciente()">+ Nuevo paciente</button>
     </div>
   </div>
@@ -4116,8 +4198,11 @@ function botonesExtraCot(){
   ${filtrandoOtroDia?`<button class="btn btn-g btn-min" onclick="verTodoHistorialCotizaciones()">Ver todo el historial</button>`:''}
   <span class="ord-conteo">${n} cotización(es)</span>`;
 }
-/* Mismo patrón "Ver más" que _topePac en Pacientes (20_pacientes.js) y
-   _topeOrd en Órdenes (23_ordenes.js): cotizacionesFiltradas() se deja SIN
+/* Patrón "Ver más", igual que _topeOrd en Órdenes (23_ordenes.js).
+   Pacientes ya no lo usa: pasó a hojas (trozoHoja/barraHojas, en
+   10b_formato_compartido.js). Esta lista puede pasar a hojas igual, con dos
+   líneas, el día que se decida.
+   Aquí: cotizacionesFiltradas() se deja SIN
    recortar (botonesExtraCot() necesita el total real para el contador
    "N cotización(es)"); solo se recorta lo que se dibuja. tablaCotizaciones()
    no se toca: sigue siendo un renderizador puro. */
@@ -5737,7 +5822,9 @@ function botonesExtraOrdenes(){
 /* Entrada desde el aviso "N orden(es) pendientes de cobro" del tablero. */
 function verOrdenesPorCobrar(){_ordPorCobrar=true;_ordFecha='';_ordQ='';_topeOrd=150;irA('ordenes');}
 function quitarFiltroPorCobrar(){_ordPorCobrar=false;_ordFecha=hoy();_ordQ='';_topeOrd=150;vOrdenes();}
-/* Mismo patrón "Ver más" que _topePac en Pacientes (20_pacientes.js): con el
+/* Patrón "Ver más". Pacientes ya no lo usa: pasó a hojas (trozoHoja y
+   barraHojas, en 10b_formato_compartido.js), y esta lista puede pasar igual
+   con dos líneas el día que se decida. Con el
    filtro por día, la lista casi siempre es chica, pero "Ver todo el
    historial" o una búsqueda amplia pueden traer años de órdenes de una vez.
    ordenesFiltradas() se deja SIN recortar (botonesExtraOrdenes() necesita el

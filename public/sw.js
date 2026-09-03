@@ -25,7 +25,7 @@
    (ver herramientas/desplegar.js), así que el nombre de la caché cambia solo
    en cada despliegue y la anterior se borra sola. Dejarlo escrito a mano fue
    justo el error de la versión anterior. */
-const VERSION = "1ded939a66";
+const VERSION = "91115481ac";
 const CACHE = "cdim-" + VERSION;
 const BASE = ["./index.html","./paciente.html","./cotizacion.html",
               "./paciente_manifest.json","./icon-192.png","./icon-512.png"];
