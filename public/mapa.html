@@ -44,7 +44,8 @@ code{font-family:'IBM Plex Mono',ui-monospace,Consolas,monospace;font-size:12px;
 .idx{columns:2;column-gap:28px;font-size:12px}
 .idx div{break-inside:avoid;margin-bottom:8px}
 .volver{font-size:12.5px}
-@media (max-width:760px){.idx{columns:1}}
+.solo-tacto{display:none}
+@media (max-width:760px){.idx{columns:1}.solo-tacto{display:inline}}
 @media print{body{background:#fff}.tarjeta{border:0;padding:0}.lienzo{overflow:visible}.grafo{min-width:0}}
 </style></head><body><main>
 <p class="volver"><a href="./index.html">← Volver al sistema</a></p>
@@ -52,7 +53,7 @@ code{font-family:'IBM Plex Mono',ui-monospace,Consolas,monospace;font-size:12px;
 <p class="sub">Generado del código el 03/09/2026 · 45 módulos · 17.541 líneas · 860 símbolos · 268 dependencias entre módulos. Se regenera solo en cada despliegue y en cada commit: lo que ves aquí es lo que hay.</p>
 <h2>El grafo</h2>
 <div class="tarjeta"><div class="lienzo">
-<svg class="grafo" viewBox="0 0 1300 564" role="img" aria-label="Grafo de dependencias entre los 45 módulos del sistema; las flechas van del módulo que usa al que es usado">
+<svg class="grafo" data-w="1300" viewBox="0 0 1300 564" role="img" aria-label="Grafo de dependencias entre los 45 módulos del sistema; las flechas van del módulo que usa al que es usado">
 <defs><marker id="pta" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" fill="#7a8a96"/></marker></defs>
 <text x="100" y="24" text-anchor="middle" class="g-area">Núcleo</text>
 <text x="100" y="40" text-anchor="middle" class="g-sub">5 módulos</text>
@@ -651,7 +652,7 @@ SINCRONIZACIÓN CON SERVIDOR Cuando el LIS está montado en web, los datos se gu
 </g>
 </svg>
 </div>
-<div class="leyenda"><span>Las flechas van <b>del módulo que usa al que es usado</b>; el grosor es la cantidad de llamadas. El número a la derecha de cada módulo es <b>cuántos lo usan</b>.</span><span><span class="sw"></span>Pulsa un módulo: en rojo lo que <b>usa</b></span><span><span class="sw entra"></span>en verde quién <b>lo usa</b></span><span>Pasa el cursor por una flecha para ver el conteo.</span></div>
+<div class="leyenda"><span>Las flechas van <b>del módulo que usa al que es usado</b>; el grosor es la cantidad de llamadas. El número a la derecha de cada módulo es <b>cuántos lo usan</b>.</span><span><span class="sw"></span>Pulsa un módulo: en rojo lo que <b>usa</b></span><span><span class="sw entra"></span>en verde quién <b>lo usa</b></span><span>Pasa el cursor por una flecha para ver el conteo.</span><span class="solo-tacto"><b>En el teléfono:</b> desliza el grafo de lado para ver todas las áreas, y amplíalo con dos dedos.</span></div>
 </div>
 <h2>Dónde tocar</h2>
 <div class="tarjeta"><p class="sub" style="margin:0 0 8px">Los más usados. Cambiar algo aquí se propaga a medio sistema.</p>
@@ -956,6 +957,13 @@ SINCRONIZACIÓN CON SERVIDOR Cuando el LIS está montado en web, los datos se gu
 <script>
 (function(){
   var g=document.querySelector('.grafo'); if(!g)return;
+  /* En pantalla angosta, escala 1:1: el grafo se desliza dentro de su marco
+     en vez de encogerse hasta que los nodos no se pueden tocar. */
+  function escala(){
+    var w=parseInt(g.getAttribute('data-w')||'0',10);
+    g.style.minWidth=(w&&window.innerWidth<=760)?w+'px':'';
+  }
+  escala(); window.addEventListener('resize',escala);
   var activo=null;
   function limpiar(){ g.classList.remove('foco');
     g.querySelectorAll('.arista').forEach(function(a){a.classList.remove('sale','entra');});
