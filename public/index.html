@@ -2540,7 +2540,7 @@ function render(v,arg){
   else if(v==='cotizaciones'){_hojaCot=1;vCotizaciones();}
   else if(v==='ordenes'){_hojaOrd=1;vOrdenes(arg);}
   else if(v==='agenda')vAgenda(arg);
-  else if(v==='resultados')vResultados();
+  else if(v==='resultados'){_hojaRes=1;vResultados();}
   else if(v==='etiquetas')vEtiquetas();
   else if(v==='recibos')vRecibos();
   else if(v==='facturas')vFacturas();
@@ -7449,7 +7449,13 @@ let _resQ='';                    // texto: paciente, DNI o número de orden
 let _resDesde='';                // rango de fechas (vacío = sin límite)
 let _resHasta='';
 let _resSolo='todos';            // todos | completos | parciales
-let _topeRes=100;
+/* Por hojas, con el mismo paginador que Pacientes, Cotizaciones y Órdenes
+   (trozoHoja/barraHojas, en 10b_formato_compartido.js): las cuatro listas se
+   navegan igual. resultadosFiltrados() se deja SIN recortar —el contador
+   "N informe(s)" necesita el total real—; solo se recorta lo que se dibuja.
+   tablaResultados() no se toca: sigue siendo un renderizador puro. */
+let _hojaRes=1;
+const POR_HOJA_RES=15;
 
 /* Estado de validación de una orden, calculado una sola vez por fila. */
 function estadoValidacion(o){
@@ -7493,20 +7499,26 @@ function filtrarVistaResultados(){
   _resDesde=document.getElementById('res_desde')?.value||'';
   _resHasta=document.getElementById('res_hasta')?.value||'';
   _resSolo=document.getElementById('res_solo')?.value||'todos';
-  _topeRes=100;
+  _hojaRes=1;
   const l=document.getElementById('lista_res');if(l)l.innerHTML=contenidoListaResultados();
   const c=document.getElementById('res_conteo');if(c)c.textContent=resultadosFiltrados().length+' informe(s)';
 }
 function limpiarFiltrosResultados(){
-  _resQ='';_resDesde='';_resHasta='';_resSolo='todos';_topeRes=100;vResultados();
+  _resQ='';_resDesde='';_resHasta='';_resSolo='todos';_hojaRes=1;vResultados();
 }
 /* Atajo de uso diario: lo validado en los últimos 30 días. */
 function resultadosUltimoMes(){
   const d=new Date(hoy()+'T12:00:00');d.setDate(d.getDate()-30);
-  _resDesde=d.toISOString().slice(0,10);_resHasta='';_resQ='';_resSolo='todos';_topeRes=100;
+  _resDesde=d.toISOString().slice(0,10);_resHasta='';_resQ='';_resSolo='todos';_hojaRes=1;
   vResultados();
 }
-function verMasResultados(){_topeRes+=100;const l=document.getElementById('lista_res');if(l)l.innerHTML=contenidoListaResultados();}
+function irHojaRes(n){
+  _hojaRes=n;
+  const l=document.getElementById('lista_res');
+  if(!l)return;
+  l.innerHTML=contenidoListaResultados();
+  if(l.scrollIntoView)l.scrollIntoView({block:'start',behavior:'auto'});
+}
 
 function tablaResultados(lista){
   if(!lista.length)return `<div class="vacio">Ningún informe validado con esos filtros.<br>
@@ -7537,12 +7549,10 @@ function tablaResultados(lista){
   </tbody></table>`;
 }
 function contenidoListaResultados(){
-  const todos=resultadosFiltrados();
-  const lista=todos.slice(0,_topeRes);
-  const resto=todos.length-lista.length;
-  return `${resto>0?`<div class="aviso" style="margin-bottom:8px">Mostrando ${lista.length} de ${todos.length} informes.
-    <button class="btn btn-g btn-min" onclick="verMasResultados()">Ver 100 más</button>
-    <span style="color:var(--gris)">· afina con el buscador o el rango de fechas</span></div>`:''}${tablaResultados(lista)}`;
+  const t=trozoHoja(resultadosFiltrados(), _hojaRes, POR_HOJA_RES);
+  _hojaRes=t.hoja;                 // por si la hoja se quedó fuera de rango
+  const barra=barraHojas(t,'irHojaRes','informe(s)');
+  return `${barra}${tablaResultados(t.items)}${t.hojas>1?barra:''}`;
 }
 /* Ver y descargar SIEMPRE entregan solo lo validado, tanto si la orden está
    completa como si va a medias: esta sección es el archivo de lo que ya se
