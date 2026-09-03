@@ -1348,7 +1348,7 @@ function migrarEstado(s){
       servicios:'Laboratorio Clínico · Bioquímica Clínica · Hematología · Inmunología · Serología · Hormonas · Uroanálisis · Coproanálisis · Microbiología',
       prefijoId:'CDIM',sello:'',firma:'',sucursal:'1',moneda:'L',
       rtn:'12011997009532',razonSocial:'Inversiones Martínez Márquez',
-      codigoDocCot:'F-CDIM-COT-01',revisionDoc:'Rev. 001',validezCot:30,condicionesCot:null,
+      codigoDocCot:'F-CDIM-COT-01',revisionDoc:'Rev. 002',validezCot:30,condicionesCot:null,
       elaborador:'Ronald Martínez',
       reciboPrefijo:'RV',reciboCopia:true,facturaSerie:'',facturaCAI:'',facturaRango:'',facturaLimite:'',
       facCAI:'',facSerie:'',facDesde:0,facHasta:0,facLimite:'',facCopia:true,
@@ -1369,11 +1369,36 @@ function migrarEstado(s){
        cotizacion, y un campo con ese nombre invita a escribir locales que no
        existen. Se renombra conservando lo que hubiera escrito; si estaba
        vacio, se hereda la direccion, que es lo que hacia la version anterior. */
-    if(s.config.dirPie===undefined)
+    if(s.config.dirPie===undefined){
+      /* Solo cuando NUNCA se migro: un dirPie vaciado a proposito tiene que
+         poder quedarse vacio. Vacio, el pie imprime la direccion principal. */
       s.config.dirPie=s.config.sedes||s.config.direccion||'';
-    delete s.config.sedes;
-    /* Solo cuando NUNCA se migro: un dirPie vaciado a proposito tiene que
-       poder quedarse vacio. Vacio, el pie imprime la direccion principal. */
+      s.meta.dirPieV1=1;
+    }
+    if(s.config.sedes!==undefined){ delete s.config.sedes; s.meta.dirPieV1=1; }
+    /* F-CDIM-COT-01 pasa a Rev. 002 (sep. 2026). Cambio de contenido del
+       formulario: el pie dejo de imprimir el nombre inventado de una sede y
+       ahora imprime el numero de sucursal, tomado de la propia cotizacion.
+       Se sube solo desde la 001; una revision puesta a mano no se pisa. */
+    if(s.config.revisionDoc==='Rev. 001' && !s.meta.revCot002){
+      s.config.revisionDoc='Rev. 002';
+      /* El marcador en s.meta hace dos cosas, y las dos hacen falta: impide
+         que el asiento se repita en cada carga, y es lo unico que el barrido
+         de sincronizacion mira para decidir si una migracion hay que subirla
+         al servidor (ver 80_bitacora.js). Sin el, esto se aplicaria en la
+         memoria de cada equipo y nunca quedaria guardado. Misma convencion
+         que s.meta.medicosV1 y s.meta.microV1. */
+      s.meta.revCot002=hoy();
+      /* La constancia es la mitad del control de documentos: sin fecha y
+         motivo, subir el numero no le sirve a quien audita. Se escribe
+         directo sobre s.bitacora porque aqui todavia no hay sesion de la
+         que sacar un responsable. */
+      (s.bitacora=s.bitacora||[]).push({fecha:hoy(),hora:ahoraHora(),
+        responsable:'Sistema', tipo:'Documentos',
+        descripcion:'Formulario '+(s.config.codigoDocCot||'F-CDIM-COT-01')+
+          ' actualizado de Rev. 001 a Rev. 002. Cambio: el pie imprime el numero '+
+          'de sucursal de la propia cotizacion en lugar del nombre de una sede.'});
+    }
     if(!s.config.facLimite)s.config.facLimite='2027-04-28';
     if(s.config.sobreAncho===250&&s.config.sobreAlto===350){s.config.sobreAncho=216;s.config.sobreAlto=279;}
     (s.cotizaciones||[]).forEach(c=>{if(/ronald.*mart[ií]nez/i.test(c.elaboradoPor||''))c.elaboradoPor=s.config.elaborador;});
@@ -1834,7 +1859,7 @@ function estadoInicial(){
       rtn:'12011997009532',
       razonSocial:'Inversiones Martínez Márquez',
       codigoDocCot:'F-CDIM-COT-01',
-      revisionDoc:'Rev. 001',
+      revisionDoc:'Rev. 002',
       validezCot:30,
       condicionesCot:null,
       sello:SELLO_CDIM,
@@ -12409,7 +12434,7 @@ function imprimirCotizacion(n,opciones){
   const pie=`
   <div class="cond">${condiciones}</div>
   <div class="rev">
-    <span><b>${esc(cf.revisionDoc||'Rev. 001')}</b></span>
+    <span><b>${esc(cf.revisionDoc||'Rev. 002')}</b></span>
     <span><b>Gracias por cotizar nuestros servicios; si tiene consultas adicionales, contáctenos.</b></span>
   </div>
   <div class="pie-inst">
@@ -15531,7 +15556,7 @@ function vConfig(){
       <div class="campo"><label>Razón social (cotización y recibo)</label><input id="cf_razon" value="${esc(c.razonSocial||'')}" placeholder="Inversiones Martínez Márquez"></div>
       <div class="campo"><label>R.T.N. del laboratorio</label><input id="cf_rtn" value="${esc(c.rtn||'')}" placeholder="00000000000000"></div>
       <div class="campo"><label>Código del formato de cotización</label><input id="cf_codcot" value="${esc(c.codigoDocCot||'F-CDIM-COT-01')}"></div>
-      <div class="campo"><label>Revisión del documento</label><input id="cf_rev" value="${esc(c.revisionDoc||'Rev. 001')}"></div>
+      <div class="campo"><label>Revisión del documento</label><input id="cf_rev" value="${esc(c.revisionDoc||'Rev. 002')}"></div>
       <div class="campo"><label>Validez de cotizaciones (días)</label><input type="number" id="cf_valcot" value="${c.validezCot||30}"></div>
       <div class="campo" style="grid-column:1/-1"><label>Observaciones frecuentes para informes (una por línea)</label>
         <textarea id="cf_obsfrec" rows="5">${esc((c.obsFrecuentes||[]).join('\n'))}</textarea>
@@ -17431,15 +17456,28 @@ async function cargarDesdeServidor(){
           /* El estado del servidor también debe migrarse: si no, las plantillas
              y estructuras nuevas nunca llegan a las instalaciones en línea.
              Si alguna migración modifica algo, se sube de vuelta. */
-          const antes=JSON.stringify(estado.meta||{});
+          /* La foto de referencia se toma del estado TAL COMO LLEGÓ, ANTES de
+             migrarlo. Tomarla después —como se hacía— metía la migración
+             dentro de la propia referencia, así que calcularDelta() no veía
+             ninguna diferencia y no subía nada: la migración se aplicaba en la
+             memoria de cada equipo, en cada arranque, y no quedaba guardada
+             nunca. El aviso de "Migraciones aplicadas" salía igual, lo que lo
+             hacía más difícil de ver. Lo destapó la revisión del formulario de
+             cotización, que además dejaba un asiento de bitácora repetido en
+             cada carga.
+             marcarEstadoSincronizado() guarda cadenas JSON, no referencias, así
+             que migrar después no toca la foto. */
+          const antes=JSON.stringify({meta:estado.meta||{},config:estado.config||{}});
+          S=estado;
+          marcarEstadoSincronizado();      // referencia = lo que hay en el servidor
           S=migrarEstado(estado);
           _lastTs=ts;
           localStorage.setItem(CLAVE+'_ts',String(ts));
           invalidarIndices();
-          // Acabamos de igualarnos al servidor: esta es la nueva referencia
-          // contra la que se medirá "qué cambió" de aquí en adelante.
-          marcarEstadoSincronizado();
-          if(JSON.stringify(S.meta||{})!==antes){
+          /* Se compara config además de meta: una migración que solo toque la
+             configuración —un campo renombrado, una revisión de documento— es
+             tan digna de subirse como una que toque meta. */
+          if(JSON.stringify({meta:S.meta||{},config:S.config||{}})!==antes){
             console.log('[CDIM] Migraciones aplicadas al estado del servidor');
             _syncPendiente=true;
             setTimeout(subirEstado,1500);
