@@ -5,7 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LIS · CDI Marcala</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <style>
 :root{
@@ -640,7 +641,7 @@ kbd{background:#fff;border:1px solid var(--linea);border-bottom-width:2px;border
   nav{padding-bottom:calc(10px + env(safe-area-inset-bottom))}
   /* Opciones algo más juntas: caben más sin perder área de toque cómoda */
   nav button{padding:11px 18px;font-size:13.5px;gap:11px}
-  nav .ico{width:19px;font-size:15px}
+  nav .ico{width:19px;height:19px}
   /* El pie se compacta para dejarle la pantalla al menú */
   .pie-nav{padding:9px 20px calc(9px + env(safe-area-inset-bottom));font-size:9.5px;
     border-top:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.14)}
@@ -766,9 +767,221 @@ td,th,.ci-txt b,.ci-sub{overflow-wrap:anywhere}
 .perm-txt{flex:1;min-width:0}
 .perm-txt b{display:block;font-size:13.5px;font-weight:700;color:var(--txt);line-height:1.35}
 .perm-txt span{display:block;font-size:11.5px;color:var(--gris);line-height:1.45;margin-top:1px}
+
+/* ==================================================================
+   REFINAMIENTO VISUAL · septiembre 2026
+   ==================================================================
+   Va al final a propósito: mismas clases, misma especificidad, así que
+   estas reglas ganan sin tener que ir a tocar cada sitio de las 759
+   líneas anteriores. Ninguna clase se elimina — hay 42 módulos que
+   dependen de estos nombres.
+
+   La dirección NO es "futurista de neón". Un laboratorio clínico se
+   parece más a un instrumento de precisión que a una nave: lo que
+   transmite calidad aquí es la geometría exacta, los números que se
+   alinean en columna, la jerarquía tipográfica y la ausencia de ruido.
+   Un resplandor de colores encima de un hemograma sería lo contrario.
+   ================================================================== */
+
+/* ── Tipografía ──────────────────────────────────────────────────
+   Montserrat es una geométrica de titulares: buena para el membrete y
+   pésima para leer datos, porque sus cifras tienen anchos distintos y
+   una columna de resultados baila de fila en fila. La interfaz pasa a
+   IBM Plex Sans -diseñada para contextos técnicos- y todo lo que es
+   NÚMERO o CÓDIGO a IBM Plex Mono. Montserrat se queda donde manda: la
+   marca y los títulos de sección. Los documentos impresos no se tocan;
+   tienen su propia hoja de estilos. */
+body{font-family:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility}
+.marca h1,.cabecera h2,.modal h3{font-family:'Montserrat',sans-serif}
+/* Cifras de ancho fijo: sin esto, "1,234" y "9,876" ocupan distinto y las
+   columnas de una tabla clínica dejan de leerse de un vistazo. */
+.kpi .n,.num,td,th,.mono,kbd,.cel-ex,.sync-pill,
+input[type=number],input[type=date],input[type=month],input[type=time]{
+  font-variant-numeric:tabular-nums}
+.kpi .n{font-family:'IBM Plex Mono',ui-monospace,monospace;font-weight:600;
+  letter-spacing:-.6px}
+
+/* ── Iconos ──────────────────────────────────────────────────────
+   Trazo real, no caracteres. Heredan el color y el grosor no cambia
+   entre secciones. */
+nav .ico,.acceso .ai{stroke:currentColor;fill:none;stroke-width:1.6;
+  stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto;display:block}
+nav .ico{width:19px;height:19px;opacity:.72;
+  transition:opacity var(--trans),transform var(--trans)}
+nav button:hover .ico{opacity:1}
+nav button.activo .ico{opacity:1;color:var(--dorado-claro)}
+.acceso .ai{width:20px;height:20px;color:var(--azul);margin-bottom:0}
+
+/* ── Barra lateral ───────────────────────────────────────────────
+   El estado activo era un fondo dorado translúcido con borde. Ahora es
+   un riel sólido y un fondo más contenido: se ve dónde estás sin que la
+   opción activa grite más que el contenido. */
+aside{background:linear-gradient(168deg,#20475e 0%,var(--azul-osc) 62%,#0b1d28 100%);
+  box-shadow:1px 0 0 rgba(255,255,255,.05), 4px 0 24px rgba(11,29,40,.14)}
+.marca{padding:0 20px 16px}
+.marca h1{font-size:16.5px;font-weight:700;letter-spacing:-.2px}
+.marca p{font-size:10px;letter-spacing:.06em;text-transform:uppercase;
+  color:rgba(255,255,255,.5);font-weight:500;margin-top:4px}
+nav button{gap:12px;padding:9.5px 20px;font-size:13px;font-weight:500;
+  letter-spacing:.1px;color:rgba(255,255,255,.72);border-left:0;
+  position:relative;transition:color var(--trans),background var(--trans)}
+nav button::before{content:'';position:absolute;left:0;top:6px;bottom:6px;width:3px;
+  border-radius:0 3px 3px 0;background:transparent;transition:background var(--trans)}
+nav button:hover{background:rgba(255,255,255,.055);color:#fff}
+nav button.activo{background:linear-gradient(90deg,rgba(184,151,74,.16),rgba(184,151,74,.02));
+  color:#fff;font-weight:600}
+nav button.activo::before{background:var(--dorado)}
+nav button:focus-visible{outline:none;background:rgba(255,255,255,.1)}
+nav button:focus-visible::before{background:var(--dorado-claro)}
+
+/* ── Encabezado de sección ───────────────────────────────────────
+   El subrayado dorado fijo bajo cada título se cambia por una regla que
+   cruza toda la fila: enmarca la sección en vez de decorar la palabra. */
+.cabecera{padding-bottom:14px;border-bottom:1px solid var(--linea);margin-bottom:20px}
+.cabecera h2{font-size:22px;font-weight:700;letter-spacing:-.4px;color:var(--tinta)}
+.cabecera h2::after{width:34px;height:2.5px;margin-top:7px;background:var(--dorado);
+  border-radius:2px}
+
+/* ── Accesos rápidos ─────────────────────────────────────────────
+   El icono pasa a una loseta con fondo tenue: le da un ancla visual a
+   cada acción y hace que la fila se lea como seis botones y no como seis
+   párrafos. */
+.accesos{gap:11px}
+.acceso{gap:10px;padding:14px 15px;border-radius:var(--r-m);
+  box-shadow:0 1px 2px rgba(16,38,52,.05)}
+.acceso::before{content:'';position:absolute;inset:0;border-radius:inherit;
+  border:1px solid transparent;transition:border-color var(--trans);pointer-events:none}
+.acceso{position:relative}
+.acceso:hover{transform:translateY(-2px);box-shadow:var(--s2);border-color:transparent}
+.acceso:hover::before{border-color:var(--azul)}
+.acceso .ai{padding:0}
+.acceso>svg.ai{width:34px;height:34px;padding:7px;border-radius:9px;
+  background:linear-gradient(150deg,#eaf1f5,#f6f9fb);color:var(--azul);
+  box-shadow:inset 0 0 0 1px rgba(40,80,104,.09);transition:var(--trans)}
+.acceso:hover>svg.ai{background:linear-gradient(150deg,var(--azul),#1b3d54);color:#fff;
+  box-shadow:0 4px 12px rgba(40,80,104,.28)}
+.acceso b{font-size:13px;font-weight:600;letter-spacing:-.1px}
+.acceso small{font-size:11px;color:var(--gris)}
+
+/* ── Indicadores (KPI) ───────────────────────────────────────────
+   El borde de color de la izquierda se conserva: varios módulos lo usan
+   en línea para codificar estado (verde/ámbar/rojo) y quitarlo borraría
+   ese significado. Lo que cambia es todo lo demás: la cifra manda, el
+   rótulo acompaña. */
+.kpi{border-left-width:3px;border-radius:var(--r-m);padding:15px 17px;
+  box-shadow:0 1px 2px rgba(16,38,52,.05);transition:box-shadow var(--trans)}
+.kpi:hover{box-shadow:var(--s2)}
+.kpi .n{font-size:29px;line-height:1.05}
+.kpi .t{font-size:10.5px;font-weight:600;letter-spacing:.09em;margin-top:5px;
+  color:var(--gris)}
+
+/* ── Tarjetas ────────────────────────────────────────────────────
+   Menos borde y más aire: la separación la hace el fondo, no una línea
+   alrededor de cada bloque. */
+.tarjeta{border-radius:var(--r-m);padding:19px 20px;
+  box-shadow:0 1px 2px rgba(16,38,52,.05),0 0 0 1px rgba(16,38,52,.035);
+  border-color:transparent}
+
+/* ── Tablas ──────────────────────────────────────────────────────
+   Encabezado con fondo tenue y línea fina en vez de una regla gruesa; el
+   ojo separa las filas por el ritmo, no por el peso del trazo. */
+th{font-size:10px;letter-spacing:.09em;font-weight:600;padding:10px;
+  border-bottom:1px solid var(--linea);background:#f7fafb;color:var(--gris)}
+.tarjeta table thead th:first-child{border-top-left-radius:7px}
+.tarjeta table thead th:last-child{border-top-right-radius:7px}
+td{padding:10px;border-bottom:1px solid #eef3f5;font-size:13px}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:#f6fafc}
+
+/* ── Distintivos ─────────────────────────────────────────────────
+   Un poco más de aire y peso: los estados se leen a un metro de la
+   pantalla, que es la distancia a la que se trabaja en recepción. */
+.chip{padding:3.5px 10px;font-size:10.5px;font-weight:600;letter-spacing:.15px;
+  border-radius:6px;line-height:1.45}
+
+/* ── Botones ─────────────────────────────────────────────────────
+   Jerarquía real: el primario pesa, el secundario acompaña y el
+   destructivo avisa sin gritar. */
+.btn{border-radius:8px;font-weight:600;font-size:12.5px;letter-spacing:.1px;
+  transition:background var(--trans),box-shadow var(--trans),transform .1s;
+  display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn:active{transform:translateY(1px)}
+.btn-p{box-shadow:0 1px 2px rgba(16,38,52,.16)}
+.btn-p:hover{box-shadow:0 3px 10px rgba(40,80,104,.26)}
+.btn-v:hover{box-shadow:0 3px 10px rgba(112,160,32,.28)}
+.btn-d:hover{box-shadow:0 3px 10px rgba(184,151,74,.3)}
+.btn-g{background:#eef2f5;box-shadow:inset 0 0 0 1px rgba(16,38,52,.07)}
+.btn:focus-visible{outline:2px solid var(--azul);outline-offset:2px}
+.btn-min{border-radius:7px}
+
+/* ── Campos ──────────────────────────────────────────────────────
+   El foco deja de ser solo un cambio de color de borde: un halo suave
+   dice sin ambigüedad dónde está el cursor. */
+input,select,textarea{border-radius:8px;border-color:#d5dfe5;
+  transition:border-color var(--trans),box-shadow var(--trans)}
+input:hover,select:hover,textarea:hover{border-color:#bccbd5}
+input:focus,select:focus,textarea:focus{border-color:var(--azul);
+  box-shadow:0 0 0 3px rgba(40,80,104,.13)}
+.campo label{font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--gris)}
+
+/* ── Ventanas ────────────────────────────────────────────────────*/
+.velo{background:rgba(11,29,40,.5);backdrop-filter:blur(3px)}
+.modal{border-radius:14px;box-shadow:0 24px 70px rgba(11,29,40,.34),
+  0 0 0 1px rgba(255,255,255,.6) inset}
+.modal h3{font-size:18px;font-weight:700;letter-spacing:-.25px;color:var(--tinta)}
+.toast{border-radius:10px;box-shadow:0 10px 30px rgba(11,29,40,.3);font-weight:500}
+
+/* ── Movimiento ──────────────────────────────────────────────────
+   Quien pidió menos movimiento en su sistema no debería recibir
+   transiciones ni el latido del aviso de sincronización. */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms !important;
+    animation-iteration-count:1 !important;transition-duration:.001ms !important}
+  .acceso:hover,.btn:active{transform:none}
+}
 </style>
 </head>
 <body>
+<!-- Juego de iconos ─────────────────────────────────────────────
+     Antes cada sección llevaba un carácter suelto: emoji (🩺 📦 🧾), símbolos
+     de imprenta (◆ ◎ ◈ ▣), una letra de moneda para Cotizaciones (L) y una
+     sigma para Contabilidad. Además ▤ estaba repetido en Etiquetas y Almacén,
+     así que dos secciones distintas se veían iguales.
+
+     Estos son trazos, no texto: heredan el color con currentColor, pesan lo
+     mismo en todas las secciones y se ven idénticos en cualquier sistema
+     operativo -un emoji lo dibuja el sistema, y en Windows, Android y macOS
+     salen tres dibujos distintos-. Rejilla de 24, trazo de 1.6. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+<symbol id="i-inicio" viewBox="0 0 24 24"><path d="M4 11.2 12 4.5l8 6.7"/><path d="M6.2 10v9.5h11.6V10"/><path d="M10.2 19.5v-5h3.6v5"/></symbol>
+<symbol id="i-pacientes" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20a6.5 6.5 0 0 1 13 0"/></symbol>
+<symbol id="i-medicos" viewBox="0 0 24 24"><path d="M6 3.5v5.2a4.2 4.2 0 0 0 8.4 0V3.5"/><path d="M6 3.5H4.2M14.4 3.5h1.8"/><path d="M10.2 13v2.6a4.4 4.4 0 0 0 8.8 0v-1.4"/><circle cx="19" cy="12.2" r="1.9"/></symbol>
+<symbol id="i-examenes" viewBox="0 0 24 24"><path d="M9.5 3.5v6.2L4.8 18a2 2 0 0 0 1.7 3h11a2 2 0 0 0 1.7-3l-4.7-8.3V3.5"/><path d="M8.2 3.5h7.6"/><path d="M7.1 14.4h9.8"/></symbol>
+<symbol id="i-perfiles" viewBox="0 0 24 24"><path d="m12 3.2 8.2 4.2-8.2 4.2-8.2-4.2z"/><path d="m3.8 12 8.2 4.2 8.2-4.2"/><path d="m3.8 16.5 8.2 4.2 8.2-4.2"/></symbol>
+<symbol id="i-cotizaciones" viewBox="0 0 24 24"><path d="M6 3.2h8.4L19 7.9V20a.8.8 0 0 1-.8.8H6a.8.8 0 0 1-.8-.8V4a.8.8 0 0 1 .8-.8z"/><path d="M14 3.4v4.6h4.6"/><path d="M9 12.6h6M9 16.2h4"/></symbol>
+<symbol id="i-ordenes" viewBox="0 0 24 24"><path d="M9 4.2H6.6a.8.8 0 0 0-.8.8v15a.8.8 0 0 0 .8.8h10.8a.8.8 0 0 0 .8-.8V5a.8.8 0 0 0-.8-.8H15"/><rect x="9" y="2.6" width="6" height="3.2" rx=".9"/><path d="m8.8 13.4 2.2 2.2 4.2-4.4"/></symbol>
+<symbol id="i-resultados" viewBox="0 0 24 24"><path d="M6 3.2h8.4L19 7.9V20a.8.8 0 0 1-.8.8H6a.8.8 0 0 1-.8-.8V4a.8.8 0 0 1 .8-.8z"/><path d="M14 3.4v4.6h4.6"/><path d="m8.4 15.4 2 2 4-4.6"/></symbol>
+<symbol id="i-etiquetas" viewBox="0 0 24 24"><path d="M3.6 10.4V5a1.4 1.4 0 0 1 1.4-1.4h5.4a1.4 1.4 0 0 1 1 .4l8 8a1.4 1.4 0 0 1 0 2l-5.4 5.4a1.4 1.4 0 0 1-2 0l-8-8a1.4 1.4 0 0 1-.4-1z"/><circle cx="7.9" cy="7.9" r="1.5"/></symbol>
+<symbol id="i-instructivos" viewBox="0 0 24 24"><path d="M4.4 4.6A1.4 1.4 0 0 1 5.8 3.2H19a.8.8 0 0 1 .8.8v14.4a.8.8 0 0 1-.8.8H5.8a1.4 1.4 0 0 0-1.4 1.4z"/><path d="M4.4 19.2a1.4 1.4 0 0 1 1.4-1.4h14"/><path d="M8.4 7.6h7M8.4 11h5"/></symbol>
+<symbol id="i-recibos" viewBox="0 0 24 24"><path d="M5.4 3.4h13.2v17.2l-2.2-1.5-2.2 1.5-2.2-1.5-2.2 1.5-2.2-1.5-2.2 1.5z"/><path d="M9 8.4h6M9 12.2h6"/></symbol>
+<symbol id="i-facturas" viewBox="0 0 24 24"><path d="M6 3.2h8.4L19 7.9V20a.8.8 0 0 1-.8.8H6a.8.8 0 0 1-.8-.8V4a.8.8 0 0 1 .8-.8z"/><path d="M14 3.4v4.6h4.6"/><path d="M12 10.4v7"/><path d="M14 12.1a1.9 1.9 0 0 0-1.9-1.3h-.5a1.7 1.7 0 0 0-.3 3.4h1.4a1.7 1.7 0 0 1-.3 3.4h-.5a1.9 1.9 0 0 1-1.9-1.3"/></symbol>
+<symbol id="i-calidad" viewBox="0 0 24 24"><path d="M3.4 20.2h17.2"/><path d="M3.4 8.4h17.2M3.4 15h17.2" stroke-dasharray="2.4 2.4" opacity=".55"/><path d="m3.8 13.6 3.6-4.4 3.4 3.2 3.4-5.2 3.4 4 2.6-2.4"/></symbol>
+<symbol id="i-almacen" viewBox="0 0 24 24"><path d="M3.4 8.2 12 3.6l8.6 4.6v10.2a.8.8 0 0 1-.8.8H4.2a.8.8 0 0 1-.8-.8z"/><path d="M9 19.2v-6.4h6v6.4"/><path d="M3.4 8.2h17.2"/></symbol>
+<symbol id="i-sgc" viewBox="0 0 24 24"><path d="M12 3.2 4.6 6v6.1c0 4.4 3 7.6 7.4 8.7 4.4-1.1 7.4-4.3 7.4-8.7V6z"/><path d="m8.8 12.2 2.2 2.2 4.2-4.4"/></symbol>
+<symbol id="i-caja" viewBox="0 0 24 24"><rect x="3.2" y="6.4" width="17.6" height="13" rx="1.6"/><path d="M3.2 10.6h17.6"/><path d="M16.4 15.4h1.8"/><path d="M6.6 6.4V4.8a1.4 1.4 0 0 1 1.4-1.4h8a1.4 1.4 0 0 1 1.4 1.4v1.6"/></symbol>
+<symbol id="i-conta" viewBox="0 0 24 24"><rect x="4.6" y="3.2" width="14.8" height="17.6" rx="1.6"/><path d="M8 7.4h8"/><path d="M8.4 11.6h.02M12 11.6h.02M15.6 11.6h.02M8.4 15.2h.02M12 15.2h.02M15.6 15.2h.02" stroke-width="2.2" stroke-linecap="round"/></symbol>
+<symbol id="i-estadisticas" viewBox="0 0 24 24"><path d="M3.6 20.4h16.8"/><rect x="5.4" y="12.4" width="3.4" height="6"/><rect x="10.3" y="7.6" width="3.4" height="10.8"/><rect x="15.2" y="4.2" width="3.4" height="14.2"/></symbol>
+<symbol id="i-bitacora" viewBox="0 0 24 24"><path d="M11.4 3.4H5.8a.8.8 0 0 0-.8.8v15.6a.8.8 0 0 0 .8.8h12.4a.8.8 0 0 0 .8-.8v-6"/><path d="M8.6 8.2h5M8.6 11.8h3.4"/><path d="M15.2 11.4 20 6.6a1.7 1.7 0 0 0-2.4-2.4l-4.8 4.8-.6 3z"/></symbol>
+<symbol id="i-respaldos" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7.2" ry="2.8"/><path d="M4.8 6v11.8c0 1.5 3.2 2.8 7.2 2.8s7.2-1.3 7.2-2.8V6"/><path d="M4.8 11.9c0 1.5 3.2 2.8 7.2 2.8s7.2-1.3 7.2-2.8"/></symbol>
+<symbol id="i-usuarios" viewBox="0 0 24 24"><circle cx="9.2" cy="8.2" r="3.1"/><path d="M3.4 19.6a5.8 5.8 0 0 1 11.6 0"/><path d="M16.2 5.5a3.1 3.1 0 0 1 0 5.9"/><path d="M17.4 14.6a5.8 5.8 0 0 1 3.2 5"/></symbol>
+<symbol id="i-config" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.6M12 18.6v2.6M21.2 12h-2.6M5.4 12H2.8M18.5 5.5l-1.8 1.8M7.3 16.7l-1.8 1.8M18.5 18.5l-1.8-1.8M7.3 7.3 5.5 5.5"/></symbol>
+<symbol id="i-cambiar" viewBox="0 0 24 24"><path d="M4 8.4h13.4"/><path d="m14.4 5.2 3.2 3.2-3.2 3.2"/><path d="M20 15.6H6.6"/><path d="m9.6 12.4-3.2 3.2 3.2 3.2"/></symbol>
+<symbol id="i-salir" viewBox="0 0 24 24"><path d="M9.6 20.4H5.4a.9.9 0 0 1-.9-.9V4.5a.9.9 0 0 1 .9-.9h4.2"/><path d="M15.4 16.2 19.8 12l-4.4-4.2"/><path d="M19.4 12H9.2"/></symbol>
+<symbol id="i-nuevo" viewBox="0 0 24 24"><circle cx="10" cy="8" r="3.2"/><path d="M4 19.6a6 6 0 0 1 10.4-4"/><path d="M17.4 14.4v6M20.4 17.4h-6"/></symbol>
+<symbol id="i-capturar" viewBox="0 0 24 24"><rect x="3.2" y="6.2" width="17.6" height="11.6" rx="1.6"/><path d="M7 10h.02M10.4 10h.02M13.8 10h.02M17.2 10h.02M7 13.4h.02M17.2 13.4h.02" stroke-width="2.2" stroke-linecap="round"/><path d="M10.4 13.4h3.4"/></symbol>
+</defs></svg>
 <a href="#vista" class="salto">Saltar al contenido</a>
 <header class="topbar">
   <button class="hamb" id="btn_menu" aria-label="Abrir el menú de secciones" aria-expanded="false" onclick="alternarMenu()">☰</button>
@@ -782,30 +995,30 @@ td,th,.ci-txt b,.ci-sub{overflow-wrap:anywhere}
     <p>Sistema de Laboratorio Clínico</p>
   </div>
   <nav id="menu" aria-label="Secciones del sistema">
-    <button data-v="inicio" class="activo" aria-label="Inicio"><span class="ico" aria-hidden="true">◆</span>Inicio</button>
-    <button data-v="pacientes" aria-label="Pacientes"><span class="ico" aria-hidden="true">☰</span>Pacientes</button>
-    <button data-v="medicos" aria-label="Médicos"><span class="ico" aria-hidden="true">🩺</span>Médicos</button>
-    <button data-v="examenes" aria-label="Exámenes / Plantillas"><span class="ico" aria-hidden="true">⚗</span>Exámenes / Plantillas</button>
-    <button data-v="perfiles" aria-label="Combos / Perfiles"><span class="ico" aria-hidden="true">📦</span>Combos / Perfiles</button>
-    <button data-v="cotizaciones" aria-label="Cotizaciones"><span class="ico" aria-hidden="true">L</span>Cotizaciones</button>
-    <button data-v="ordenes" aria-label="Órdenes de Trabajo"><span class="ico" aria-hidden="true">✓</span>Órdenes de Trabajo</button>
-    <button data-v="resultados" aria-label="Resultados validados"><span class="ico" aria-hidden="true">📄</span>Resultados</button>
-    <button data-v="etiquetas" aria-label="Etiquetas 57×32"><span class="ico" aria-hidden="true">▤</span>Etiquetas 57×32</button>
-    <button data-v="instructivos" aria-label="Instructivos de preparación"><span class="ico" aria-hidden="true">📋</span>Instructivos</button>
-    <button data-v="recibos" aria-label="Recibos de Venta"><span class="ico" aria-hidden="true">₤</span>Recibos de Venta</button>
-    <button data-v="facturas" aria-label="Facturas"><span class="ico" aria-hidden="true">🧾</span>Facturas</button>
-    <button data-v="calidad" aria-label="Control de Calidad"><span class="ico" aria-hidden="true">◎</span>Control de Calidad</button>
-    <button data-v="almacen" aria-label="Almacén"><span class="ico" aria-hidden="true">▤</span>Almacén</button>
-    <button data-v="sgc" aria-label="Sistema de Gestión de la Calidad"><span class="ico" aria-hidden="true">◈</span>Gestión de Calidad</button>
-    <button data-v="caja" aria-label="Caja"><span class="ico" aria-hidden="true">▣</span>Caja</button>
-    <button data-v="conta" aria-label="Contabilidad"><span class="ico" aria-hidden="true">Σ</span>Contabilidad</button>
-    <button data-v="estadisticas" aria-label="Estadísticas"><span class="ico" aria-hidden="true">📊</span>Estadísticas</button>
-    <button data-v="bitacora" aria-label="Bitácora"><span class="ico" aria-hidden="true">✎</span>Bitácora</button>
-    <button data-v="respaldos" id="btn-respaldos" style="display:none" aria-label="Respaldos"><span class="ico" aria-hidden="true">💾</span>Respaldos</button>
-    <button data-v="usuarios" id="btn-usuarios" style="display:none" aria-label="Usuarios"><span class="ico" aria-hidden="true">👥</span>Usuarios</button>
-    <button data-v="config" aria-label="Configuración"><span class="ico" aria-hidden="true">⚙</span>Configuración</button>
-    <button onclick="cambiarUsuario()" id="btn-cambiar" style="display:none" aria-label="Cambiar de usuario"><span class="ico" aria-hidden="true">⇄</span>Cambiar de usuario</button>
-    <button onclick="cerrarSesion()" id="btn-logout" style="display:none;margin-top:4px;background:rgba(192,57,43,.15);color:#e88" aria-label="Cerrar sesión"><span class="ico" aria-hidden="true">⏻</span>Cerrar sesión</button>
+    <button data-v="inicio" class="activo" aria-label="Inicio"><svg class="ico" aria-hidden="true"><use href="#i-inicio"/></svg>Inicio</button>
+    <button data-v="pacientes" aria-label="Pacientes"><svg class="ico" aria-hidden="true"><use href="#i-pacientes"/></svg>Pacientes</button>
+    <button data-v="medicos" aria-label="Médicos"><svg class="ico" aria-hidden="true"><use href="#i-medicos"/></svg>Médicos</button>
+    <button data-v="examenes" aria-label="Exámenes / Plantillas"><svg class="ico" aria-hidden="true"><use href="#i-examenes"/></svg>Exámenes / Plantillas</button>
+    <button data-v="perfiles" aria-label="Combos / Perfiles"><svg class="ico" aria-hidden="true"><use href="#i-perfiles"/></svg>Combos / Perfiles</button>
+    <button data-v="cotizaciones" aria-label="Cotizaciones"><svg class="ico" aria-hidden="true"><use href="#i-cotizaciones"/></svg>Cotizaciones</button>
+    <button data-v="ordenes" aria-label="Órdenes de Trabajo"><svg class="ico" aria-hidden="true"><use href="#i-ordenes"/></svg>Órdenes de Trabajo</button>
+    <button data-v="resultados" aria-label="Resultados validados"><svg class="ico" aria-hidden="true"><use href="#i-resultados"/></svg>Resultados</button>
+    <button data-v="etiquetas" aria-label="Etiquetas 57×32"><svg class="ico" aria-hidden="true"><use href="#i-etiquetas"/></svg>Etiquetas 57×32</button>
+    <button data-v="instructivos" aria-label="Instructivos de preparación"><svg class="ico" aria-hidden="true"><use href="#i-instructivos"/></svg>Instructivos</button>
+    <button data-v="recibos" aria-label="Recibos de Venta"><svg class="ico" aria-hidden="true"><use href="#i-recibos"/></svg>Recibos de Venta</button>
+    <button data-v="facturas" aria-label="Facturas"><svg class="ico" aria-hidden="true"><use href="#i-facturas"/></svg>Facturas</button>
+    <button data-v="calidad" aria-label="Control de Calidad"><svg class="ico" aria-hidden="true"><use href="#i-calidad"/></svg>Control de Calidad</button>
+    <button data-v="almacen" aria-label="Almacén"><svg class="ico" aria-hidden="true"><use href="#i-almacen"/></svg>Almacén</button>
+    <button data-v="sgc" aria-label="Sistema de Gestión de la Calidad"><svg class="ico" aria-hidden="true"><use href="#i-sgc"/></svg>Gestión de Calidad</button>
+    <button data-v="caja" aria-label="Caja"><svg class="ico" aria-hidden="true"><use href="#i-caja"/></svg>Caja</button>
+    <button data-v="conta" aria-label="Contabilidad"><svg class="ico" aria-hidden="true"><use href="#i-conta"/></svg>Contabilidad</button>
+    <button data-v="estadisticas" aria-label="Estadísticas"><svg class="ico" aria-hidden="true"><use href="#i-estadisticas"/></svg>Estadísticas</button>
+    <button data-v="bitacora" aria-label="Bitácora"><svg class="ico" aria-hidden="true"><use href="#i-bitacora"/></svg>Bitácora</button>
+    <button data-v="respaldos" id="btn-respaldos" style="display:none" aria-label="Respaldos"><svg class="ico" aria-hidden="true"><use href="#i-respaldos"/></svg>Respaldos</button>
+    <button data-v="usuarios" id="btn-usuarios" style="display:none" aria-label="Usuarios"><svg class="ico" aria-hidden="true"><use href="#i-usuarios"/></svg>Usuarios</button>
+    <button data-v="config" aria-label="Configuración"><svg class="ico" aria-hidden="true"><use href="#i-config"/></svg>Configuración</button>
+    <button onclick="cambiarUsuario()" id="btn-cambiar" style="display:none" aria-label="Cambiar de usuario"><svg class="ico" aria-hidden="true"><use href="#i-cambiar"/></svg>Cambiar de usuario</button>
+    <button onclick="cerrarSesion()" id="btn-logout" style="display:none;margin-top:4px;background:rgba(192,57,43,.15);color:#e88" aria-label="Cerrar sesión"><svg class="ico" aria-hidden="true"><use href="#i-salir"/></svg>Cerrar sesión</button>
   </nav>
   <div id="sync-status" class="sync-pill" hidden></div>
   <div class="pie-nav" style="border-top:1px solid rgba(255,255,255,.12);padding-top:12px">
@@ -2215,12 +2428,12 @@ function vInicio(){
     </div>
   </div>
   <div class="accesos">
-    <button class="acceso" onclick="modalPaciente()"><span class="ai" aria-hidden="true">＋</span><b>Nuevo paciente</b><small>Registrar ficha</small></button>
-    <button class="acceso" onclick="modalOrdenDirecta()"><span class="ai" aria-hidden="true">✓</span><b>Nueva orden</b><small>Doble clic para agregar</small></button>
-    <button class="acceso" onclick="modalCotizacion()"><span class="ai" aria-hidden="true">L</span><b>Cotizar</b><small>Pre orden al cliente</small></button>
-    <button class="acceso" onclick="modalRecibo()"><span class="ai" aria-hidden="true">₤</span><b>Emitir recibo</b><small>Venta o servicio</small></button>
-    <button class="acceso" onclick="irA('ordenes')"><span class="ai" aria-hidden="true">⌨</span><b>Capturar resultados</b><small>${pend} orden(es) activas</small></button>
-    <button class="acceso" onclick="irA(S.caja.abierta?'caja':'caja')"><span class="ai" aria-hidden="true">▣</span><b>${S.caja.abierta?'Cerrar caja':'Abrir caja'}</b><small>${S.caja.abierta?'Turno en curso':'Iniciar el turno'}</small></button>
+    <button class="acceso" onclick="modalPaciente()"><svg class="ai" aria-hidden="true"><use href="#i-nuevo"/></svg><b>Nuevo paciente</b><small>Registrar ficha</small></button>
+    <button class="acceso" onclick="modalOrdenDirecta()"><svg class="ai" aria-hidden="true"><use href="#i-ordenes"/></svg><b>Nueva orden</b><small>Doble clic para agregar</small></button>
+    <button class="acceso" onclick="modalCotizacion()"><svg class="ai" aria-hidden="true"><use href="#i-cotizaciones"/></svg><b>Cotizar</b><small>Pre orden al cliente</small></button>
+    <button class="acceso" onclick="modalRecibo()"><svg class="ai" aria-hidden="true"><use href="#i-recibos"/></svg><b>Emitir recibo</b><small>Venta o servicio</small></button>
+    <button class="acceso" onclick="irA('ordenes')"><svg class="ai" aria-hidden="true"><use href="#i-capturar"/></svg><b>Capturar resultados</b><small>${pend} orden(es) activas</small></button>
+    <button class="acceso" onclick="irA(S.caja.abierta?'caja':'caja')"><svg class="ai" aria-hidden="true"><use href="#i-caja"/></svg><b>${S.caja.abierta?'Cerrar caja':'Abrir caja'}</b><small>${S.caja.abierta?'Turno en curso':'Iniciar el turno'}</small></button>
   </div>
   <div class="kpis">
     <div class="kpi"><div class="n">${S.pacientes.length}</div><div class="t">Pacientes</div></div>
