@@ -30,17 +30,33 @@ const CACHE = "cdim-" + VERSION;
 const BASE = ["./index.html","./paciente.html","./cotizacion.html",
               "./paciente_manifest.json","./icon-192.png","./icon-512.png"];
 
+/* ── Interruptor de emergencia ──
+   Trabajar en línea es lo que importa; guardar el programa es el seguro. Si el
+   seguro llegara a estorbar —un navegador que se comporte raro, una máquina que
+   se quede pegada en una versión—, se pone esto en true y se despliega: cada
+   navegador que pida el sw.js borra lo guardado, se da de baja y vuelve a
+   hablar con el servidor directamente, como si nunca hubiera existido.
+   Encender:  npm run desplegar -- --sin-sw
+   Apagar:    npm run desplegar
+   (Con esto en true la aplicación lo vuelve a registrar en cada carga y él se
+   vuelve a dar de baja. Es ruido inofensivo: no guarda ni sirve nada.) */
+const APAGADO = false;
+
 self.addEventListener("install", e => {
   self.skipWaiting();
+  if (APAGADO) return;
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(BASE).catch(() => {})));
 });
 
 self.addEventListener("activate", e => {
-  e.waitUntil(
-    caches.keys()
-      .then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))
-      .then(() => self.clients.claim())
-  );
+  e.waitUntil((async () => {
+    try {
+      const ks = await caches.keys();
+      await Promise.all(ks.filter(k => APAGADO || k !== CACHE).map(k => caches.delete(k)));
+    } catch (e) { /* si no se pudo limpiar, no se bloquea la activación */ }
+    if (APAGADO) { try { await self.registration.unregister(); } catch (e) {} }
+    await self.clients.claim();
+  })());
 });
 
 /* Sin conexión, cada página cae a la suya. La versión anterior devolvía
@@ -58,31 +74,50 @@ function paginaDeRespaldo(url) {
 }
 
 async function redPrimero(req, url) {
+  let r;
   try {
-    const r = await fetch(req);
-    /* Solo se guarda lo que sirve: una respuesta 404 o 500 en la caché
-       convertiría un error pasajero en un error permanente. */
-    if (r && r.ok && req.method === "GET") {
-      const c = await caches.open(CACHE);
-      c.put(req, r.clone()).catch(() => {});
-    }
-    return r;
+    r = await fetch(req);
   } catch (e) {
-    const guardada = await caches.match(req);
-    if (guardada) return guardada;
-    const respaldo = await caches.match(paginaDeRespaldo(url));
-    if (respaldo) return respaldo;
+    /* Solo aquí, con la red caída de verdad, se recurre a lo guardado. */
+    try {
+      const guardada = await caches.match(req);
+      if (guardada) return guardada;
+      const respaldo = await caches.match(paginaDeRespaldo(url));
+      if (respaldo) return respaldo;
+    } catch (e2) { /* sin caché tampoco: se responde abajo */ }
     return new Response("Sin conexión", {status: 503, headers: {"Content-Type": "text/plain"}});
   }
+  /* Guardar es un EXTRA, y va en su propio try a propósito. Si el
+     almacenamiento falla -disco lleno, ventana privada, política del
+     navegador-, eso no puede cambiar lo que ve quien está trabajando: la red
+     ya respondió y esa respuesta es la que manda. Estando en línea, lo que se
+     entrega viene siempre de la red; no hay ningún camino por el que un
+     problema de caché acabe sirviendo una versión vieja.
+     Solo se guarda lo que sirve: un 404 o un 500 en la caché convertiría un
+     error pasajero en uno permanente. */
+  if (r && r.ok && req.method === "GET") {
+    try {
+      const c = await caches.open(CACHE);
+      await c.put(req, r.clone());
+    } catch (e) { /* da igual: la respuesta de la red se entrega igual */ }
+  }
+  return r;
 }
 
 async function cachePrimero(req) {
-  const guardada = await caches.match(req);
-  if (guardada) return guardada;
-  return fetch(req);
+  try {
+    const guardada = await caches.match(req);
+    if (guardada) return guardada;
+  } catch (e) { /* sin caché disponible: se pide a la red */ }
+  /* Si la red tampoco puede, se devuelve un error en vez de dejar que la
+     promesa de respondWith se rompa: una promesa rota aquí le rompe la
+     petición al navegador. */
+  try { return await fetch(req); }
+  catch (e) { return new Response("", {status: 504}); }
 }
 
 self.addEventListener("fetch", e => {
+  if (APAGADO) return;          // apagado: todo va directo a la red
   const req = e.request;
   if (req.method !== "GET") return;
   const url = new URL(req.url);
