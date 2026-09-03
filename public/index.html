@@ -1015,6 +1015,35 @@ th{word-break:normal;overflow-wrap:normal;hyphens:none}
 @media (max-width:460px){
   .kpis,.kpis[style*="repeat"]{grid-template-columns:1fr !important}
 }
+
+/* ---------- Campos numericos dentro de una tabla ---------- */
+/* En la cotizacion, la cantidad no se veia y el precio de los electrolitos
+   salia cortado ("110C" en vez de 1100). No era la columna sola: un campo
+   hereda padding 8px 10px -20px solo de margenes- y encima el navegador le
+   pone las flechitas del numero, que se comen otros ~17px. En una columna de
+   60px no quedaba sitio para los digitos.
+
+   Aqui manda la columna, no el campo: menos margen y sin flechitas. Las
+   flechitas no se pierden por nada -a ese tamano eran inservibles- y el
+   numero se sigue escribiendo igual. Alineado a la derecha porque son cifras
+   y asi las unidades quedan una debajo de otra. */
+td input[type=number],td input[type=text].num,td input.in-num{
+  padding-left:6px;padding-right:6px;text-align:right}
+td input[type=number]{-moz-appearance:textfield;appearance:textfield}
+td input[type=number]::-webkit-outer-spin-button,
+td input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+
+/* La tabla de renglones de la cotizacion en pantalla angosta.
+   Son nueve columnas y cinco de ellas llevan un campo editable. En 375px no
+   caben, y apretarlas es peor que no mostrarlas: el precio 1100 quedaba en un
+   campo de 40px y el total "L 13,200.00" salia partido en cuatro lineas.
+   Lo correcto en una tabla asi de densa es conservar el ancho util de cada
+   columna y deslizarla de lado, que es lo que se hace en el telefono con
+   cualquier hoja de calculo. */
+@media (max-width:760px){
+  #c_items{overflow-x:auto}
+  #c_items>table{min-width:680px}
+}
 </style>
 </head>
 <body>
@@ -4454,7 +4483,7 @@ function pintarItemsCot(){
   const cont=document.getElementById('c_items');if(!cont)return;
   cont.innerHTML=itemsCotTmp.length?`<table>
     <thead><tr><th style="width:30px">#</th><th>Descripción</th><th style="width:62px">Unidad</th>
-    <th style="width:60px">Cant.</th><th style="width:86px">Precio</th><th style="width:70px">Desc. %</th>
+    <th style="width:66px">Cant.</th><th style="width:104px">Precio</th><th style="width:70px">Desc. %</th>
     <th style="width:82px;text-align:right">Descuento</th>
     <th style="width:90px;text-align:right">Total</th><th style="width:30px"></th></tr></thead><tbody>
     ${itemsCotTmp.map((i,x)=>{const pc=pctItem(i),d=descItem(i);return `<tr>
@@ -4465,8 +4494,8 @@ function pintarItemsCot(){
       <td><input type="number" min="1" step="1" value="${i.cantidad}" onchange="itemsCotTmp[${x}].cantidad=Math.max(1,parseInt(this.value)||1);pintarItemsCot()"></td>
       <td><input type="number" min="0" step="0.01" value="${i.precio}" onchange="itemsCotTmp[${x}].precio=Number(this.value)||0;pintarItemsCot()"></td>
       <td><input class="in-desc" type="number" min="0" max="100" step="0.5" value="${pc}" onchange="itemsCotTmp[${x}].descPct=Math.min(100,Math.max(0,Number(this.value)||0));itemsCotTmp[${x}].descuento=undefined;pintarItemsCot()"></td>
-      <td style="text-align:right;color:var(--rojo)">${d?'− '+L(d*i.cantidad):'—'}</td>
-      <td style="text-align:right;font-weight:700">${L((i.precio-d)*i.cantidad)}</td>
+      <td class="nw" style="text-align:right;color:var(--rojo)">${d?'− '+L(d*i.cantidad):'—'}</td>
+      <td class="nw" style="text-align:right;font-weight:700">${L((i.precio-d)*i.cantidad)}</td>
       <td><button class="btn btn-r btn-min" onclick="itemsCotTmp.splice(${x},1);pintarItemsCot()">✕</button></td></tr>`;}).join('')}
   </tbody></table>
   <div class="desc-barra" style="margin-top:6px">
