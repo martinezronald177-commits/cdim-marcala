@@ -6069,16 +6069,22 @@ function modalResultados(n,desde,sinScroll,areaActiva){
             ${(!pp.formula&&pp.valorCalculado)?'<span class="chip chip-vd" style="font-size:9px" title="'+esc(pp.notaCalculo||'')+'">ƒ Martin-Hopkins</span>':''}
             ${pp.ldlManual?'<span class="chip chip-am" style="font-size:9px">valor manual</span>':''}</td>
           <td class="c-resultado">${(pp.opciones&&pp.opciones.length)?`
-            <div class="celda-res">
-              <input data-pos="${ei}-${pi}" list="dl_${ei}_${pi}" value="${esc(pp.valor)}"
-                placeholder="Elige o escribe…" ${bloqueado?'readonly':''}
+            ${/* Bloqueado (validado, muestra rechazada o sin permiso): la lista de
+                  opciones ni se ofrece. Antes seguian ahi el boton ☰ -solo que
+                  desactivado- y el desplegable del campo, e invitaban a tocar algo
+                  que no iba a responder. Un examen ya firmado se LEE; para
+                  cambiarlo esta "Habilitar edicion", y solo entonces reaparecen la
+                  lista y el boton. De paso el valor gana el ancho del boton. */''
+             }<div class="celda-res">
+              <input data-pos="${ei}-${pi}" ${bloqueado?'':`list="dl_${ei}_${pi}"`} value="${esc(pp.valor)}"
+                placeholder="${bloqueado?'':'Elige o escribe…'}" ${bloqueado?'readonly':''}
                 ${/* Un solo title: el del bloqueo cuando lo hay, y si no el valor
                       completo -- asi una respuesta larga que no quepa en la casilla
                       se puede leer entera pasando el raton por encima. */''
                  }title="${bloqueado?tituloBloqueo:esc(pp.valor||'')}"
                 oninput="valorCapturado('${n}',${ei},${pi},this.value)" onchange="guardar()">
-              <datalist id="dl_${ei}_${pi}">${pp.opciones.map(op=>`<option value="${esc(op)}">`).join('')}</datalist>
-              <button class="btn btn-g btn-min" style="flex:0 0 auto" ${bloqueado?'disabled':''} title="Ver la lista completa" onclick="modalOpciones('${n}',${ei},${pi})">☰</button>
+              ${bloqueado?'':`<datalist id="dl_${ei}_${pi}">${pp.opciones.map(op=>`<option value="${esc(op)}">`).join('')}</datalist>
+              <button class="btn btn-g btn-min" style="flex:0 0 auto" title="Ver la lista completa" onclick="modalOpciones('${n}',${ei},${pi})">☰</button>`}
             </div>`:`
             <input data-pos="${ei}-${pi}" value="${esc(pp.valor)}" ${(pp.formula||bloqueado)?'readonly':''}
               title="${bloqueado?tituloBloqueo:esc(pp.notaCalculo||(pp.formula?'Se calcula automáticamente':'')||pp.valor||'')}"
