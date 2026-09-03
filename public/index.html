@@ -1346,7 +1346,7 @@ function migrarEstado(s){
       profesionalTitulo:'Microbiólogo y Químico Clínico',
       sedes:s.config.direccion||'',web:'',correo:'',redes:'CDI Marcala',
       servicios:'Laboratorio Clínico · Bioquímica Clínica · Hematología · Inmunología · Serología · Hormonas · Uroanálisis · Coproanálisis · Microbiología',
-      prefijoId:'CDIM',sello:'',firma:'',sucursal:'1',sucursalNombre:'Sede Principal Marcala',moneda:'L',
+      prefijoId:'CDIM',sello:'',firma:'',sucursal:'1',sucursalNombre:'Marcala',moneda:'L',
       rtn:'12011997009532',razonSocial:'Inversiones Martínez Márquez',
       codigoDocCot:'F-CDIM-COT-01',revisionDoc:'Rev. 001',validezCot:30,condicionesCot:null,
       elaborador:'Ronald Martínez',
@@ -1819,7 +1819,7 @@ function estadoInicial(){
       servicios:'Laboratorio Clínico · Bioquímica Clínica · Hematología · Inmunología · Serología · Hormonas · Uroanálisis · Coproanálisis · Microbiología',
       prefijoId:'CDIM',
       sucursal:'1',
-      sucursalNombre:'Sede Principal Marcala',
+      sucursalNombre:'Marcala',
       moneda:'L',
       sobreAncho:216,sobreAlto:279,
       obsFrecuentes:["Muestra hemolizada; los resultados pueden verse afectados. Se sugiere repetir con nueva muestra.", "Muestra lipémica; se informa con reserva por posible interferencia.", "Muestra ictérica; posible interferencia en la lectura colorimétrica.", "Resultado verificado por repetición en la misma muestra.", "Se sugiere correlacionar con la clínica del paciente.", "Se recomienda repetir el estudio en 15 días para confirmar el hallazgo.", "Paciente no acudió en ayunas, según refiere el paciente.", "Muestra recibida fuera del tiempo óptimo de transporte.", "Valor crítico notificado al médico tratante; se documenta fecha, hora y persona que recibe.", "Resultado confirmado con una segunda metodología."],
@@ -15507,8 +15507,10 @@ function vConfig(){
         </select></div>
       <div class="campo" style="align-self:end"><div style="background:#eef2f5;border-radius:8px;padding:8px 10px;font-size:12px">
         Ejemplo: <b style="color:var(--azul)">${L(1250.5)}</b> · ${esc(enLetras(1250.5))}</div></div>
-      <div class="campo"><label>N° de sucursal (primer dígito de la orden)</label><input id="cf_suc" value="${esc(c.sucursal||'1')}" maxlength="2" oninput="this.value=this.value.replace(/\\D/g,'')"></div>
-      <div class="campo"><label>Nombre de la sucursal</label><input id="cf_sucn" value="${esc(c.sucursalNombre||'')}" placeholder="Sede Principal Marcala"></div>
+      <div class="campo"><label>N° de sucursal</label><input id="cf_suc" value="${esc(c.sucursal||'1')}" maxlength="2" oninput="this.value=this.value.replace(/\\D/g,'')">
+        <div class="ayuda">Es el dígito con el que empieza toda orden de trabajo. Con <b>2</b> las órdenes salen <b class="nw">2</b>20260902001; si algún día hubiera una sucursal 3, las suyas saldrían <b class="nw">3</b>20260902001. Nada más depende de este número.</div></div>
+      <div class="campo"><label>Texto de sucursal para documentos</label><input id="cf_sucn" value="${esc(c.sucursalNombre||'')}" placeholder="Marcala">
+        <div class="ayuda">Solo se imprime, en la cotización y en la hoja de trabajo. Si se deja vacío se imprime <b>PRINCIPAL</b>. No es una sede con dirección propia: el laboratorio es uno solo.</div></div>
       <div class="campo" style="align-self:end"><div style="background:#eef2f5;border-radius:8px;padding:8px 10px;font-size:12px">
         Próxima orden de hoy: <b style="color:var(--azul);letter-spacing:.5px">${numeroOrden(hoy())}</b></div></div>
       <div class="campo"><label>Firma escaneada (PNG transparente)</label><input type="file" accept="image/*" onchange="cargarImagenCfg(this,'firma')"></div>
