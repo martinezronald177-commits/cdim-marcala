@@ -1183,6 +1183,9 @@ td input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:
     <button onclick="cerrarSesion()" id="btn-logout" style="display:none;margin-top:4px;background:rgba(192,57,43,.15);color:#e88" aria-label="Cerrar sesión"><svg class="ico" aria-hidden="true"><use href="#i-salir"/></svg>Cerrar sesión</button>
   </nav>
   <div id="sync-status" class="sync-pill" hidden></div>
+  <!-- Fuera de .pie-nav a propósito: actualizarPieNav() reescribe ese bloque
+       entero al iniciar sesión y se llevaría el enlace. -->
+  <div class="pie-mapa" style="padding:6px 0 4px;font-size:12px"><a href="./mapa.html" target="_blank" rel="noopener" style="color:rgba(255,255,255,.75);text-decoration:none" title="El grafo de módulos del sistema, regenerado en cada despliegue"><svg class="ico-en" aria-hidden="true"><use href="#i-sgc"/></svg> Mapa del sistema</a></div>
   <div class="pie-nav" style="border-top:1px solid rgba(255,255,255,.12);padding-top:12px">
     <div style="margin-bottom:8px;color:rgba(255,255,255,.55)">Atajos: <b style="color:rgba(255,255,255,.8)">/</b> buscar · <b style="color:rgba(255,255,255,.8)">Esc</b> cerrar</div>
     Microbiólogo Regente:<br><b style="color:rgba(255,255,255,.8)">Doctor Ronald Martínez</b><br>CMQCH 2023-2105</div>

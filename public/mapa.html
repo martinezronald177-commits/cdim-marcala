@@ -1,0 +1,978 @@
+<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Mapa del sistema · CDI Marcala</title>
+<style>
+:root{--azul:#285068;--gris:#5c6b76;--linea:#dbe3e8;--tinta:#1c2a33}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.5 'IBM Plex Sans',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--tinta);background:#f6f8fa}
+main{max-width:1240px;margin:0 auto;padding:22px 18px 60px}
+h1{font-size:22px;margin:0 0 4px;color:var(--azul)}
+h2{font-size:16px;margin:30px 0 8px;color:var(--azul);border-bottom:2px solid var(--linea);padding-bottom:4px}
+h3{font-size:13px;margin:18px 0 4px;color:var(--gris);text-transform:uppercase;letter-spacing:.06em}
+.sub{color:var(--gris);font-size:12.5px;margin:0 0 14px}
+.tarjeta{background:#fff;border:1px solid var(--linea);border-radius:12px;padding:14px 16px;margin:12px 0}
+.lienzo{overflow-x:auto;padding:6px 0}
+.grafo{width:100%;min-width:900px;height:auto;display:block}
+.g-area{font-size:12px;font-weight:700;fill:var(--azul)}
+.g-sub{font-size:10px;fill:var(--gris)}
+.g-mod{font-size:11px;font-family:'IBM Plex Mono',ui-monospace,Consolas,monospace;fill:var(--tinta)}
+.g-n{font-size:10px;fill:var(--gris)}
+.nodo rect{stroke:#c7d2da;stroke-width:1;cursor:pointer;transition:stroke .15s}
+.nodo:hover rect,.nodo:focus rect,.nodo.activo rect{stroke:var(--azul);stroke-width:2}
+.arista{fill:none;stroke:#9fb0bc;opacity:.32;transition:opacity .15s,stroke .15s}
+.grafo.foco .arista{opacity:.06}
+.grafo.foco .arista.sale{opacity:.95;stroke:#c0392b}
+.grafo.foco .arista.entra{opacity:.95;stroke:#1f7a4d}
+.leyenda{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--gris);margin-top:6px}
+.leyenda b{color:var(--tinta)}
+.sw{display:inline-block;width:22px;height:0;border-top:3px solid #c0392b;vertical-align:middle;margin-right:5px}
+.sw.entra{border-color:#1f7a4d}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:6px 8px;border-bottom:1px solid var(--linea);text-align:left}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--gris)}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+code{font-family:'IBM Plex Mono',ui-monospace,Consolas,monospace;font-size:12px;background:#eef2f5;padding:1px 5px;border-radius:4px}
+.mod{padding:8px 0;border-bottom:1px solid var(--linea)}
+.mod:last-child{border-bottom:0}
+.mod .cab{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.mod .cab code{font-size:13px}
+.mod .meta{color:var(--gris);font-size:12px}
+.mod .prop{margin:2px 0 4px;font-size:13px}
+.mod .dep{font-size:12px;color:var(--gris)}
+.mod .dep code{font-size:11px}
+.idx{columns:2;column-gap:28px;font-size:12px}
+.idx div{break-inside:avoid;margin-bottom:8px}
+.volver{font-size:12.5px}
+@media (max-width:760px){.idx{columns:1}}
+@media print{body{background:#fff}.tarjeta{border:0;padding:0}.lienzo{overflow:visible}.grafo{min-width:0}}
+</style></head><body><main>
+<p class="volver"><a href="./index.html">← Volver al sistema</a></p>
+<h1>Mapa del sistema</h1>
+<p class="sub">Generado del código el 03/09/2026 · 45 módulos · 17.541 líneas · 860 símbolos · 268 dependencias entre módulos. Se regenera solo en cada despliegue y en cada commit: lo que ves aquí es lo que hay.</p>
+<h2>El grafo</h2>
+<div class="tarjeta"><div class="lienzo">
+<svg class="grafo" viewBox="0 0 1300 564" role="img" aria-label="Grafo de dependencias entre los 45 módulos del sistema; las flechas van del módulo que usa al que es usado">
+<defs><marker id="pta" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0 L8,4 L0,8 z" fill="#7a8a96"/></marker></defs>
+<text x="100" y="24" text-anchor="middle" class="g-area">Núcleo</text>
+<text x="100" y="40" text-anchor="middle" class="g-sub">5 módulos</text>
+<text x="320" y="24" text-anchor="middle" class="g-area">Catálogo y pacientes</text>
+<text x="320" y="40" text-anchor="middle" class="g-sub">8 módulos</text>
+<text x="540" y="24" text-anchor="middle" class="g-area">Flujo de trabajo</text>
+<text x="540" y="40" text-anchor="middle" class="g-sub">13 módulos</text>
+<text x="760" y="24" text-anchor="middle" class="g-area">Calidad y almacén</text>
+<text x="760" y="40" text-anchor="middle" class="g-sub">5 módulos</text>
+<text x="980" y="24" text-anchor="middle" class="g-area">Documentos</text>
+<text x="980" y="40" text-anchor="middle" class="g-sub">8 módulos</text>
+<text x="1200" y="24" text-anchor="middle" class="g-area">Dinero y datos</text>
+<text x="1200" y="40" text-anchor="middle" class="g-sub">6 módulos</text>
+<path class="arista" data-de="10_nucleo" data-a="11_catalogo" d="M184,67 C212,67 212,143 184,143" stroke-width="2.18" marker-end="url(#pta)"><title>10_nucleo usa 11_catalogo · 10 veces</title></path>
+<path class="arista" data-de="10_nucleo" data-a="22_cotizaciones" d="M184,67 C320,67 320,67 456,67" stroke-width="1.33" marker-end="url(#pta)"><title>10_nucleo usa 22_cotizaciones · 2 veces</title></path>
+<path class="arista" data-de="10_nucleo" data-a="80_bitacora" d="M184,67 C650,67 650,257 1116,257" stroke-width="1.33" marker-end="url(#pta)"><title>10_nucleo usa 80_bitacora · 2 veces</title></path>
+<path class="arista" data-de="10_nucleo" data-a="10b_formato_compartido" d="M184,67 C212,67 212,105 184,105" stroke-width="1.52" marker-end="url(#pta)"><title>10_nucleo usa 10b_formato_compartido · 3 veces</title></path>
+<path class="arista" data-de="10b_formato_compartido" data-a="10_nucleo" d="M184,105 C212,105 212,67 184,67" stroke-width="1.06" marker-end="url(#pta)"><title>10b_formato_compartido usa 10_nucleo · 1 vez</title></path>
+<path class="arista" data-de="12_sesion" data-a="10b_formato_compartido" d="M184,181 C212,181 212,105 184,105" stroke-width="2.67" marker-end="url(#pta)"><title>12_sesion usa 10b_formato_compartido · 22 veces</title></path>
+<path class="arista" data-de="12_sesion" data-a="10_nucleo" d="M184,181 C212,181 212,67 184,67" stroke-width="2.58" marker-end="url(#pta)"><title>12_sesion usa 10_nucleo · 19 veces</title></path>
+<path class="arista" data-de="12_sesion" data-a="20_pacientes" d="M184,181 C210,181 210,67 236,67" stroke-width="1.33" marker-end="url(#pta)"><title>12_sesion usa 20_pacientes · 2 veces</title></path>
+<path class="arista" data-de="12_sesion" data-a="21_examenes" d="M184,181 C210,181 210,181 236,181" stroke-width="1.06" marker-end="url(#pta)"><title>12_sesion usa 21_examenes · 1 vez</title></path>
+<path class="arista" data-de="12_sesion" data-a="21b_perfiles" d="M184,181 C210,181 210,295 236,295" stroke-width="1.06" marker-end="url(#pta)"><title>12_sesion usa 21b_perfiles · 1 vez</title></path>
+<path class="arista" data-de="12_sesion" data-a="21e_medicos" d="M184,181 C210,181 210,333 236,333" stroke-width="1.06" marker-end="url(#pta)"><title>12_sesion usa 21e_medicos · 1 vez</title></path>
+<path class="arista" data-de="12_sesion" data-a="22_cotizaciones" d="M184,181 C320,181 320,67 456,67" stroke-width="1.33" marker-end="url(#pta)"><title>12_sesion usa 22_cotizaciones · 2 veces</title></path>
+<path class="arista" data-de="12_sesion" data-a="23_ordenes" d="M184,181 C320,181 320,181 456,181" stroke-width="2.34" marker-end="url(#pta)"><title>12_sesion usa 23_ordenes · 13 veces</title></path>
+<path class="arista" data-de="12_sesion" data-a="26_agenda" d="M184,181 C320,181 320,447 456,447" stroke-width="1.52" marker-end="url(#pta)"><title>12_sesion usa 26_agenda · 3 veces</title></path>
+<path class="arista" data-de="12_sesion" data-a="23d_resultados" d="M184,181 C320,181 320,333 456,333" stroke-width="1.06" marker-end="url(#pta)"><title>12_sesion usa 23d_resultados · 1 vez</title></path>
+<path class="arista" data-de="12_sesion" data-a="52_etiquetas" d="M184,181 C540,181 540,333 896,333" stroke-width="1.06" marker-end="url(#pta)"><title>12_sesion usa 52_etiquetas · 1 vez</title></path>
+<path class="arista" data-de="12_sesion" data-a="24_recibos" d="M184,181 C320,181 320,371 456,371" stroke-width="1.33" marker-end="url(#pta)"><title>12_sesion usa 24_recibos · 2 veces</title></path>
+<path class="arista" data-de="12_sesion" data-a="25_facturas" d="M184,181 C320,181 320,409 456,409" stroke-width="1.06" marker-end="url(#pta)"><title>12_sesion usa 25_facturas · 1 vez</title></path>
+<path class="arista" data-de="12_sesion" data-a="30_calidad" d="M184,181 C430,181 430,67 676,67" stroke-width="1.06" marker-end="url(#pta)"><title>12_sesion usa 30_calidad · 1 vez</title></path>
+<path class="arista" data-de="12_sesion" data-a="31_almacen" d="M184,181 C430,181 430,105 676,105" stroke-width="1.06" marker-end="url(#pta)"><title>12_sesion usa 31_almacen · 1 vez</title></path>
+<path class="arista" data-de="12_sesion" data-a="32_sgc" d="M184,181 C430,181 430,219 676,219" stroke-width="1.06" marker-end="url(#pta)"><title>12_sesion usa 32_sgc · 1 vez</title></path>
+<path class="arista" data-de="12_sesion" data-a="70_contabilidad" d="M184,181 C650,181 650,105 1116,105" stroke-width="1.33" marker-end="url(#pta)"><title>12_sesion usa 70_contabilidad · 2 veces</title></path>
+<path class="arista" data-de="12_sesion" data-a="71_estadisticas" d="M184,181 C650,181 650,219 1116,219" stroke-width="1.06" marker-end="url(#pta)"><title>12_sesion usa 71_estadisticas · 1 vez</title></path>
+<path class="arista" data-de="12_sesion" data-a="80_bitacora" d="M184,181 C650,181 650,257 1116,257" stroke-width="1.52" marker-end="url(#pta)"><title>12_sesion usa 80_bitacora · 3 veces</title></path>
+<path class="arista" data-de="12_sesion" data-a="60_config" d="M184,181 C650,181 650,67 1116,67" stroke-width="1.33" marker-end="url(#pta)"><title>12_sesion usa 60_config · 2 veces</title></path>
+<path class="arista" data-de="12_sesion" data-a="55_instructivos" d="M184,181 C540,181 540,295 896,295" stroke-width="1.06" marker-end="url(#pta)"><title>12_sesion usa 55_instructivos · 1 vez</title></path>
+<path class="arista" data-de="12_sesion" data-a="26b_repo_agenda" d="M184,181 C320,181 320,485 456,485" stroke-width="1.89" marker-end="url(#pta)"><title>12_sesion usa 26b_repo_agenda · 6 veces</title></path>
+<path class="arista" data-de="13_repositorios" data-a="10_nucleo" d="M184,219 C212,219 212,67 184,67" stroke-width="1.33" marker-end="url(#pta)"><title>13_repositorios usa 10_nucleo · 2 veces</title></path>
+<path class="arista" data-de="13_repositorios" data-a="12_sesion" d="M184,219 C212,219 212,181 184,181" stroke-width="1.06" marker-end="url(#pta)"><title>13_repositorios usa 12_sesion · 1 vez</title></path>
+<path class="arista" data-de="20_pacientes" data-a="10_nucleo" d="M236,67 C210,67 210,67 184,67" stroke-width="2.80" marker-end="url(#pta)"><title>20_pacientes usa 10_nucleo · 27 veces</title></path>
+<path class="arista" data-de="20_pacientes" data-a="10b_formato_compartido" d="M236,67 C210,67 210,105 184,105" stroke-width="3.38" marker-end="url(#pta)"><title>20_pacientes usa 10b_formato_compartido · 66 veces</title></path>
+<path class="arista" data-de="20_pacientes" data-a="23_ordenes" d="M404,67 C430,67 430,181 456,181" stroke-width="1.06" marker-end="url(#pta)"><title>20_pacientes usa 23_ordenes · 1 vez</title></path>
+<path class="arista" data-de="20_pacientes" data-a="12_sesion" d="M236,67 C210,67 210,181 184,181" stroke-width="2.43" marker-end="url(#pta)"><title>20_pacientes usa 12_sesion · 15 veces</title></path>
+<path class="arista" data-de="20_pacientes" data-a="21_examenes" d="M404,67 C432,67 432,181 404,181" stroke-width="2.05" marker-end="url(#pta)"><title>20_pacientes usa 21_examenes · 8 veces</title></path>
+<path class="arista" data-de="20_pacientes" data-a="20c_srv_pacientes" d="M404,67 C432,67 432,143 404,143" stroke-width="2.05" marker-end="url(#pta)"><title>20_pacientes usa 20c_srv_pacientes · 8 veces</title></path>
+<path class="arista" data-de="20_pacientes" data-a="20b_repo_pacientes" d="M404,67 C432,67 432,105 404,105" stroke-width="1.52" marker-end="url(#pta)"><title>20_pacientes usa 20b_repo_pacientes · 3 veces</title></path>
+<path class="arista" data-de="20b_repo_pacientes" data-a="10_nucleo" d="M236,105 C210,105 210,67 184,67" stroke-width="1.06" marker-end="url(#pta)"><title>20b_repo_pacientes usa 10_nucleo · 1 vez</title></path>
+<path class="arista" data-de="20c_srv_pacientes" data-a="10_nucleo" d="M236,143 C210,143 210,67 184,67" stroke-width="2.64" marker-end="url(#pta)"><title>20c_srv_pacientes usa 10_nucleo · 21 veces</title></path>
+<path class="arista" data-de="20c_srv_pacientes" data-a="10b_formato_compartido" d="M236,143 C210,143 210,105 184,105" stroke-width="1.06" marker-end="url(#pta)"><title>20c_srv_pacientes usa 10b_formato_compartido · 1 vez</title></path>
+<path class="arista" data-de="20c_srv_pacientes" data-a="20b_repo_pacientes" d="M404,143 C432,143 432,105 404,105" stroke-width="2.12" marker-end="url(#pta)"><title>20c_srv_pacientes usa 20b_repo_pacientes · 9 veces</title></path>
+<path class="arista" data-de="20c_srv_pacientes" data-a="12_sesion" d="M236,143 C210,143 210,181 184,181" stroke-width="1.06" marker-end="url(#pta)"><title>20c_srv_pacientes usa 12_sesion · 1 vez</title></path>
+<path class="arista" data-de="20c_srv_pacientes" data-a="13_repositorios" d="M236,143 C210,143 210,219 184,219" stroke-width="1.06" marker-end="url(#pta)"><title>20c_srv_pacientes usa 13_repositorios · 1 vez</title></path>
+<path class="arista" data-de="21_examenes" data-a="10_nucleo" d="M236,181 C210,181 210,67 184,67" stroke-width="2.34" marker-end="url(#pta)"><title>21_examenes usa 10_nucleo · 13 veces</title></path>
+<path class="arista" data-de="21_examenes" data-a="10b_formato_compartido" d="M236,181 C210,181 210,105 184,105" stroke-width="2.91" marker-end="url(#pta)"><title>21_examenes usa 10b_formato_compartido · 32 veces</title></path>
+<path class="arista" data-de="21_examenes" data-a="32_sgc" d="M404,181 C540,181 540,219 676,219" stroke-width="1.66" marker-end="url(#pta)"><title>21_examenes usa 32_sgc · 4 veces</title></path>
+<path class="arista" data-de="21_examenes" data-a="12_sesion" d="M236,181 C210,181 210,181 184,181" stroke-width="1.97" marker-end="url(#pta)"><title>21_examenes usa 12_sesion · 7 veces</title></path>
+<path class="arista" data-de="21_examenes" data-a="21d_srv_examenes" d="M404,181 C432,181 432,257 404,257" stroke-width="1.52" marker-end="url(#pta)"><title>21_examenes usa 21d_srv_examenes · 3 veces</title></path>
+<path class="arista" data-de="21_examenes" data-a="23_ordenes" d="M404,181 C430,181 430,181 456,181" stroke-width="1.52" marker-end="url(#pta)"><title>21_examenes usa 23_ordenes · 3 veces</title></path>
+<path class="arista" data-de="21d_srv_examenes" data-a="21c_repo_examenes" d="M404,257 C432,257 432,219 404,219" stroke-width="2.05" marker-end="url(#pta)"><title>21d_srv_examenes usa 21c_repo_examenes · 8 veces</title></path>
+<path class="arista" data-de="21d_srv_examenes" data-a="13_repositorios" d="M236,257 C210,257 210,219 184,219" stroke-width="1.33" marker-end="url(#pta)"><title>21d_srv_examenes usa 13_repositorios · 2 veces</title></path>
+<path class="arista" data-de="21d_srv_examenes" data-a="10_nucleo" d="M236,257 C210,257 210,67 184,67" stroke-width="1.52" marker-end="url(#pta)"><title>21d_srv_examenes usa 10_nucleo · 3 veces</title></path>
+<path class="arista" data-de="21b_perfiles" data-a="22_cotizaciones" d="M404,295 C430,295 430,67 456,67" stroke-width="1.78" marker-end="url(#pta)"><title>21b_perfiles usa 22_cotizaciones · 5 veces</title></path>
+<path class="arista" data-de="21b_perfiles" data-a="10b_formato_compartido" d="M236,295 C210,295 210,105 184,105" stroke-width="1.97" marker-end="url(#pta)"><title>21b_perfiles usa 10b_formato_compartido · 7 veces</title></path>
+<path class="arista" data-de="21b_perfiles" data-a="10_nucleo" d="M236,295 C210,295 210,67 184,67" stroke-width="2.61" marker-end="url(#pta)"><title>21b_perfiles usa 10_nucleo · 20 veces</title></path>
+<path class="arista" data-de="21b_perfiles" data-a="12_sesion" d="M236,295 C210,295 210,181 184,181" stroke-width="1.52" marker-end="url(#pta)"><title>21b_perfiles usa 12_sesion · 3 veces</title></path>
+<path class="arista" data-de="21e_medicos" data-a="10_nucleo" d="M236,333 C210,333 210,67 184,67" stroke-width="2.29" marker-end="url(#pta)"><title>21e_medicos usa 10_nucleo · 12 veces</title></path>
+<path class="arista" data-de="21e_medicos" data-a="10b_formato_compartido" d="M236,333 C210,333 210,105 184,105" stroke-width="1.97" marker-end="url(#pta)"><title>21e_medicos usa 10b_formato_compartido · 7 veces</title></path>
+<path class="arista" data-de="21e_medicos" data-a="12_sesion" d="M236,333 C210,333 210,181 184,181" stroke-width="1.52" marker-end="url(#pta)"><title>21e_medicos usa 12_sesion · 3 veces</title></path>
+<path class="arista" data-de="21e_medicos" data-a="23_ordenes" d="M404,333 C430,333 430,181 456,181" stroke-width="1.06" marker-end="url(#pta)"><title>21e_medicos usa 23_ordenes · 1 vez</title></path>
+<path class="arista" data-de="22_cotizaciones" data-a="10_nucleo" d="M456,67 C320,67 320,67 184,67" stroke-width="3.25" marker-end="url(#pta)"><title>22_cotizaciones usa 10_nucleo · 54 veces</title></path>
+<path class="arista" data-de="22_cotizaciones" data-a="10b_formato_compartido" d="M456,67 C320,67 320,105 184,105" stroke-width="3.28" marker-end="url(#pta)"><title>22_cotizaciones usa 10b_formato_compartido · 57 veces</title></path>
+<path class="arista" data-de="22_cotizaciones" data-a="26_agenda" d="M624,67 C652,67 652,447 624,447" stroke-width="1.66" marker-end="url(#pta)"><title>22_cotizaciones usa 26_agenda · 4 veces</title></path>
+<path class="arista" data-de="22_cotizaciones" data-a="50_impresion" d="M624,67 C760,67 760,105 896,105" stroke-width="2.24" marker-end="url(#pta)"><title>22_cotizaciones usa 50_impresion · 11 veces</title></path>
+<path class="arista" data-de="22_cotizaciones" data-a="80_bitacora" d="M624,67 C870,67 870,257 1116,257" stroke-width="1.33" marker-end="url(#pta)"><title>22_cotizaciones usa 80_bitacora · 2 veces</title></path>
+<path class="arista" data-de="22_cotizaciones" data-a="26b_repo_agenda" d="M624,67 C652,67 652,485 624,485" stroke-width="1.06" marker-end="url(#pta)"><title>22_cotizaciones usa 26b_repo_agenda · 1 vez</title></path>
+<path class="arista" data-de="22_cotizaciones" data-a="12_sesion" d="M456,67 C320,67 320,181 184,181" stroke-width="2.93" marker-end="url(#pta)"><title>22_cotizaciones usa 12_sesion · 33 veces</title></path>
+<path class="arista" data-de="22_cotizaciones" data-a="40_envio" d="M624,67 C760,67 760,67 896,67" stroke-width="1.06" marker-end="url(#pta)"><title>22_cotizaciones usa 40_envio · 1 vez</title></path>
+<path class="arista" data-de="22_cotizaciones" data-a="55_instructivos" d="M624,67 C760,67 760,295 896,295" stroke-width="1.06" marker-end="url(#pta)"><title>22_cotizaciones usa 55_instructivos · 1 vez</title></path>
+<path class="arista" data-de="22_cotizaciones" data-a="22c_srv_cotizaciones" d="M624,67 C652,67 652,143 624,143" stroke-width="1.66" marker-end="url(#pta)"><title>22_cotizaciones usa 22c_srv_cotizaciones · 4 veces</title></path>
+<path class="arista" data-de="22_cotizaciones" data-a="20_pacientes" d="M456,67 C430,67 430,67 404,67" stroke-width="1.52" marker-end="url(#pta)"><title>22_cotizaciones usa 20_pacientes · 3 veces</title></path>
+<path class="arista" data-de="22_cotizaciones" data-a="21_examenes" d="M456,67 C430,67 430,181 404,181" stroke-width="1.78" marker-end="url(#pta)"><title>22_cotizaciones usa 21_examenes · 5 veces</title></path>
+<path class="arista" data-de="22_cotizaciones" data-a="21b_perfiles" d="M456,67 C430,67 430,295 404,295" stroke-width="1.06" marker-end="url(#pta)"><title>22_cotizaciones usa 21b_perfiles · 1 vez</title></path>
+<path class="arista" data-de="22_cotizaciones" data-a="51_informe" d="M624,67 C760,67 760,181 896,181" stroke-width="1.06" marker-end="url(#pta)"><title>22_cotizaciones usa 51_informe · 1 vez</title></path>
+<path class="arista" data-de="22_cotizaciones" data-a="24_recibos" d="M624,67 C652,67 652,371 624,371" stroke-width="1.06" marker-end="url(#pta)"><title>22_cotizaciones usa 24_recibos · 1 vez</title></path>
+<path class="arista" data-de="22_cotizaciones" data-a="25_facturas" d="M624,67 C652,67 652,409 624,409" stroke-width="1.06" marker-end="url(#pta)"><title>22_cotizaciones usa 25_facturas · 1 vez</title></path>
+<path class="arista" data-de="22_cotizaciones" data-a="23_ordenes" d="M624,67 C652,67 652,181 624,181" stroke-width="1.06" marker-end="url(#pta)"><title>22_cotizaciones usa 23_ordenes · 1 vez</title></path>
+<path class="arista" data-de="22_cotizaciones" data-a="50b_plantillas_comunes" d="M624,67 C760,67 760,143 896,143" stroke-width="1.66" marker-end="url(#pta)"><title>22_cotizaciones usa 50b_plantillas_comunes · 4 veces</title></path>
+<path class="arista" data-de="22b_repo_cotizaciones" data-a="10_nucleo" d="M456,105 C320,105 320,67 184,67" stroke-width="1.52" marker-end="url(#pta)"><title>22b_repo_cotizaciones usa 10_nucleo · 3 veces</title></path>
+<path class="arista" data-de="22c_srv_cotizaciones" data-a="22b_repo_cotizaciones" d="M624,143 C652,143 652,105 624,105" stroke-width="1.97" marker-end="url(#pta)"><title>22c_srv_cotizaciones usa 22b_repo_cotizaciones · 7 veces</title></path>
+<path class="arista" data-de="22c_srv_cotizaciones" data-a="10_nucleo" d="M456,143 C320,143 320,67 184,67" stroke-width="1.97" marker-end="url(#pta)"><title>22c_srv_cotizaciones usa 10_nucleo · 7 veces</title></path>
+<path class="arista" data-de="22c_srv_cotizaciones" data-a="13_repositorios" d="M456,143 C320,143 320,219 184,219" stroke-width="1.52" marker-end="url(#pta)"><title>22c_srv_cotizaciones usa 13_repositorios · 3 veces</title></path>
+<path class="arista" data-de="22c_srv_cotizaciones" data-a="22_cotizaciones" d="M624,143 C652,143 652,67 624,67" stroke-width="1.89" marker-end="url(#pta)"><title>22c_srv_cotizaciones usa 22_cotizaciones · 6 veces</title></path>
+<path class="arista" data-de="22c_srv_cotizaciones" data-a="20b_repo_pacientes" d="M456,143 C430,143 430,105 404,105" stroke-width="1.33" marker-end="url(#pta)"><title>22c_srv_cotizaciones usa 20b_repo_pacientes · 2 veces</title></path>
+<path class="arista" data-de="22c_srv_cotizaciones" data-a="23b_repo_ordenes" d="M624,143 C652,143 652,257 624,257" stroke-width="1.33" marker-end="url(#pta)"><title>22c_srv_cotizaciones usa 23b_repo_ordenes · 2 veces</title></path>
+<path class="arista" data-de="22c_srv_cotizaciones" data-a="21c_repo_examenes" d="M456,143 C430,143 430,219 404,219" stroke-width="1.33" marker-end="url(#pta)"><title>22c_srv_cotizaciones usa 21c_repo_examenes · 2 veces</title></path>
+<path class="arista" data-de="23_ordenes" data-a="23b_evaluacion_compartida" d="M624,181 C652,181 652,219 624,219" stroke-width="2.82" marker-end="url(#pta)"><title>23_ordenes usa 23b_evaluacion_compartida · 28 veces</title></path>
+<path class="arista" data-de="23_ordenes" data-a="10_nucleo" d="M456,181 C320,181 320,67 184,67" stroke-width="3.97" marker-end="url(#pta)"><title>23_ordenes usa 10_nucleo · 164 veces</title></path>
+<path class="arista" data-de="23_ordenes" data-a="10b_formato_compartido" d="M456,181 C320,181 320,105 184,105" stroke-width="3.92" marker-end="url(#pta)"><title>23_ordenes usa 10b_formato_compartido · 152 veces</title></path>
+<path class="arista" data-de="23_ordenes" data-a="23c_srv_ordenes" d="M624,181 C652,181 652,295 624,295" stroke-width="2.24" marker-end="url(#pta)"><title>23_ordenes usa 23c_srv_ordenes · 11 veces</title></path>
+<path class="arista" data-de="23_ordenes" data-a="13_repositorios" d="M456,181 C320,181 320,219 184,219" stroke-width="1.06" marker-end="url(#pta)"><title>23_ordenes usa 13_repositorios · 1 vez</title></path>
+<path class="arista" data-de="23_ordenes" data-a="12_sesion" d="M456,181 C320,181 320,181 184,181" stroke-width="3.40" marker-end="url(#pta)"><title>23_ordenes usa 12_sesion · 68 veces</title></path>
+<path class="arista" data-de="23_ordenes" data-a="30_calidad" d="M624,181 C650,181 650,67 676,67" stroke-width="1.52" marker-end="url(#pta)"><title>23_ordenes usa 30_calidad · 3 veces</title></path>
+<path class="arista" data-de="23_ordenes" data-a="23b_repo_ordenes" d="M624,181 C652,181 652,257 624,257" stroke-width="1.78" marker-end="url(#pta)"><title>23_ordenes usa 23b_repo_ordenes · 5 veces</title></path>
+<path class="arista" data-de="23_ordenes" data-a="22_cotizaciones" d="M624,181 C652,181 652,67 624,67" stroke-width="2.43" marker-end="url(#pta)"><title>23_ordenes usa 22_cotizaciones · 15 veces</title></path>
+<path class="arista" data-de="23_ordenes" data-a="50_impresion" d="M624,181 C760,181 760,105 896,105" stroke-width="2.34" marker-end="url(#pta)"><title>23_ordenes usa 50_impresion · 13 veces</title></path>
+<path class="arista" data-de="23_ordenes" data-a="70_contabilidad" d="M624,181 C870,181 870,105 1116,105" stroke-width="1.33" marker-end="url(#pta)"><title>23_ordenes usa 70_contabilidad · 2 veces</title></path>
+<path class="arista" data-de="23_ordenes" data-a="51_informe" d="M624,181 C760,181 760,181 896,181" stroke-width="2.05" marker-end="url(#pta)"><title>23_ordenes usa 51_informe · 8 veces</title></path>
+<path class="arista" data-de="23_ordenes" data-a="40_envio" d="M624,181 C760,181 760,67 896,67" stroke-width="1.33" marker-end="url(#pta)"><title>23_ordenes usa 40_envio · 2 veces</title></path>
+<path class="arista" data-de="23_ordenes" data-a="52_etiquetas" d="M624,181 C760,181 760,333 896,333" stroke-width="1.33" marker-end="url(#pta)"><title>23_ordenes usa 52_etiquetas · 2 veces</title></path>
+<path class="arista" data-de="23_ordenes" data-a="24_recibos" d="M624,181 C652,181 652,371 624,371" stroke-width="1.06" marker-end="url(#pta)"><title>23_ordenes usa 24_recibos · 1 vez</title></path>
+<path class="arista" data-de="23_ordenes" data-a="25_facturas" d="M624,181 C652,181 652,409 624,409" stroke-width="1.06" marker-end="url(#pta)"><title>23_ordenes usa 25_facturas · 1 vez</title></path>
+<path class="arista" data-de="23_ordenes" data-a="21b_perfiles" d="M456,181 C430,181 430,295 404,295" stroke-width="1.06" marker-end="url(#pta)"><title>23_ordenes usa 21b_perfiles · 1 vez</title></path>
+<path class="arista" data-de="23_ordenes" data-a="21e_medicos" d="M456,181 C430,181 430,333 404,333" stroke-width="1.89" marker-end="url(#pta)"><title>23_ordenes usa 21e_medicos · 6 veces</title></path>
+<path class="arista" data-de="23_ordenes" data-a="32_sgc" d="M624,181 C650,181 650,219 676,219" stroke-width="1.06" marker-end="url(#pta)"><title>23_ordenes usa 32_sgc · 1 vez</title></path>
+<path class="arista" data-de="23_ordenes" data-a="51b_plantillas_informe" d="M624,181 C760,181 760,219 896,219" stroke-width="1.06" marker-end="url(#pta)"><title>23_ordenes usa 51b_plantillas_informe · 1 vez</title></path>
+<path class="arista" data-de="23_ordenes" data-a="11_catalogo" d="M456,181 C320,181 320,143 184,143" stroke-width="1.06" marker-end="url(#pta)"><title>23_ordenes usa 11_catalogo · 1 vez</title></path>
+<path class="arista" data-de="23b_evaluacion_compartida" data-a="10_nucleo" d="M456,219 C320,219 320,67 184,67" stroke-width="1.06" marker-end="url(#pta)"><title>23b_evaluacion_compartida usa 10_nucleo · 1 vez</title></path>
+<path class="arista" data-de="23b_evaluacion_compartida" data-a="10b_formato_compartido" d="M456,219 C320,219 320,105 184,105" stroke-width="1.06" marker-end="url(#pta)"><title>23b_evaluacion_compartida usa 10b_formato_compartido · 1 vez</title></path>
+<path class="arista" data-de="23b_repo_ordenes" data-a="10_nucleo" d="M456,257 C320,257 320,67 184,67" stroke-width="2.05" marker-end="url(#pta)"><title>23b_repo_ordenes usa 10_nucleo · 8 veces</title></path>
+<path class="arista" data-de="23b_repo_ordenes" data-a="22_cotizaciones" d="M624,257 C652,257 652,67 624,67" stroke-width="1.33" marker-end="url(#pta)"><title>23b_repo_ordenes usa 22_cotizaciones · 2 veces</title></path>
+<path class="arista" data-de="23b_repo_ordenes" data-a="12_sesion" d="M456,257 C320,257 320,181 184,181" stroke-width="1.33" marker-end="url(#pta)"><title>23b_repo_ordenes usa 12_sesion · 2 veces</title></path>
+<path class="arista" data-de="23c_srv_ordenes" data-a="12_sesion" d="M456,295 C320,295 320,181 184,181" stroke-width="2.05" marker-end="url(#pta)"><title>23c_srv_ordenes usa 12_sesion · 8 veces</title></path>
+<path class="arista" data-de="23c_srv_ordenes" data-a="23_ordenes" d="M624,295 C652,295 652,181 624,181" stroke-width="2.18" marker-end="url(#pta)"><title>23c_srv_ordenes usa 23_ordenes · 10 veces</title></path>
+<path class="arista" data-de="23c_srv_ordenes" data-a="10_nucleo" d="M456,295 C320,295 320,67 184,67" stroke-width="2.47" marker-end="url(#pta)"><title>23c_srv_ordenes usa 10_nucleo · 16 veces</title></path>
+<path class="arista" data-de="23c_srv_ordenes" data-a="30_calidad" d="M624,295 C650,295 650,67 676,67" stroke-width="1.06" marker-end="url(#pta)"><title>23c_srv_ordenes usa 30_calidad · 1 vez</title></path>
+<path class="arista" data-de="23c_srv_ordenes" data-a="13_repositorios" d="M456,295 C320,295 320,219 184,219" stroke-width="1.33" marker-end="url(#pta)"><title>23c_srv_ordenes usa 13_repositorios · 2 veces</title></path>
+<path class="arista" data-de="23d_resultados" data-a="10_nucleo" d="M456,333 C320,333 320,67 184,67" stroke-width="1.78" marker-end="url(#pta)"><title>23d_resultados usa 10_nucleo · 5 veces</title></path>
+<path class="arista" data-de="23d_resultados" data-a="23b_repo_ordenes" d="M624,333 C652,333 652,257 624,257" stroke-width="1.06" marker-end="url(#pta)"><title>23d_resultados usa 23b_repo_ordenes · 1 vez</title></path>
+<path class="arista" data-de="23d_resultados" data-a="10b_formato_compartido" d="M456,333 C320,333 320,105 184,105" stroke-width="2.18" marker-end="url(#pta)"><title>23d_resultados usa 10b_formato_compartido · 10 veces</title></path>
+<path class="arista" data-de="23d_resultados" data-a="50_impresion" d="M624,333 C760,333 760,105 896,105" stroke-width="1.33" marker-end="url(#pta)"><title>23d_resultados usa 50_impresion · 2 veces</title></path>
+<path class="arista" data-de="23d_resultados" data-a="51_informe" d="M624,333 C760,333 760,181 896,181" stroke-width="1.33" marker-end="url(#pta)"><title>23d_resultados usa 51_informe · 2 veces</title></path>
+<path class="arista" data-de="24_recibos" data-a="10_nucleo" d="M456,371 C320,371 320,67 184,67" stroke-width="3.16" marker-end="url(#pta)"><title>24_recibos usa 10_nucleo · 47 veces</title></path>
+<path class="arista" data-de="24_recibos" data-a="22_cotizaciones" d="M624,371 C652,371 652,67 624,67" stroke-width="2.70" marker-end="url(#pta)"><title>24_recibos usa 22_cotizaciones · 23 veces</title></path>
+<path class="arista" data-de="24_recibos" data-a="10b_formato_compartido" d="M456,371 C320,371 320,105 184,105" stroke-width="3.14" marker-end="url(#pta)"><title>24_recibos usa 10b_formato_compartido · 46 veces</title></path>
+<path class="arista" data-de="24_recibos" data-a="50_impresion" d="M624,371 C760,371 760,105 896,105" stroke-width="1.89" marker-end="url(#pta)"><title>24_recibos usa 50_impresion · 6 veces</title></path>
+<path class="arista" data-de="24_recibos" data-a="40_envio" d="M624,371 C760,371 760,67 896,67" stroke-width="1.06" marker-end="url(#pta)"><title>24_recibos usa 40_envio · 1 vez</title></path>
+<path class="arista" data-de="24_recibos" data-a="12_sesion" d="M456,371 C320,371 320,181 184,181" stroke-width="2.18" marker-end="url(#pta)"><title>24_recibos usa 12_sesion · 10 veces</title></path>
+<path class="arista" data-de="24_recibos" data-a="70c_srv_caja" d="M624,371 C870,371 870,181 1116,181" stroke-width="1.33" marker-end="url(#pta)"><title>24_recibos usa 70c_srv_caja · 2 veces</title></path>
+<path class="arista" data-de="24_recibos" data-a="23_ordenes" d="M624,371 C652,371 652,181 624,181" stroke-width="1.06" marker-end="url(#pta)"><title>24_recibos usa 23_ordenes · 1 vez</title></path>
+<path class="arista" data-de="24_recibos" data-a="56_qr" d="M624,371 C760,371 760,257 896,257" stroke-width="1.06" marker-end="url(#pta)"><title>24_recibos usa 56_qr · 1 vez</title></path>
+<path class="arista" data-de="24_recibos" data-a="50b_plantillas_comunes" d="M624,371 C760,371 760,143 896,143" stroke-width="2.43" marker-end="url(#pta)"><title>24_recibos usa 50b_plantillas_comunes · 15 veces</title></path>
+<path class="arista" data-de="24_recibos" data-a="51_informe" d="M624,371 C760,371 760,181 896,181" stroke-width="1.06" marker-end="url(#pta)"><title>24_recibos usa 51_informe · 1 vez</title></path>
+<path class="arista" data-de="25_facturas" data-a="10_nucleo" d="M456,409 C320,409 320,67 184,67" stroke-width="3.42" marker-end="url(#pta)"><title>25_facturas usa 10_nucleo · 70 veces</title></path>
+<path class="arista" data-de="25_facturas" data-a="24_recibos" d="M624,409 C652,409 652,371 624,371" stroke-width="1.89" marker-end="url(#pta)"><title>25_facturas usa 24_recibos · 6 veces</title></path>
+<path class="arista" data-de="25_facturas" data-a="10b_formato_compartido" d="M456,409 C320,409 320,105 184,105" stroke-width="3.37" marker-end="url(#pta)"><title>25_facturas usa 10b_formato_compartido · 65 veces</title></path>
+<path class="arista" data-de="25_facturas" data-a="50_impresion" d="M624,409 C760,409 760,105 896,105" stroke-width="1.89" marker-end="url(#pta)"><title>25_facturas usa 50_impresion · 6 veces</title></path>
+<path class="arista" data-de="25_facturas" data-a="40_envio" d="M624,409 C760,409 760,67 896,67" stroke-width="1.06" marker-end="url(#pta)"><title>25_facturas usa 40_envio · 1 vez</title></path>
+<path class="arista" data-de="25_facturas" data-a="22_cotizaciones" d="M624,409 C652,409 652,67 624,67" stroke-width="2.05" marker-end="url(#pta)"><title>25_facturas usa 22_cotizaciones · 8 veces</title></path>
+<path class="arista" data-de="25_facturas" data-a="12_sesion" d="M456,409 C320,409 320,181 184,181" stroke-width="2.18" marker-end="url(#pta)"><title>25_facturas usa 12_sesion · 10 veces</title></path>
+<path class="arista" data-de="25_facturas" data-a="70c_srv_caja" d="M624,409 C870,409 870,181 1116,181" stroke-width="1.33" marker-end="url(#pta)"><title>25_facturas usa 70c_srv_caja · 2 veces</title></path>
+<path class="arista" data-de="25_facturas" data-a="23_ordenes" d="M624,409 C652,409 652,181 624,181" stroke-width="1.06" marker-end="url(#pta)"><title>25_facturas usa 23_ordenes · 1 vez</title></path>
+<path class="arista" data-de="25_facturas" data-a="56_qr" d="M624,409 C760,409 760,257 896,257" stroke-width="1.06" marker-end="url(#pta)"><title>25_facturas usa 56_qr · 1 vez</title></path>
+<path class="arista" data-de="25_facturas" data-a="50b_plantillas_comunes" d="M624,409 C760,409 760,143 896,143" stroke-width="2.54" marker-end="url(#pta)"><title>25_facturas usa 50b_plantillas_comunes · 18 veces</title></path>
+<path class="arista" data-de="25_facturas" data-a="51_informe" d="M624,409 C760,409 760,181 896,181" stroke-width="1.06" marker-end="url(#pta)"><title>25_facturas usa 51_informe · 1 vez</title></path>
+<path class="arista" data-de="26_agenda" data-a="10_nucleo" d="M456,447 C320,447 320,67 184,67" stroke-width="2.95" marker-end="url(#pta)"><title>26_agenda usa 10_nucleo · 34 veces</title></path>
+<path class="arista" data-de="26_agenda" data-a="26b_repo_agenda" d="M624,447 C652,447 652,485 624,485" stroke-width="2.61" marker-end="url(#pta)"><title>26_agenda usa 26b_repo_agenda · 20 veces</title></path>
+<path class="arista" data-de="26_agenda" data-a="10b_formato_compartido" d="M456,447 C320,447 320,105 184,105" stroke-width="3.17" marker-end="url(#pta)"><title>26_agenda usa 10b_formato_compartido · 48 veces</title></path>
+<path class="arista" data-de="26_agenda" data-a="12_sesion" d="M456,447 C320,447 320,181 184,181" stroke-width="2.89" marker-end="url(#pta)"><title>26_agenda usa 12_sesion · 31 veces</title></path>
+<path class="arista" data-de="26_agenda" data-a="22_cotizaciones" d="M624,447 C652,447 652,67 624,67" stroke-width="1.06" marker-end="url(#pta)"><title>26_agenda usa 22_cotizaciones · 1 vez</title></path>
+<path class="arista" data-de="26_agenda" data-a="26c_srv_agenda" d="M624,447 C652,447 652,523 624,523" stroke-width="1.89" marker-end="url(#pta)"><title>26_agenda usa 26c_srv_agenda · 6 veces</title></path>
+<path class="arista" data-de="26_agenda" data-a="40_envio" d="M624,447 C760,447 760,67 896,67" stroke-width="1.33" marker-end="url(#pta)"><title>26_agenda usa 40_envio · 2 veces</title></path>
+<path class="arista" data-de="26_agenda" data-a="13_repositorios" d="M456,447 C320,447 320,219 184,219" stroke-width="1.06" marker-end="url(#pta)"><title>26_agenda usa 13_repositorios · 1 vez</title></path>
+<path class="arista" data-de="26b_repo_agenda" data-a="10_nucleo" d="M456,485 C320,485 320,67 184,67" stroke-width="1.52" marker-end="url(#pta)"><title>26b_repo_agenda usa 10_nucleo · 3 veces</title></path>
+<path class="arista" data-de="26b_repo_agenda" data-a="23b_evaluacion_compartida" d="M624,485 C652,485 652,219 624,219" stroke-width="1.06" marker-end="url(#pta)"><title>26b_repo_agenda usa 23b_evaluacion_compartida · 1 vez</title></path>
+<path class="arista" data-de="26c_srv_agenda" data-a="10_nucleo" d="M456,523 C320,523 320,67 184,67" stroke-width="2.51" marker-end="url(#pta)"><title>26c_srv_agenda usa 10_nucleo · 17 veces</title></path>
+<path class="arista" data-de="26c_srv_agenda" data-a="26b_repo_agenda" d="M624,523 C652,523 652,485 624,485" stroke-width="2.12" marker-end="url(#pta)"><title>26c_srv_agenda usa 26b_repo_agenda · 9 veces</title></path>
+<path class="arista" data-de="26c_srv_agenda" data-a="10b_formato_compartido" d="M456,523 C320,523 320,105 184,105" stroke-width="1.78" marker-end="url(#pta)"><title>26c_srv_agenda usa 10b_formato_compartido · 5 veces</title></path>
+<path class="arista" data-de="26c_srv_agenda" data-a="12_sesion" d="M456,523 C320,523 320,181 184,181" stroke-width="1.78" marker-end="url(#pta)"><title>26c_srv_agenda usa 12_sesion · 5 veces</title></path>
+<path class="arista" data-de="26c_srv_agenda" data-a="13_repositorios" d="M456,523 C320,523 320,219 184,219" stroke-width="1.78" marker-end="url(#pta)"><title>26c_srv_agenda usa 13_repositorios · 5 veces</title></path>
+<path class="arista" data-de="26c_srv_agenda" data-a="22c_srv_cotizaciones" d="M624,523 C652,523 652,143 624,143" stroke-width="1.06" marker-end="url(#pta)"><title>26c_srv_agenda usa 22c_srv_cotizaciones · 1 vez</title></path>
+<path class="arista" data-de="30_calidad" data-a="10_nucleo" d="M676,67 C430,67 430,67 184,67" stroke-width="2.87" marker-end="url(#pta)"><title>30_calidad usa 10_nucleo · 30 veces</title></path>
+<path class="arista" data-de="30_calidad" data-a="10b_formato_compartido" d="M676,67 C430,67 430,105 184,105" stroke-width="3.14" marker-end="url(#pta)"><title>30_calidad usa 10b_formato_compartido · 46 veces</title></path>
+<path class="arista" data-de="30_calidad" data-a="23_ordenes" d="M676,67 C650,67 650,181 624,181" stroke-width="1.06" marker-end="url(#pta)"><title>30_calidad usa 23_ordenes · 1 vez</title></path>
+<path class="arista" data-de="30_calidad" data-a="12_sesion" d="M676,67 C430,67 430,181 184,181" stroke-width="2.34" marker-end="url(#pta)"><title>30_calidad usa 12_sesion · 13 veces</title></path>
+<path class="arista" data-de="30_calidad" data-a="50_impresion" d="M844,67 C870,67 870,105 896,105" stroke-width="1.06" marker-end="url(#pta)"><title>30_calidad usa 50_impresion · 1 vez</title></path>
+<path class="arista" data-de="30_calidad" data-a="31_almacen" d="M844,67 C872,67 872,105 844,105" stroke-width="1.33" marker-end="url(#pta)"><title>30_calidad usa 31_almacen · 2 veces</title></path>
+<path class="arista" data-de="30_calidad" data-a="21_examenes" d="M676,67 C540,67 540,181 404,181" stroke-width="1.06" marker-end="url(#pta)"><title>30_calidad usa 21_examenes · 1 vez</title></path>
+<path class="arista" data-de="31_almacen" data-a="10_nucleo" d="M676,105 C430,105 430,67 184,67" stroke-width="2.75" marker-end="url(#pta)"><title>31_almacen usa 10_nucleo · 25 veces</title></path>
+<path class="arista" data-de="31_almacen" data-a="10b_formato_compartido" d="M676,105 C430,105 430,105 184,105" stroke-width="3.58" marker-end="url(#pta)"><title>31_almacen usa 10b_formato_compartido · 90 veces</title></path>
+<path class="arista" data-de="31_almacen" data-a="50_impresion" d="M844,105 C870,105 870,105 896,105" stroke-width="2.05" marker-end="url(#pta)"><title>31_almacen usa 50_impresion · 8 veces</title></path>
+<path class="arista" data-de="31_almacen" data-a="12_sesion" d="M676,105 C430,105 430,181 184,181" stroke-width="2.24" marker-end="url(#pta)"><title>31_almacen usa 12_sesion · 11 veces</title></path>
+<path class="arista" data-de="31_almacen" data-a="31c_srv_almacen" d="M844,105 C872,105 872,181 844,181" stroke-width="1.52" marker-end="url(#pta)"><title>31_almacen usa 31c_srv_almacen · 3 veces</title></path>
+<path class="arista" data-de="31_almacen" data-a="31b_repo_almacen" d="M844,105 C872,105 872,143 844,143" stroke-width="1.66" marker-end="url(#pta)"><title>31_almacen usa 31b_repo_almacen · 4 veces</title></path>
+<path class="arista" data-de="31_almacen" data-a="30_calidad" d="M844,105 C872,105 872,67 844,67" stroke-width="1.66" marker-end="url(#pta)"><title>31_almacen usa 30_calidad · 4 veces</title></path>
+<path class="arista" data-de="31b_repo_almacen" data-a="10_nucleo" d="M676,143 C430,143 430,67 184,67" stroke-width="1.33" marker-end="url(#pta)"><title>31b_repo_almacen usa 10_nucleo · 2 veces</title></path>
+<path class="arista" data-de="31b_repo_almacen" data-a="12_sesion" d="M676,143 C430,143 430,181 184,181" stroke-width="1.06" marker-end="url(#pta)"><title>31b_repo_almacen usa 12_sesion · 1 vez</title></path>
+<path class="arista" data-de="31c_srv_almacen" data-a="31b_repo_almacen" d="M844,181 C872,181 872,143 844,143" stroke-width="2.12" marker-end="url(#pta)"><title>31c_srv_almacen usa 31b_repo_almacen · 9 veces</title></path>
+<path class="arista" data-de="31c_srv_almacen" data-a="12_sesion" d="M676,181 C430,181 430,181 184,181" stroke-width="1.06" marker-end="url(#pta)"><title>31c_srv_almacen usa 12_sesion · 1 vez</title></path>
+<path class="arista" data-de="31c_srv_almacen" data-a="13_repositorios" d="M676,181 C430,181 430,219 184,219" stroke-width="1.33" marker-end="url(#pta)"><title>31c_srv_almacen usa 13_repositorios · 2 veces</title></path>
+<path class="arista" data-de="31c_srv_almacen" data-a="10_nucleo" d="M676,181 C430,181 430,67 184,67" stroke-width="1.52" marker-end="url(#pta)"><title>31c_srv_almacen usa 10_nucleo · 3 veces</title></path>
+<path class="arista" data-de="31c_srv_almacen" data-a="31_almacen" d="M844,181 C872,181 872,105 844,105" stroke-width="1.06" marker-end="url(#pta)"><title>31c_srv_almacen usa 31_almacen · 1 vez</title></path>
+<path class="arista" data-de="32_sgc" data-a="10_nucleo" d="M676,219 C430,219 430,67 184,67" stroke-width="3.39" marker-end="url(#pta)"><title>32_sgc usa 10_nucleo · 67 veces</title></path>
+<path class="arista" data-de="32_sgc" data-a="23b_repo_ordenes" d="M676,219 C650,219 650,257 624,257" stroke-width="1.06" marker-end="url(#pta)"><title>32_sgc usa 23b_repo_ordenes · 1 vez</title></path>
+<path class="arista" data-de="32_sgc" data-a="23_ordenes" d="M676,219 C650,219 650,181 624,181" stroke-width="2.05" marker-end="url(#pta)"><title>32_sgc usa 23_ordenes · 8 veces</title></path>
+<path class="arista" data-de="32_sgc" data-a="51_informe" d="M844,219 C870,219 870,181 896,181" stroke-width="1.52" marker-end="url(#pta)"><title>32_sgc usa 51_informe · 3 veces</title></path>
+<path class="arista" data-de="32_sgc" data-a="12_sesion" d="M676,219 C430,219 430,181 184,181" stroke-width="3.07" marker-end="url(#pta)"><title>32_sgc usa 12_sesion · 41 veces</title></path>
+<path class="arista" data-de="32_sgc" data-a="10b_formato_compartido" d="M676,219 C430,219 430,105 184,105" stroke-width="4.00" marker-end="url(#pta)"><title>32_sgc usa 10b_formato_compartido · 171 veces</title></path>
+<path class="arista" data-de="32_sgc" data-a="21_examenes" d="M676,219 C540,219 540,181 404,181" stroke-width="1.06" marker-end="url(#pta)"><title>32_sgc usa 21_examenes · 1 vez</title></path>
+<path class="arista" data-de="32_sgc" data-a="50_impresion" d="M844,219 C870,219 870,105 896,105" stroke-width="2.05" marker-end="url(#pta)"><title>32_sgc usa 50_impresion · 8 veces</title></path>
+<path class="arista" data-de="32_sgc" data-a="30_calidad" d="M844,219 C872,219 872,67 844,67" stroke-width="1.66" marker-end="url(#pta)"><title>32_sgc usa 30_calidad · 4 veces</title></path>
+<path class="arista" data-de="32_sgc" data-a="31_almacen" d="M844,219 C872,219 872,105 844,105" stroke-width="1.66" marker-end="url(#pta)"><title>32_sgc usa 31_almacen · 4 veces</title></path>
+<path class="arista" data-de="32_sgc" data-a="23c_srv_ordenes" d="M676,219 C650,219 650,295 624,295" stroke-width="1.06" marker-end="url(#pta)"><title>32_sgc usa 23c_srv_ordenes · 1 vez</title></path>
+<path class="arista" data-de="40_envio" data-a="10b_formato_compartido" d="M896,67 C540,67 540,105 184,105" stroke-width="2.12" marker-end="url(#pta)"><title>40_envio usa 10b_formato_compartido · 9 veces</title></path>
+<path class="arista" data-de="40_envio" data-a="10_nucleo" d="M896,67 C540,67 540,67 184,67" stroke-width="2.18" marker-end="url(#pta)"><title>40_envio usa 10_nucleo · 10 veces</title></path>
+<path class="arista" data-de="40_envio" data-a="22_cotizaciones" d="M896,67 C760,67 760,67 624,67" stroke-width="1.06" marker-end="url(#pta)"><title>40_envio usa 22_cotizaciones · 1 vez</title></path>
+<path class="arista" data-de="40_envio" data-a="25_facturas" d="M896,67 C760,67 760,409 624,409" stroke-width="1.06" marker-end="url(#pta)"><title>40_envio usa 25_facturas · 1 vez</title></path>
+<path class="arista" data-de="40_envio" data-a="24_recibos" d="M896,67 C760,67 760,371 624,371" stroke-width="1.06" marker-end="url(#pta)"><title>40_envio usa 24_recibos · 1 vez</title></path>
+<path class="arista" data-de="40_envio" data-a="12_sesion" d="M896,67 C540,67 540,181 184,181" stroke-width="1.33" marker-end="url(#pta)"><title>40_envio usa 12_sesion · 2 veces</title></path>
+<path class="arista" data-de="50_impresion" data-a="10_nucleo" d="M896,105 C540,105 540,67 184,67" stroke-width="2.29" marker-end="url(#pta)"><title>50_impresion usa 10_nucleo · 12 veces</title></path>
+<path class="arista" data-de="50_impresion" data-a="12_sesion" d="M896,105 C540,105 540,181 184,181" stroke-width="2.12" marker-end="url(#pta)"><title>50_impresion usa 12_sesion · 9 veces</title></path>
+<path class="arista" data-de="50_impresion" data-a="10b_formato_compartido" d="M896,105 C540,105 540,105 184,105" stroke-width="3.18" marker-end="url(#pta)"><title>50_impresion usa 10b_formato_compartido · 49 veces</title></path>
+<path class="arista" data-de="50_impresion" data-a="50b_plantillas_comunes" d="M1064,105 C1092,105 1092,143 1064,143" stroke-width="2.47" marker-end="url(#pta)"><title>50_impresion usa 50b_plantillas_comunes · 16 veces</title></path>
+<path class="arista" data-de="50_impresion" data-a="51_informe" d="M1064,105 C1092,105 1092,181 1064,181" stroke-width="1.66" marker-end="url(#pta)"><title>50_impresion usa 51_informe · 4 veces</title></path>
+<path class="arista" data-de="50_impresion" data-a="24_recibos" d="M896,105 C760,105 760,371 624,371" stroke-width="1.33" marker-end="url(#pta)"><title>50_impresion usa 24_recibos · 2 veces</title></path>
+<path class="arista" data-de="50_impresion" data-a="25_facturas" d="M896,105 C760,105 760,409 624,409" stroke-width="1.33" marker-end="url(#pta)"><title>50_impresion usa 25_facturas · 2 veces</title></path>
+<path class="arista" data-de="50_impresion" data-a="22_cotizaciones" d="M896,105 C760,105 760,67 624,67" stroke-width="1.89" marker-end="url(#pta)"><title>50_impresion usa 22_cotizaciones · 6 veces</title></path>
+<path class="arista" data-de="50_impresion" data-a="55_instructivos" d="M1064,105 C1092,105 1092,295 1064,295" stroke-width="1.66" marker-end="url(#pta)"><title>50_impresion usa 55_instructivos · 4 veces</title></path>
+<path class="arista" data-de="50b_plantillas_comunes" data-a="10b_formato_compartido" d="M896,143 C540,143 540,105 184,105" stroke-width="3.39" marker-end="url(#pta)"><title>50b_plantillas_comunes usa 10b_formato_compartido · 67 veces</title></path>
+<path class="arista" data-de="50b_plantillas_comunes" data-a="50_impresion" d="M1064,143 C1092,143 1092,105 1064,105" stroke-width="1.66" marker-end="url(#pta)"><title>50b_plantillas_comunes usa 50_impresion · 4 veces</title></path>
+<path class="arista" data-de="50b_plantillas_comunes" data-a="10_nucleo" d="M896,143 C540,143 540,67 184,67" stroke-width="1.52" marker-end="url(#pta)"><title>50b_plantillas_comunes usa 10_nucleo · 3 veces</title></path>
+<path class="arista" data-de="50b_plantillas_comunes" data-a="12_sesion" d="M896,143 C540,143 540,181 184,181" stroke-width="1.78" marker-end="url(#pta)"><title>50b_plantillas_comunes usa 12_sesion · 5 veces</title></path>
+<path class="arista" data-de="51_informe" data-a="12_sesion" d="M896,181 C540,181 540,181 184,181" stroke-width="1.78" marker-end="url(#pta)"><title>51_informe usa 12_sesion · 5 veces</title></path>
+<path class="arista" data-de="51_informe" data-a="10b_formato_compartido" d="M896,181 C540,181 540,105 184,105" stroke-width="3.36" marker-end="url(#pta)"><title>51_informe usa 10b_formato_compartido · 64 veces</title></path>
+<path class="arista" data-de="51_informe" data-a="10_nucleo" d="M896,181 C540,181 540,67 184,67" stroke-width="2.47" marker-end="url(#pta)"><title>51_informe usa 10_nucleo · 16 veces</title></path>
+<path class="arista" data-de="51_informe" data-a="21e_medicos" d="M896,181 C650,181 650,333 404,333" stroke-width="1.52" marker-end="url(#pta)"><title>51_informe usa 21e_medicos · 3 veces</title></path>
+<path class="arista" data-de="51_informe" data-a="23_ordenes" d="M896,181 C760,181 760,181 624,181" stroke-width="1.52" marker-end="url(#pta)"><title>51_informe usa 23_ordenes · 3 veces</title></path>
+<path class="arista" data-de="51_informe" data-a="50b_plantillas_comunes" d="M1064,181 C1092,181 1092,143 1064,143" stroke-width="1.33" marker-end="url(#pta)"><title>51_informe usa 50b_plantillas_comunes · 2 veces</title></path>
+<path class="arista" data-de="51_informe" data-a="51b_plantillas_informe" d="M1064,181 C1092,181 1092,219 1064,219" stroke-width="1.06" marker-end="url(#pta)"><title>51_informe usa 51b_plantillas_informe · 1 vez</title></path>
+<path class="arista" data-de="51_informe" data-a="50_impresion" d="M1064,181 C1092,181 1092,105 1064,105" stroke-width="2.05" marker-end="url(#pta)"><title>51_informe usa 50_impresion · 8 veces</title></path>
+<path class="arista" data-de="51_informe" data-a="22_cotizaciones" d="M896,181 C760,181 760,67 624,67" stroke-width="2.05" marker-end="url(#pta)"><title>51_informe usa 22_cotizaciones · 8 veces</title></path>
+<path class="arista" data-de="51_informe" data-a="23b_evaluacion_compartida" d="M896,181 C760,181 760,219 624,219" stroke-width="1.33" marker-end="url(#pta)"><title>51_informe usa 23b_evaluacion_compartida · 2 veces</title></path>
+<path class="arista" data-de="51b_plantillas_informe" data-a="10_nucleo" d="M896,219 C540,219 540,67 184,67" stroke-width="1.06" marker-end="url(#pta)"><title>51b_plantillas_informe usa 10_nucleo · 1 vez</title></path>
+<path class="arista" data-de="51b_plantillas_informe" data-a="23b_evaluacion_compartida" d="M896,219 C760,219 760,219 624,219" stroke-width="2.51" marker-end="url(#pta)"><title>51b_plantillas_informe usa 23b_evaluacion_compartida · 17 veces</title></path>
+<path class="arista" data-de="51b_plantillas_informe" data-a="23_ordenes" d="M896,219 C760,219 760,181 624,181" stroke-width="1.06" marker-end="url(#pta)"><title>51b_plantillas_informe usa 23_ordenes · 1 vez</title></path>
+<path class="arista" data-de="51b_plantillas_informe" data-a="10b_formato_compartido" d="M896,219 C540,219 540,105 184,105" stroke-width="3.43" marker-end="url(#pta)"><title>51b_plantillas_informe usa 10b_formato_compartido · 72 veces</title></path>
+<path class="arista" data-de="51b_plantillas_informe" data-a="50b_plantillas_comunes" d="M1064,219 C1092,219 1092,143 1064,143" stroke-width="1.33" marker-end="url(#pta)"><title>51b_plantillas_informe usa 50b_plantillas_comunes · 2 veces</title></path>
+<path class="arista" data-de="51b_plantillas_informe" data-a="56_qr" d="M1064,219 C1092,219 1092,257 1064,257" stroke-width="1.06" marker-end="url(#pta)"><title>51b_plantillas_informe usa 56_qr · 1 vez</title></path>
+<path class="arista" data-de="55_instructivos" data-a="10b_formato_compartido" d="M896,295 C540,295 540,105 184,105" stroke-width="2.24" marker-end="url(#pta)"><title>55_instructivos usa 10b_formato_compartido · 11 veces</title></path>
+<path class="arista" data-de="55_instructivos" data-a="10_nucleo" d="M896,295 C540,295 540,67 184,67" stroke-width="2.05" marker-end="url(#pta)"><title>55_instructivos usa 10_nucleo · 8 veces</title></path>
+<path class="arista" data-de="55_instructivos" data-a="50b_plantillas_comunes" d="M1064,295 C1092,295 1092,143 1064,143" stroke-width="1.52" marker-end="url(#pta)"><title>55_instructivos usa 50b_plantillas_comunes · 3 veces</title></path>
+<path class="arista" data-de="55_instructivos" data-a="21e_medicos" d="M896,295 C650,295 650,333 404,333" stroke-width="1.06" marker-end="url(#pta)"><title>55_instructivos usa 21e_medicos · 1 vez</title></path>
+<path class="arista" data-de="55_instructivos" data-a="50_impresion" d="M1064,295 C1092,295 1092,105 1064,105" stroke-width="2.39" marker-end="url(#pta)"><title>55_instructivos usa 50_impresion · 14 veces</title></path>
+<path class="arista" data-de="55_instructivos" data-a="12_sesion" d="M896,295 C540,295 540,181 184,181" stroke-width="1.66" marker-end="url(#pta)"><title>55_instructivos usa 12_sesion · 4 veces</title></path>
+<path class="arista" data-de="52_etiquetas" data-a="10b_formato_compartido" d="M896,333 C540,333 540,105 184,105" stroke-width="2.29" marker-end="url(#pta)"><title>52_etiquetas usa 10b_formato_compartido · 12 veces</title></path>
+<path class="arista" data-de="52_etiquetas" data-a="10_nucleo" d="M896,333 C540,333 540,67 184,67" stroke-width="2.24" marker-end="url(#pta)"><title>52_etiquetas usa 10_nucleo · 11 veces</title></path>
+<path class="arista" data-de="52_etiquetas" data-a="50_impresion" d="M1064,333 C1092,333 1092,105 1064,105" stroke-width="1.52" marker-end="url(#pta)"><title>52_etiquetas usa 50_impresion · 3 veces</title></path>
+<path class="arista" data-de="52_etiquetas" data-a="23b_repo_ordenes" d="M896,333 C760,333 760,257 624,257" stroke-width="1.33" marker-end="url(#pta)"><title>52_etiquetas usa 23b_repo_ordenes · 2 veces</title></path>
+<path class="arista" data-de="60_config" data-a="10b_formato_compartido" d="M1116,67 C650,67 650,105 184,105" stroke-width="2.99" marker-end="url(#pta)"><title>60_config usa 10b_formato_compartido · 36 veces</title></path>
+<path class="arista" data-de="60_config" data-a="21_examenes" d="M1116,67 C760,67 760,181 404,181" stroke-width="2.12" marker-end="url(#pta)"><title>60_config usa 21_examenes · 9 veces</title></path>
+<path class="arista" data-de="60_config" data-a="25_facturas" d="M1116,67 C870,67 870,409 624,409" stroke-width="1.06" marker-end="url(#pta)"><title>60_config usa 25_facturas · 1 vez</title></path>
+<path class="arista" data-de="60_config" data-a="50b_plantillas_comunes" d="M1116,67 C1090,67 1090,143 1064,143" stroke-width="1.06" marker-end="url(#pta)"><title>60_config usa 50b_plantillas_comunes · 1 vez</title></path>
+<path class="arista" data-de="60_config" data-a="10_nucleo" d="M1116,67 C650,67 650,67 184,67" stroke-width="2.54" marker-end="url(#pta)"><title>60_config usa 10_nucleo · 18 veces</title></path>
+<path class="arista" data-de="60_config" data-a="51_informe" d="M1116,67 C1090,67 1090,181 1064,181" stroke-width="1.06" marker-end="url(#pta)"><title>60_config usa 51_informe · 1 vez</title></path>
+<path class="arista" data-de="60_config" data-a="23b_repo_ordenes" d="M1116,67 C870,67 870,257 624,257" stroke-width="1.06" marker-end="url(#pta)"><title>60_config usa 23b_repo_ordenes · 1 vez</title></path>
+<path class="arista" data-de="60_config" data-a="12_sesion" d="M1116,67 C650,67 650,181 184,181" stroke-width="1.78" marker-end="url(#pta)"><title>60_config usa 12_sesion · 5 veces</title></path>
+<path class="arista" data-de="70_contabilidad" data-a="10_nucleo" d="M1116,105 C650,105 650,67 184,67" stroke-width="3.60" marker-end="url(#pta)"><title>70_contabilidad usa 10_nucleo · 93 veces</title></path>
+<path class="arista" data-de="70_contabilidad" data-a="22_cotizaciones" d="M1116,105 C870,105 870,67 624,67" stroke-width="2.64" marker-end="url(#pta)"><title>70_contabilidad usa 22_cotizaciones · 21 veces</title></path>
+<path class="arista" data-de="70_contabilidad" data-a="12_sesion" d="M1116,105 C650,105 650,181 184,181" stroke-width="1.97" marker-end="url(#pta)"><title>70_contabilidad usa 12_sesion · 7 veces</title></path>
+<path class="arista" data-de="70_contabilidad" data-a="10b_formato_compartido" d="M1116,105 C650,105 650,105 184,105" stroke-width="3.14" marker-end="url(#pta)"><title>70_contabilidad usa 10b_formato_compartido · 46 veces</title></path>
+<path class="arista" data-de="70_contabilidad" data-a="70c_srv_caja" d="M1284,105 C1312,105 1312,181 1284,181" stroke-width="1.89" marker-end="url(#pta)"><title>70_contabilidad usa 70c_srv_caja · 6 veces</title></path>
+<path class="arista" data-de="70_contabilidad" data-a="23_ordenes" d="M1116,105 C870,105 870,181 624,181" stroke-width="1.06" marker-end="url(#pta)"><title>70_contabilidad usa 23_ordenes · 1 vez</title></path>
+<path class="arista" data-de="70_contabilidad" data-a="50_impresion" d="M1116,105 C1090,105 1090,105 1064,105" stroke-width="2.05" marker-end="url(#pta)"><title>70_contabilidad usa 50_impresion · 8 veces</title></path>
+<path class="arista" data-de="70c_srv_caja" data-a="70b_repo_caja" d="M1284,181 C1312,181 1312,143 1284,143" stroke-width="1.97" marker-end="url(#pta)"><title>70c_srv_caja usa 70b_repo_caja · 7 veces</title></path>
+<path class="arista" data-de="70c_srv_caja" data-a="10_nucleo" d="M1116,181 C650,181 650,67 184,67" stroke-width="2.75" marker-end="url(#pta)"><title>70c_srv_caja usa 10_nucleo · 25 veces</title></path>
+<path class="arista" data-de="70c_srv_caja" data-a="70_contabilidad" d="M1284,181 C1312,181 1312,105 1284,105" stroke-width="1.78" marker-end="url(#pta)"><title>70c_srv_caja usa 70_contabilidad · 5 veces</title></path>
+<path class="arista" data-de="70c_srv_caja" data-a="22_cotizaciones" d="M1116,181 C870,181 870,67 624,67" stroke-width="1.66" marker-end="url(#pta)"><title>70c_srv_caja usa 22_cotizaciones · 4 veces</title></path>
+<path class="arista" data-de="70c_srv_caja" data-a="13_repositorios" d="M1116,181 C650,181 650,219 184,219" stroke-width="1.06" marker-end="url(#pta)"><title>70c_srv_caja usa 13_repositorios · 1 vez</title></path>
+<path class="arista" data-de="71_estadisticas" data-a="10_nucleo" d="M1116,219 C650,219 650,67 184,67" stroke-width="2.18" marker-end="url(#pta)"><title>71_estadisticas usa 10_nucleo · 10 veces</title></path>
+<path class="arista" data-de="71_estadisticas" data-a="23b_evaluacion_compartida" d="M1116,219 C870,219 870,219 624,219" stroke-width="1.06" marker-end="url(#pta)"><title>71_estadisticas usa 23b_evaluacion_compartida · 1 vez</title></path>
+<path class="arista" data-de="71_estadisticas" data-a="21e_medicos" d="M1116,219 C760,219 760,333 404,333" stroke-width="1.06" marker-end="url(#pta)"><title>71_estadisticas usa 21e_medicos · 1 vez</title></path>
+<path class="arista" data-de="71_estadisticas" data-a="22_cotizaciones" d="M1116,219 C870,219 870,67 624,67" stroke-width="1.33" marker-end="url(#pta)"><title>71_estadisticas usa 22_cotizaciones · 2 veces</title></path>
+<path class="arista" data-de="71_estadisticas" data-a="10b_formato_compartido" d="M1116,219 C650,219 650,105 184,105" stroke-width="2.54" marker-end="url(#pta)"><title>71_estadisticas usa 10b_formato_compartido · 18 veces</title></path>
+<path class="arista" data-de="71_estadisticas" data-a="50_impresion" d="M1116,219 C1090,219 1090,105 1064,105" stroke-width="1.66" marker-end="url(#pta)"><title>71_estadisticas usa 50_impresion · 4 veces</title></path>
+<path class="arista" data-de="71_estadisticas" data-a="23_ordenes" d="M1116,219 C870,219 870,181 624,181" stroke-width="1.06" marker-end="url(#pta)"><title>71_estadisticas usa 23_ordenes · 1 vez</title></path>
+<path class="arista" data-de="80_bitacora" data-a="10_nucleo" d="M1116,257 C650,257 650,67 184,67" stroke-width="3.56" marker-end="url(#pta)"><title>80_bitacora usa 10_nucleo · 88 veces</title></path>
+<path class="arista" data-de="80_bitacora" data-a="10b_formato_compartido" d="M1116,257 C650,257 650,105 184,105" stroke-width="3.18" marker-end="url(#pta)"><title>80_bitacora usa 10b_formato_compartido · 49 veces</title></path>
+<path class="arista" data-de="80_bitacora" data-a="12_sesion" d="M1116,257 C650,257 650,181 184,181" stroke-width="3.08" marker-end="url(#pta)"><title>80_bitacora usa 12_sesion · 42 veces</title></path>
+<path class="arista" data-de="80_bitacora" data-a="50_impresion" d="M1116,257 C1090,257 1090,105 1064,105" stroke-width="1.66" marker-end="url(#pta)"><title>80_bitacora usa 50_impresion · 4 veces</title></path>
+<g class="nodo" data-mod="10_nucleo" tabindex="0" transform="translate(16,54)">
+<title>10_nucleo · 1011 líneas · 45 símbolos · usa 4 · lo usan 40
+ESTADO Y PERSISTENCIA</title>
+<rect width="168" height="26" rx="6" fill="#e8eef3"/>
+<text x="10" y="17" class="g-mod">10_nucleo</text>
+<text x="160" y="17" text-anchor="end" class="g-n">40</text>
+</g>
+<g class="nodo" data-mod="10b_formato_compartido" tabindex="0" transform="translate(16,92)">
+<title>10b_formato_compartido · 139 líneas · 15 símbolos · usa 1 · lo usan 29
+── Helpers puros de formato de texto/fecha/edad ── Se agrupan aquí porque ninguno toca `S` ni el DOM: solo transforman el dato que reciben como arg…</title>
+<rect width="168" height="26" rx="6" fill="#e8eef3"/>
+<text x="10" y="17" class="g-mod">10b_formato_compartido</text>
+<text x="160" y="17" text-anchor="end" class="g-n">29</text>
+</g>
+<g class="nodo" data-mod="11_catalogo" tabindex="0" transform="translate(16,130)">
+<title>11_catalogo · 107 líneas · 1 símbolos · usa 0 · lo usan 2
+CATÁLOGO SEMILLA</title>
+<rect width="168" height="26" rx="6" fill="#e8eef3"/>
+<text x="10" y="17" class="g-mod">11_catalogo</text>
+<text x="160" y="17" text-anchor="end" class="g-n">2</text>
+</g>
+<g class="nodo" data-mod="12_sesion" tabindex="0" transform="translate(16,168)">
+<title>12_sesion · 350 líneas · 20 símbolos · usa 22 · lo usan 27
+SESIÓN Y USUARIOS</title>
+<rect width="168" height="26" rx="6" fill="#e8eef3"/>
+<text x="10" y="17" class="g-mod">12_sesion</text>
+<text x="160" y="17" text-anchor="end" class="g-n">27</text>
+</g>
+<g class="nodo" data-mod="13_repositorios" tabindex="0" transform="translate(16,206)">
+<title>13_repositorios · 23 líneas · 1 símbolos · usa 2 · lo usan 9
+REPOSITORIOS Y SERVICIOS: infraestructura compartida</title>
+<rect width="168" height="26" rx="6" fill="#e8eef3"/>
+<text x="10" y="17" class="g-mod">13_repositorios</text>
+<text x="160" y="17" text-anchor="end" class="g-n">9</text>
+</g>
+<g class="nodo" data-mod="20_pacientes" tabindex="0" transform="translate(236,54)">
+<title>20_pacientes · 385 líneas · 24 símbolos · usa 7 · lo usan 2
+PACIENTES</title>
+<rect width="168" height="26" rx="6" fill="#e6f2ea"/>
+<text x="10" y="17" class="g-mod">20_pacientes</text>
+<text x="160" y="17" text-anchor="end" class="g-n">2</text>
+</g>
+<g class="nodo" data-mod="20b_repo_pacientes" tabindex="0" transform="translate(236,92)">
+<title>20b_repo_pacientes · 50 líneas · 7 símbolos · usa 1 · lo usan 3
+PACIENTES: REPOSITORIO</title>
+<rect width="168" height="26" rx="6" fill="#e6f2ea"/>
+<text x="10" y="17" class="g-mod">20b_repo_pacientes</text>
+<text x="160" y="17" text-anchor="end" class="g-n">3</text>
+</g>
+<g class="nodo" data-mod="20c_srv_pacientes" tabindex="0" transform="translate(236,130)">
+<title>20c_srv_pacientes · 184 líneas · 10 símbolos · usa 5 · lo usan 1
+PACIENTES: SERVICIO</title>
+<rect width="168" height="26" rx="6" fill="#e6f2ea"/>
+<text x="10" y="17" class="g-mod">20c_srv_pacientes</text>
+<text x="160" y="17" text-anchor="end" class="g-n">1</text>
+</g>
+<g class="nodo" data-mod="21_examenes" tabindex="0" transform="translate(236,168)">
+<title>21_examenes · 425 líneas · 28 símbolos · usa 6 · lo usan 6
+EXÁMENES / PLANTILLAS</title>
+<rect width="168" height="26" rx="6" fill="#e6f2ea"/>
+<text x="10" y="17" class="g-mod">21_examenes</text>
+<text x="160" y="17" text-anchor="end" class="g-n">6</text>
+</g>
+<g class="nodo" data-mod="21c_repo_examenes" tabindex="0" transform="translate(236,206)">
+<title>21c_repo_examenes · 55 líneas · 8 símbolos · usa 0 · lo usan 2
+EXÁMENES (CATÁLOGO): REPOSITORIO</title>
+<rect width="168" height="26" rx="6" fill="#e6f2ea"/>
+<text x="10" y="17" class="g-mod">21c_repo_examenes</text>
+<text x="160" y="17" text-anchor="end" class="g-n">2</text>
+</g>
+<g class="nodo" data-mod="21d_srv_examenes" tabindex="0" transform="translate(236,244)">
+<title>21d_srv_examenes · 51 líneas · 3 símbolos · usa 3 · lo usan 1
+EXÁMENES (CATÁLOGO): SERVICIO</title>
+<rect width="168" height="26" rx="6" fill="#e6f2ea"/>
+<text x="10" y="17" class="g-mod">21d_srv_examenes</text>
+<text x="160" y="17" text-anchor="end" class="g-n">1</text>
+</g>
+<g class="nodo" data-mod="21b_perfiles" tabindex="0" transform="translate(236,282)">
+<title>21b_perfiles · 175 líneas · 15 símbolos · usa 4 · lo usan 3
+COMBOS / PERFILES PROMOCIONALES</title>
+<rect width="168" height="26" rx="6" fill="#e6f2ea"/>
+<text x="10" y="17" class="g-mod">21b_perfiles</text>
+<text x="160" y="17" text-anchor="end" class="g-n">3</text>
+</g>
+<g class="nodo" data-mod="21e_medicos" tabindex="0" transform="translate(236,320)">
+<title>21e_medicos · 161 líneas · 13 símbolos · usa 4 · lo usan 5
+CATÁLOGO DE MÉDICOS REFERENTES</title>
+<rect width="168" height="26" rx="6" fill="#e6f2ea"/>
+<text x="10" y="17" class="g-mod">21e_medicos</text>
+<text x="160" y="17" text-anchor="end" class="g-n">5</text>
+</g>
+<g class="nodo" data-mod="22_cotizaciones" tabindex="0" transform="translate(456,54)">
+<title>22_cotizaciones · 680 líneas · 45 símbolos · usa 18 · lo usan 15
+COTIZACIONES</title>
+<rect width="168" height="26" rx="6" fill="#fdf3e2"/>
+<text x="10" y="17" class="g-mod">22_cotizaciones</text>
+<text x="160" y="17" text-anchor="end" class="g-n">15</text>
+</g>
+<g class="nodo" data-mod="22b_repo_cotizaciones" tabindex="0" transform="translate(456,92)">
+<title>22b_repo_cotizaciones · 25 líneas · 6 símbolos · usa 1 · lo usan 1
+COTIZACIONES: REPOSITORIO</title>
+<rect width="168" height="26" rx="6" fill="#fdf3e2"/>
+<text x="10" y="17" class="g-mod">22b_repo_cotizaciones</text>
+<text x="160" y="17" text-anchor="end" class="g-n">1</text>
+</g>
+<g class="nodo" data-mod="22c_srv_cotizaciones" tabindex="0" transform="translate(456,130)">
+<title>22c_srv_cotizaciones · 121 líneas · 4 símbolos · usa 7 · lo usan 2
+COTIZACIONES: SERVICIO</title>
+<rect width="168" height="26" rx="6" fill="#fdf3e2"/>
+<text x="10" y="17" class="g-mod">22c_srv_cotizaciones</text>
+<text x="160" y="17" text-anchor="end" class="g-n">2</text>
+</g>
+<g class="nodo" data-mod="23_ordenes" tabindex="0" transform="translate(456,168)">
+<title>23_ordenes · 2012 líneas · 116 símbolos · usa 21 · lo usan 14
+Token de acceso al informe en línea.</title>
+<rect width="168" height="26" rx="6" fill="#fdf3e2"/>
+<text x="10" y="17" class="g-mod">23_ordenes</text>
+<text x="160" y="17" text-anchor="end" class="g-n">14</text>
+</g>
+<g class="nodo" data-mod="23b_evaluacion_compartida" tabindex="0" transform="translate(456,206)">
+<title>23b_evaluacion_compartida · 171 líneas · 12 símbolos · usa 2 · lo usan 5
+── Evaluación clínica de parámetros de laboratorio ── evalCualitativo/evalParam/refTexto (y el const NORMALES_POSITIVOS que usa evalCualitativo) se…</title>
+<rect width="168" height="26" rx="6" fill="#fdf3e2"/>
+<text x="10" y="17" class="g-mod">23b_evaluacion_compartida</text>
+<text x="160" y="17" text-anchor="end" class="g-n">5</text>
+</g>
+<g class="nodo" data-mod="23b_repo_ordenes" tabindex="0" transform="translate(456,244)">
+<title>23b_repo_ordenes · 65 líneas · 4 símbolos · usa 3 · lo usan 6
+ÓRDENES: REPOSITORIO</title>
+<rect width="168" height="26" rx="6" fill="#fdf3e2"/>
+<text x="10" y="17" class="g-mod">23b_repo_ordenes</text>
+<text x="160" y="17" text-anchor="end" class="g-n">6</text>
+</g>
+<g class="nodo" data-mod="23c_srv_ordenes" tabindex="0" transform="translate(456,282)">
+<title>23c_srv_ordenes · 247 líneas · 9 símbolos · usa 5 · lo usan 2
+ÓRDENES: SERVICIO</title>
+<rect width="168" height="26" rx="6" fill="#fdf3e2"/>
+<text x="10" y="17" class="g-mod">23c_srv_ordenes</text>
+<text x="160" y="17" text-anchor="end" class="g-n">2</text>
+</g>
+<g class="nodo" data-mod="23d_resultados" tabindex="0" transform="translate(456,320)">
+<title>23d_resultados · 180 líneas · 18 símbolos · usa 5 · lo usan 1
+RESULTADOS (solo consulta) Archivo de informes ya validados, separado de Órdenes de Trabajo.</title>
+<rect width="168" height="26" rx="6" fill="#fdf3e2"/>
+<text x="10" y="17" class="g-mod">23d_resultados</text>
+<text x="160" y="17" text-anchor="end" class="g-n">1</text>
+</g>
+<g class="nodo" data-mod="24_recibos" tabindex="0" transform="translate(456,358)">
+<title>24_recibos · 636 líneas · 25 símbolos · usa 11 · lo usan 6
+RECIBOS DE VENTA</title>
+<rect width="168" height="26" rx="6" fill="#fdf3e2"/>
+<text x="10" y="17" class="g-mod">24_recibos</text>
+<text x="160" y="17" text-anchor="end" class="g-n">6</text>
+</g>
+<g class="nodo" data-mod="25_facturas" tabindex="0" transform="translate(456,396)">
+<title>25_facturas · 808 líneas · 35 símbolos · usa 12 · lo usan 6
+FACTURAS (Régimen de Facturación SAR · Autoimpresor) Documento fiscal propiamente dicho -- distinto del Recibo de Venta (22_recibos.js): la SAR aut…</title>
+<rect width="168" height="26" rx="6" fill="#fdf3e2"/>
+<text x="10" y="17" class="g-mod">25_facturas</text>
+<text x="160" y="17" text-anchor="end" class="g-n">6</text>
+</g>
+<g class="nodo" data-mod="26_agenda" tabindex="0" transform="translate(456,434)">
+<title>26_agenda · 485 líneas · 27 símbolos · usa 8 · lo usan 2
+AGENDA · pantalla El caso real que le dio origen, tal cual pasa en el mostrador: · se cotiza hoy y el paciente quiere venir mañana; · se cotiza a l…</title>
+<rect width="168" height="26" rx="6" fill="#fdf3e2"/>
+<text x="10" y="17" class="g-mod">26_agenda</text>
+<text x="160" y="17" text-anchor="end" class="g-n">2</text>
+</g>
+<g class="nodo" data-mod="26b_repo_agenda" tabindex="0" transform="translate(456,472)">
+<title>26b_repo_agenda · 83 líneas · 12 símbolos · usa 2 · lo usan 4
+AGENDA · acceso a datos Hasta ahora el sistema solo sabía hacer una cosa con una cotización: convertirla en orden AHORA MISMO.</title>
+<rect width="168" height="26" rx="6" fill="#fdf3e2"/>
+<text x="10" y="17" class="g-mod">26b_repo_agenda</text>
+<text x="160" y="17" text-anchor="end" class="g-n">4</text>
+</g>
+<g class="nodo" data-mod="26c_srv_agenda" tabindex="0" transform="translate(456,510)">
+<title>26c_srv_agenda · 177 líneas · 9 símbolos · usa 6 · lo usan 1
+AGENDA · reglas Devuelven {ok, motivo, codigo} y no tocan la pantalla, igual que el resto de los servicios del sistema.</title>
+<rect width="168" height="26" rx="6" fill="#fdf3e2"/>
+<text x="10" y="17" class="g-mod">26c_srv_agenda</text>
+<text x="160" y="17" text-anchor="end" class="g-n">1</text>
+</g>
+<g class="nodo" data-mod="30_calidad" tabindex="0" transform="translate(676,54)">
+<title>30_calidad · 418 líneas · 23 símbolos · usa 7 · lo usan 5
+CONTROL DE CALIDAD INTERNO</title>
+<rect width="168" height="26" rx="6" fill="#f1e9f5"/>
+<text x="10" y="17" class="g-mod">30_calidad</text>
+<text x="160" y="17" text-anchor="end" class="g-n">5</text>
+</g>
+<g class="nodo" data-mod="31_almacen" tabindex="0" transform="translate(676,92)">
+<title>31_almacen · 352 líneas · 20 símbolos · usa 7 · lo usan 4
+ALMACÉN E INVENTARIO</title>
+<rect width="168" height="26" rx="6" fill="#f1e9f5"/>
+<text x="10" y="17" class="g-mod">31_almacen</text>
+<text x="160" y="17" text-anchor="end" class="g-n">4</text>
+</g>
+<g class="nodo" data-mod="31b_repo_almacen" tabindex="0" transform="translate(676,130)">
+<title>31b_repo_almacen · 39 líneas · 9 símbolos · usa 2 · lo usan 2
+ALMACÉN: REPOSITORIO</title>
+<rect width="168" height="26" rx="6" fill="#f1e9f5"/>
+<text x="10" y="17" class="g-mod">31b_repo_almacen</text>
+<text x="160" y="17" text-anchor="end" class="g-n">2</text>
+</g>
+<g class="nodo" data-mod="31c_srv_almacen" tabindex="0" transform="translate(676,168)">
+<title>31c_srv_almacen · 55 líneas · 3 símbolos · usa 5 · lo usan 1
+ALMACÉN: SERVICIO</title>
+<rect width="168" height="26" rx="6" fill="#f1e9f5"/>
+<text x="10" y="17" class="g-mod">31c_srv_almacen</text>
+<text x="160" y="17" text-anchor="end" class="g-n">1</text>
+</g>
+<g class="nodo" data-mod="32_sgc" tabindex="0" transform="translate(676,206)">
+<title>32_sgc · 1204 líneas · 62 símbolos · usa 11 · lo usan 3
+VISTA PREVIA DE PLANTILLAS</title>
+<rect width="168" height="26" rx="6" fill="#f1e9f5"/>
+<text x="10" y="17" class="g-mod">32_sgc</text>
+<text x="160" y="17" text-anchor="end" class="g-n">3</text>
+</g>
+<g class="nodo" data-mod="40_envio" tabindex="0" transform="translate(896,54)">
+<title>40_envio · 122 líneas · 9 símbolos · usa 6 · lo usan 5
+ENVÍO POR WHATSAPP Y CORREO</title>
+<rect width="168" height="26" rx="6" fill="#e9f1f8"/>
+<text x="10" y="17" class="g-mod">40_envio</text>
+<text x="160" y="17" text-anchor="end" class="g-n">5</text>
+</g>
+<g class="nodo" data-mod="50_impresion" tabindex="0" transform="translate(896,92)">
+<title>50_impresion · 709 líneas · 26 símbolos · usa 9 · lo usan 15
+cssBaseImpresion y cssCabeceraDoc se movieron a 50b_plantillas_comunes.js (Fase 8, ago.</title>
+<rect width="168" height="26" rx="6" fill="#e9f1f8"/>
+<text x="10" y="17" class="g-mod">50_impresion</text>
+<text x="160" y="17" text-anchor="end" class="g-n">15</text>
+</g>
+<g class="nodo" data-mod="50b_plantillas_comunes" tabindex="0" transform="translate(896,130)">
+<title>50b_plantillas_comunes · 756 líneas · 20 símbolos · usa 4 · lo usan 8
+BASE DE IMPRESIÓN DE ALTA CALIDAD cssBaseImpresion/cssCabeceraDoc se movieron aquí VERBATIM desde 50_impresion.js (Fase 8, ago.</title>
+<rect width="168" height="26" rx="6" fill="#e9f1f8"/>
+<text x="10" y="17" class="g-mod">50b_plantillas_comunes</text>
+<text x="160" y="17" text-anchor="end" class="g-n">8</text>
+</g>
+<g class="nodo" data-mod="51_informe" tabindex="0" transform="translate(896,168)">
+<title>51_informe · 421 líneas · 10 símbolos · usa 10 · lo usan 8
+cssInforme, horaLarga() y agruparHojas() se movieron a 51b_plantillas_informe.js (Fase 8, ago.</title>
+<rect width="168" height="26" rx="6" fill="#e9f1f8"/>
+<text x="10" y="17" class="g-mod">51_informe</text>
+<text x="160" y="17" text-anchor="end" class="g-n">8</text>
+</g>
+<g class="nodo" data-mod="51b_plantillas_informe" tabindex="0" transform="translate(896,206)">
+<title>51b_plantillas_informe · 620 líneas · 7 símbolos · usa 6 · lo usan 2
+CSS del informe institucional de resultados Movido VERBATIM desde 51_informe.js (Fase 8, ago.</title>
+<rect width="168" height="26" rx="6" fill="#e9f1f8"/>
+<text x="10" y="17" class="g-mod">51b_plantillas_informe</text>
+<text x="160" y="17" text-anchor="end" class="g-n">2</text>
+</g>
+<g class="nodo" data-mod="56_qr" tabindex="0" transform="translate(896,244)">
+<title>56_qr · 208 líneas · 8 símbolos · usa 0 · lo usan 3
+CÓDIGO QR Generador propio, sin librerías externas: el informe se imprime igual aunque el laboratorio esté sin internet.</title>
+<rect width="168" height="26" rx="6" fill="#e9f1f8"/>
+<text x="10" y="17" class="g-mod">56_qr</text>
+<text x="160" y="17" text-anchor="end" class="g-n">3</text>
+</g>
+<g class="nodo" data-mod="55_instructivos" tabindex="0" transform="translate(896,282)">
+<title>55_instructivos · 736 líneas · 15 símbolos · usa 6 · lo usan 3
+INSTRUCTIVOS DE PREPARACIÓN DEL PACIENTE Basados en: CLSI GP41 (venipuntura) · CLSI GP44 · CLSI M40 (transporte de muestras microbiológicas) · OMS…</title>
+<rect width="168" height="26" rx="6" fill="#e9f1f8"/>
+<text x="10" y="17" class="g-mod">55_instructivos</text>
+<text x="160" y="17" text-anchor="end" class="g-n">3</text>
+</g>
+<g class="nodo" data-mod="52_etiquetas" tabindex="0" transform="translate(896,320)">
+<title>52_etiquetas · 144 líneas · 13 símbolos · usa 4 · lo usan 2
+ETIQUETAS 57 × 32 mm (horizontal)</title>
+<rect width="168" height="26" rx="6" fill="#e9f1f8"/>
+<text x="10" y="17" class="g-mod">52_etiquetas</text>
+<text x="160" y="17" text-anchor="end" class="g-n">2</text>
+</g>
+<g class="nodo" data-mod="60_config" tabindex="0" transform="translate(1116,54)">
+<title>60_config · 371 líneas · 5 símbolos · usa 8 · lo usan 1
+CONFIGURACIÓN</title>
+<rect width="168" height="26" rx="6" fill="#f6efe6"/>
+<text x="10" y="17" class="g-mod">60_config</text>
+<text x="160" y="17" text-anchor="end" class="g-n">1</text>
+</g>
+<g class="nodo" data-mod="70_contabilidad" tabindex="0" transform="translate(1116,92)">
+<title>70_contabilidad · 631 líneas · 31 símbolos · usa 7 · lo usan 3
+DENOMINACIONES (Lempira, Honduras)</title>
+<rect width="168" height="26" rx="6" fill="#f6efe6"/>
+<text x="10" y="17" class="g-mod">70_contabilidad</text>
+<text x="160" y="17" text-anchor="end" class="g-n">3</text>
+</g>
+<g class="nodo" data-mod="70b_repo_caja" tabindex="0" transform="translate(1116,130)">
+<title>70b_repo_caja · 31 líneas · 9 símbolos · usa 0 · lo usan 1
+MOVIMIENTOS DE CAJA: REPOSITORIO</title>
+<rect width="168" height="26" rx="6" fill="#f6efe6"/>
+<text x="10" y="17" class="g-mod">70b_repo_caja</text>
+<text x="160" y="17" text-anchor="end" class="g-n">1</text>
+</g>
+<g class="nodo" data-mod="70c_srv_caja" tabindex="0" transform="translate(1116,168)">
+<title>70c_srv_caja · 121 líneas · 7 símbolos · usa 5 · lo usan 3
+MOVIMIENTOS DE CAJA: SERVICIO</title>
+<rect width="168" height="26" rx="6" fill="#f6efe6"/>
+<text x="10" y="17" class="g-mod">70c_srv_caja</text>
+<text x="160" y="17" text-anchor="end" class="g-n">3</text>
+</g>
+<g class="nodo" data-mod="71_estadisticas" tabindex="0" transform="translate(1116,206)">
+<title>71_estadisticas · 521 líneas · 27 símbolos · usa 7 · lo usan 1
+ESTADÍSTICAS</title>
+<rect width="168" height="26" rx="6" fill="#f6efe6"/>
+<text x="10" y="17" class="g-mod">71_estadisticas</text>
+<text x="160" y="17" text-anchor="end" class="g-n">1</text>
+</g>
+<g class="nodo" data-mod="80_bitacora" tabindex="0" transform="translate(1116,244)">
+<title>80_bitacora · 1276 líneas · 44 símbolos · usa 4 · lo usan 3
+SINCRONIZACIÓN CON SERVIDOR Cuando el LIS está montado en web, los datos se guardan en el servidor en vez de en localStorage.</title>
+<rect width="168" height="26" rx="6" fill="#f6efe6"/>
+<text x="10" y="17" class="g-mod">80_bitacora</text>
+<text x="160" y="17" text-anchor="end" class="g-n">3</text>
+</g>
+</svg>
+</div>
+<div class="leyenda"><span>Las flechas van <b>del módulo que usa al que es usado</b>; el grosor es la cantidad de llamadas. El número a la derecha de cada módulo es <b>cuántos lo usan</b>.</span><span><span class="sw"></span>Pulsa un módulo: en rojo lo que <b>usa</b></span><span><span class="sw entra"></span>en verde quién <b>lo usa</b></span><span>Pasa el cursor por una flecha para ver el conteo.</span></div>
+</div>
+<h2>Dónde tocar</h2>
+<div class="tarjeta"><p class="sub" style="margin:0 0 8px">Los más usados. Cambiar algo aquí se propaga a medio sistema.</p>
+<table><thead><tr><th>Módulo</th><th class="n">Lo usan</th><th class="n">Símbolos</th><th class="n">Líneas</th></tr></thead><tbody>
+<tr><td><code>10_nucleo</code></td><td class="n">40</td><td class="n">45</td><td class="n">1011</td></tr>
+<tr><td><code>10b_formato_compartido</code></td><td class="n">29</td><td class="n">15</td><td class="n">139</td></tr>
+<tr><td><code>12_sesion</code></td><td class="n">27</td><td class="n">20</td><td class="n">350</td></tr>
+<tr><td><code>22_cotizaciones</code></td><td class="n">15</td><td class="n">45</td><td class="n">680</td></tr>
+<tr><td><code>50_impresion</code></td><td class="n">15</td><td class="n">26</td><td class="n">709</td></tr>
+<tr><td><code>23_ordenes</code></td><td class="n">14</td><td class="n">116</td><td class="n">2012</td></tr>
+<tr><td><code>13_repositorios</code></td><td class="n">9</td><td class="n">1</td><td class="n">23</td></tr>
+<tr><td><code>50b_plantillas_comunes</code></td><td class="n">8</td><td class="n">20</td><td class="n">756</td></tr>
+</tbody></table></div>
+<h2>Los módulos, en orden de carga</h2>
+<p class="sub">Todo se concatena en un solo archivo y un solo ámbito, en el orden de <code>lis/src/_orden.json</code>, así que un módulo puede llamar a otro que carga después: las llamadas ocurren al pulsar un botón, no al cargar.</p>
+<h3>Núcleo</h3><div class="tarjeta">
+<div class="mod" id="m-10_nucleo"><div class="cab"><code>10_nucleo</code><span class="meta">1011 líneas · 45 símbolos</span></div>
+<div class="prop">ESTADO Y PERSISTENCIA</div>
+<div class="dep"><b>Usa</b> (4): <code>11_catalogo</code>(10) <code>10b_formato_compartido</code>(3) <code>22_cotizaciones</code>(2) <code>80_bitacora</code>(2)</div>
+<div class="dep"><b>Lo usan</b> (40): <code>23_ordenes</code>(164) <code>70_contabilidad</code>(93) <code>80_bitacora</code>(88) <code>25_facturas</code>(70) <code>32_sgc</code>(67) <code>22_cotizaciones</code>(54) <code>24_recibos</code>(47) <code>26_agenda</code>(34) <code>30_calidad</code>(30) <code>20_pacientes</code>(27) <code>31_almacen</code>(25) <code>70c_srv_caja</code>(25) <code>20c_srv_pacientes</code>(21) <code>21b_perfiles</code>(20) <code>12_sesion</code>(19) <code>60_config</code>(18) <code>26c_srv_agenda</code>(17) <code>23c_srv_ordenes</code>(16) <code>51_informe</code>(16) <code>21_examenes</code>(13) <code>21e_medicos</code>(12) <code>50_impresion</code>(12) <code>52_etiquetas</code>(11) <code>40_envio</code>(10) <code>71_estadisticas</code>(10) <code>23b_repo_ordenes</code>(8) <code>55_instructivos</code>(8) <code>22c_srv_cotizaciones</code>(7) <code>23d_resultados</code>(5) <code>21d_srv_examenes</code>(3) <code>22b_repo_cotizaciones</code>(3) <code>26b_repo_agenda</code>(3) <code>31c_srv_almacen</code>(3) <code>50b_plantillas_comunes</code>(3) <code>13_repositorios</code>(2) <code>31b_repo_almacen</code>(2) <code>10b_formato_compartido</code>(1) <code>20b_repo_pacientes</code>(1) <code>23b_evaluacion_compartida</code>(1) <code>51b_plantillas_informe</code>(1)</div>
+</div>
+<div class="mod" id="m-10b_formato_compartido"><div class="cab"><code>10b_formato_compartido</code><span class="meta">139 líneas · 15 símbolos</span></div>
+<div class="prop">── Helpers puros de formato de texto/fecha/edad ── Se agrupan aquí porque ninguno toca `S` ni el DOM: solo transforman el dato que reciben como arg…</div>
+<div class="dep"><b>Usa</b> (1): <code>10_nucleo</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (29): <code>32_sgc</code>(171) <code>23_ordenes</code>(152) <code>31_almacen</code>(90) <code>51b_plantillas_informe</code>(72) <code>50b_plantillas_comunes</code>(67) <code>20_pacientes</code>(66) <code>25_facturas</code>(65) <code>51_informe</code>(64) <code>22_cotizaciones</code>(57) <code>50_impresion</code>(49) <code>80_bitacora</code>(49) <code>26_agenda</code>(48) <code>24_recibos</code>(46) <code>30_calidad</code>(46) <code>70_contabilidad</code>(46) <code>60_config</code>(36) <code>21_examenes</code>(32) <code>12_sesion</code>(22) <code>71_estadisticas</code>(18) <code>52_etiquetas</code>(12) <code>55_instructivos</code>(11) <code>23d_resultados</code>(10) <code>40_envio</code>(9) <code>21b_perfiles</code>(7) <code>21e_medicos</code>(7) <code>26c_srv_agenda</code>(5) <code>10_nucleo</code>(3) <code>20c_srv_pacientes</code>(1) <code>23b_evaluacion_compartida</code>(1)</div>
+</div>
+<div class="mod" id="m-11_catalogo"><div class="cab"><code>11_catalogo</code><span class="meta">107 líneas · 1 símbolos</span></div>
+<div class="prop">CATÁLOGO SEMILLA</div>
+<div class="dep"><b>Usa</b> (0): —</div>
+<div class="dep"><b>Lo usan</b> (2): <code>10_nucleo</code>(10) <code>23_ordenes</code>(1)</div>
+</div>
+<div class="mod" id="m-12_sesion"><div class="cab"><code>12_sesion</code><span class="meta">350 líneas · 20 símbolos</span></div>
+<div class="prop">SESIÓN Y USUARIOS</div>
+<div class="dep"><b>Usa</b> (22): <code>10b_formato_compartido</code>(22) <code>10_nucleo</code>(19) <code>23_ordenes</code>(13) <code>26b_repo_agenda</code>(6) <code>26_agenda</code>(3) <code>80_bitacora</code>(3) <code>20_pacientes</code>(2) <code>22_cotizaciones</code>(2) <code>24_recibos</code>(2) <code>70_contabilidad</code>(2) <code>60_config</code>(2) <code>21_examenes</code>(1) <code>21b_perfiles</code>(1) <code>21e_medicos</code>(1) <code>23d_resultados</code>(1) <code>52_etiquetas</code>(1) <code>25_facturas</code>(1) <code>30_calidad</code>(1) <code>31_almacen</code>(1) <code>32_sgc</code>(1) <code>71_estadisticas</code>(1) <code>55_instructivos</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (27): <code>23_ordenes</code>(68) <code>80_bitacora</code>(42) <code>32_sgc</code>(41) <code>22_cotizaciones</code>(33) <code>26_agenda</code>(31) <code>20_pacientes</code>(15) <code>30_calidad</code>(13) <code>31_almacen</code>(11) <code>24_recibos</code>(10) <code>25_facturas</code>(10) <code>50_impresion</code>(9) <code>23c_srv_ordenes</code>(8) <code>21_examenes</code>(7) <code>70_contabilidad</code>(7) <code>26c_srv_agenda</code>(5) <code>50b_plantillas_comunes</code>(5) <code>51_informe</code>(5) <code>60_config</code>(5) <code>55_instructivos</code>(4) <code>21b_perfiles</code>(3) <code>21e_medicos</code>(3) <code>23b_repo_ordenes</code>(2) <code>40_envio</code>(2) <code>13_repositorios</code>(1) <code>20c_srv_pacientes</code>(1) <code>31b_repo_almacen</code>(1) <code>31c_srv_almacen</code>(1)</div>
+</div>
+<div class="mod" id="m-13_repositorios"><div class="cab"><code>13_repositorios</code><span class="meta">23 líneas · 1 símbolos</span></div>
+<div class="prop">REPOSITORIOS Y SERVICIOS: infraestructura compartida</div>
+<div class="dep"><b>Usa</b> (2): <code>10_nucleo</code>(2) <code>12_sesion</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (9): <code>26c_srv_agenda</code>(5) <code>22c_srv_cotizaciones</code>(3) <code>21d_srv_examenes</code>(2) <code>23c_srv_ordenes</code>(2) <code>31c_srv_almacen</code>(2) <code>20c_srv_pacientes</code>(1) <code>23_ordenes</code>(1) <code>26_agenda</code>(1) <code>70c_srv_caja</code>(1)</div>
+</div>
+</div>
+<h3>Catálogo y pacientes</h3><div class="tarjeta">
+<div class="mod" id="m-20_pacientes"><div class="cab"><code>20_pacientes</code><span class="meta">385 líneas · 24 símbolos</span></div>
+<div class="prop">PACIENTES</div>
+<div class="dep"><b>Usa</b> (7): <code>10b_formato_compartido</code>(66) <code>10_nucleo</code>(27) <code>12_sesion</code>(15) <code>21_examenes</code>(8) <code>20c_srv_pacientes</code>(8) <code>20b_repo_pacientes</code>(3) <code>23_ordenes</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (2): <code>22_cotizaciones</code>(3) <code>12_sesion</code>(2)</div>
+</div>
+<div class="mod" id="m-20b_repo_pacientes"><div class="cab"><code>20b_repo_pacientes</code><span class="meta">50 líneas · 7 símbolos</span></div>
+<div class="prop">PACIENTES: REPOSITORIO</div>
+<div class="dep"><b>Usa</b> (1): <code>10_nucleo</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (3): <code>20c_srv_pacientes</code>(9) <code>20_pacientes</code>(3) <code>22c_srv_cotizaciones</code>(2)</div>
+</div>
+<div class="mod" id="m-20c_srv_pacientes"><div class="cab"><code>20c_srv_pacientes</code><span class="meta">184 líneas · 10 símbolos</span></div>
+<div class="prop">PACIENTES: SERVICIO</div>
+<div class="dep"><b>Usa</b> (5): <code>10_nucleo</code>(21) <code>20b_repo_pacientes</code>(9) <code>10b_formato_compartido</code>(1) <code>12_sesion</code>(1) <code>13_repositorios</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (1): <code>20_pacientes</code>(8)</div>
+</div>
+<div class="mod" id="m-21_examenes"><div class="cab"><code>21_examenes</code><span class="meta">425 líneas · 28 símbolos</span></div>
+<div class="prop">EXÁMENES / PLANTILLAS</div>
+<div class="dep"><b>Usa</b> (6): <code>10b_formato_compartido</code>(32) <code>10_nucleo</code>(13) <code>12_sesion</code>(7) <code>32_sgc</code>(4) <code>21d_srv_examenes</code>(3) <code>23_ordenes</code>(3)</div>
+<div class="dep"><b>Lo usan</b> (6): <code>60_config</code>(9) <code>20_pacientes</code>(8) <code>22_cotizaciones</code>(5) <code>12_sesion</code>(1) <code>30_calidad</code>(1) <code>32_sgc</code>(1)</div>
+</div>
+<div class="mod" id="m-21c_repo_examenes"><div class="cab"><code>21c_repo_examenes</code><span class="meta">55 líneas · 8 símbolos</span></div>
+<div class="prop">EXÁMENES (CATÁLOGO): REPOSITORIO</div>
+<div class="dep"><b>Usa</b> (0): —</div>
+<div class="dep"><b>Lo usan</b> (2): <code>21d_srv_examenes</code>(8) <code>22c_srv_cotizaciones</code>(2)</div>
+</div>
+<div class="mod" id="m-21d_srv_examenes"><div class="cab"><code>21d_srv_examenes</code><span class="meta">51 líneas · 3 símbolos</span></div>
+<div class="prop">EXÁMENES (CATÁLOGO): SERVICIO</div>
+<div class="dep"><b>Usa</b> (3): <code>21c_repo_examenes</code>(8) <code>10_nucleo</code>(3) <code>13_repositorios</code>(2)</div>
+<div class="dep"><b>Lo usan</b> (1): <code>21_examenes</code>(3)</div>
+</div>
+<div class="mod" id="m-21b_perfiles"><div class="cab"><code>21b_perfiles</code><span class="meta">175 líneas · 15 símbolos</span></div>
+<div class="prop">COMBOS / PERFILES PROMOCIONALES</div>
+<div class="dep"><b>Usa</b> (4): <code>10_nucleo</code>(20) <code>10b_formato_compartido</code>(7) <code>22_cotizaciones</code>(5) <code>12_sesion</code>(3)</div>
+<div class="dep"><b>Lo usan</b> (3): <code>12_sesion</code>(1) <code>22_cotizaciones</code>(1) <code>23_ordenes</code>(1)</div>
+</div>
+<div class="mod" id="m-21e_medicos"><div class="cab"><code>21e_medicos</code><span class="meta">161 líneas · 13 símbolos</span></div>
+<div class="prop">CATÁLOGO DE MÉDICOS REFERENTES</div>
+<div class="dep"><b>Usa</b> (4): <code>10_nucleo</code>(12) <code>10b_formato_compartido</code>(7) <code>12_sesion</code>(3) <code>23_ordenes</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (5): <code>23_ordenes</code>(6) <code>51_informe</code>(3) <code>12_sesion</code>(1) <code>55_instructivos</code>(1) <code>71_estadisticas</code>(1)</div>
+</div>
+</div>
+<h3>Flujo de trabajo</h3><div class="tarjeta">
+<div class="mod" id="m-22_cotizaciones"><div class="cab"><code>22_cotizaciones</code><span class="meta">680 líneas · 45 símbolos</span></div>
+<div class="prop">COTIZACIONES</div>
+<div class="dep"><b>Usa</b> (18): <code>10b_formato_compartido</code>(57) <code>10_nucleo</code>(54) <code>12_sesion</code>(33) <code>50_impresion</code>(11) <code>21_examenes</code>(5) <code>26_agenda</code>(4) <code>22c_srv_cotizaciones</code>(4) <code>50b_plantillas_comunes</code>(4) <code>20_pacientes</code>(3) <code>80_bitacora</code>(2) <code>26b_repo_agenda</code>(1) <code>40_envio</code>(1) <code>55_instructivos</code>(1) <code>21b_perfiles</code>(1) <code>51_informe</code>(1) <code>24_recibos</code>(1) <code>25_facturas</code>(1) <code>23_ordenes</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (15): <code>24_recibos</code>(23) <code>70_contabilidad</code>(21) <code>23_ordenes</code>(15) <code>25_facturas</code>(8) <code>51_informe</code>(8) <code>22c_srv_cotizaciones</code>(6) <code>50_impresion</code>(6) <code>21b_perfiles</code>(5) <code>70c_srv_caja</code>(4) <code>10_nucleo</code>(2) <code>12_sesion</code>(2) <code>23b_repo_ordenes</code>(2) <code>71_estadisticas</code>(2) <code>26_agenda</code>(1) <code>40_envio</code>(1)</div>
+</div>
+<div class="mod" id="m-22b_repo_cotizaciones"><div class="cab"><code>22b_repo_cotizaciones</code><span class="meta">25 líneas · 6 símbolos</span></div>
+<div class="prop">COTIZACIONES: REPOSITORIO</div>
+<div class="dep"><b>Usa</b> (1): <code>10_nucleo</code>(3)</div>
+<div class="dep"><b>Lo usan</b> (1): <code>22c_srv_cotizaciones</code>(7)</div>
+</div>
+<div class="mod" id="m-22c_srv_cotizaciones"><div class="cab"><code>22c_srv_cotizaciones</code><span class="meta">121 líneas · 4 símbolos</span></div>
+<div class="prop">COTIZACIONES: SERVICIO</div>
+<div class="dep"><b>Usa</b> (7): <code>22b_repo_cotizaciones</code>(7) <code>10_nucleo</code>(7) <code>22_cotizaciones</code>(6) <code>13_repositorios</code>(3) <code>20b_repo_pacientes</code>(2) <code>23b_repo_ordenes</code>(2) <code>21c_repo_examenes</code>(2)</div>
+<div class="dep"><b>Lo usan</b> (2): <code>22_cotizaciones</code>(4) <code>26c_srv_agenda</code>(1)</div>
+</div>
+<div class="mod" id="m-23_ordenes"><div class="cab"><code>23_ordenes</code><span class="meta">2012 líneas · 116 símbolos</span></div>
+<div class="prop">Token de acceso al informe en línea.</div>
+<div class="dep"><b>Usa</b> (21): <code>10_nucleo</code>(164) <code>10b_formato_compartido</code>(152) <code>12_sesion</code>(68) <code>23b_evaluacion_compartida</code>(28) <code>22_cotizaciones</code>(15) <code>50_impresion</code>(13) <code>23c_srv_ordenes</code>(11) <code>51_informe</code>(8) <code>21e_medicos</code>(6) <code>23b_repo_ordenes</code>(5) <code>30_calidad</code>(3) <code>70_contabilidad</code>(2) <code>40_envio</code>(2) <code>52_etiquetas</code>(2) <code>13_repositorios</code>(1) <code>24_recibos</code>(1) <code>25_facturas</code>(1) <code>21b_perfiles</code>(1) <code>32_sgc</code>(1) <code>51b_plantillas_informe</code>(1) <code>11_catalogo</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (14): <code>12_sesion</code>(13) <code>23c_srv_ordenes</code>(10) <code>32_sgc</code>(8) <code>21_examenes</code>(3) <code>51_informe</code>(3) <code>20_pacientes</code>(1) <code>21e_medicos</code>(1) <code>22_cotizaciones</code>(1) <code>24_recibos</code>(1) <code>25_facturas</code>(1) <code>30_calidad</code>(1) <code>51b_plantillas_informe</code>(1) <code>70_contabilidad</code>(1) <code>71_estadisticas</code>(1)</div>
+</div>
+<div class="mod" id="m-23b_evaluacion_compartida"><div class="cab"><code>23b_evaluacion_compartida</code><span class="meta">171 líneas · 12 símbolos</span></div>
+<div class="prop">── Evaluación clínica de parámetros de laboratorio ── evalCualitativo/evalParam/refTexto (y el const NORMALES_POSITIVOS que usa evalCualitativo) se…</div>
+<div class="dep"><b>Usa</b> (2): <code>10_nucleo</code>(1) <code>10b_formato_compartido</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (5): <code>23_ordenes</code>(28) <code>51b_plantillas_informe</code>(17) <code>51_informe</code>(2) <code>26b_repo_agenda</code>(1) <code>71_estadisticas</code>(1)</div>
+</div>
+<div class="mod" id="m-23b_repo_ordenes"><div class="cab"><code>23b_repo_ordenes</code><span class="meta">65 líneas · 4 símbolos</span></div>
+<div class="prop">ÓRDENES: REPOSITORIO</div>
+<div class="dep"><b>Usa</b> (3): <code>10_nucleo</code>(8) <code>22_cotizaciones</code>(2) <code>12_sesion</code>(2)</div>
+<div class="dep"><b>Lo usan</b> (6): <code>23_ordenes</code>(5) <code>22c_srv_cotizaciones</code>(2) <code>52_etiquetas</code>(2) <code>23d_resultados</code>(1) <code>32_sgc</code>(1) <code>60_config</code>(1)</div>
+</div>
+<div class="mod" id="m-23c_srv_ordenes"><div class="cab"><code>23c_srv_ordenes</code><span class="meta">247 líneas · 9 símbolos</span></div>
+<div class="prop">ÓRDENES: SERVICIO</div>
+<div class="dep"><b>Usa</b> (5): <code>10_nucleo</code>(16) <code>23_ordenes</code>(10) <code>12_sesion</code>(8) <code>13_repositorios</code>(2) <code>30_calidad</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (2): <code>23_ordenes</code>(11) <code>32_sgc</code>(1)</div>
+</div>
+<div class="mod" id="m-23d_resultados"><div class="cab"><code>23d_resultados</code><span class="meta">180 líneas · 18 símbolos</span></div>
+<div class="prop">RESULTADOS (solo consulta) Archivo de informes ya validados, separado de Órdenes de Trabajo.</div>
+<div class="dep"><b>Usa</b> (5): <code>10b_formato_compartido</code>(10) <code>10_nucleo</code>(5) <code>50_impresion</code>(2) <code>51_informe</code>(2) <code>23b_repo_ordenes</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (1): <code>12_sesion</code>(1)</div>
+</div>
+<div class="mod" id="m-24_recibos"><div class="cab"><code>24_recibos</code><span class="meta">636 líneas · 25 símbolos</span></div>
+<div class="prop">RECIBOS DE VENTA</div>
+<div class="dep"><b>Usa</b> (11): <code>10_nucleo</code>(47) <code>10b_formato_compartido</code>(46) <code>22_cotizaciones</code>(23) <code>50b_plantillas_comunes</code>(15) <code>12_sesion</code>(10) <code>50_impresion</code>(6) <code>70c_srv_caja</code>(2) <code>40_envio</code>(1) <code>23_ordenes</code>(1) <code>56_qr</code>(1) <code>51_informe</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (6): <code>25_facturas</code>(6) <code>12_sesion</code>(2) <code>50_impresion</code>(2) <code>22_cotizaciones</code>(1) <code>23_ordenes</code>(1) <code>40_envio</code>(1)</div>
+</div>
+<div class="mod" id="m-25_facturas"><div class="cab"><code>25_facturas</code><span class="meta">808 líneas · 35 símbolos</span></div>
+<div class="prop">FACTURAS (Régimen de Facturación SAR · Autoimpresor) Documento fiscal propiamente dicho -- distinto del Recibo de Venta (22_recibos.js): la SAR aut…</div>
+<div class="dep"><b>Usa</b> (12): <code>10_nucleo</code>(70) <code>10b_formato_compartido</code>(65) <code>50b_plantillas_comunes</code>(18) <code>12_sesion</code>(10) <code>22_cotizaciones</code>(8) <code>24_recibos</code>(6) <code>50_impresion</code>(6) <code>70c_srv_caja</code>(2) <code>40_envio</code>(1) <code>23_ordenes</code>(1) <code>56_qr</code>(1) <code>51_informe</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (6): <code>50_impresion</code>(2) <code>12_sesion</code>(1) <code>22_cotizaciones</code>(1) <code>23_ordenes</code>(1) <code>40_envio</code>(1) <code>60_config</code>(1)</div>
+</div>
+<div class="mod" id="m-26_agenda"><div class="cab"><code>26_agenda</code><span class="meta">485 líneas · 27 símbolos</span></div>
+<div class="prop">AGENDA · pantalla El caso real que le dio origen, tal cual pasa en el mostrador: · se cotiza hoy y el paciente quiere venir mañana; · se cotiza a l…</div>
+<div class="dep"><b>Usa</b> (8): <code>10b_formato_compartido</code>(48) <code>10_nucleo</code>(34) <code>12_sesion</code>(31) <code>26b_repo_agenda</code>(20) <code>26c_srv_agenda</code>(6) <code>40_envio</code>(2) <code>22_cotizaciones</code>(1) <code>13_repositorios</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (2): <code>22_cotizaciones</code>(4) <code>12_sesion</code>(3)</div>
+</div>
+<div class="mod" id="m-26b_repo_agenda"><div class="cab"><code>26b_repo_agenda</code><span class="meta">83 líneas · 12 símbolos</span></div>
+<div class="prop">AGENDA · acceso a datos Hasta ahora el sistema solo sabía hacer una cosa con una cotización: convertirla en orden AHORA MISMO.</div>
+<div class="dep"><b>Usa</b> (2): <code>10_nucleo</code>(3) <code>23b_evaluacion_compartida</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (4): <code>26_agenda</code>(20) <code>26c_srv_agenda</code>(9) <code>12_sesion</code>(6) <code>22_cotizaciones</code>(1)</div>
+</div>
+<div class="mod" id="m-26c_srv_agenda"><div class="cab"><code>26c_srv_agenda</code><span class="meta">177 líneas · 9 símbolos</span></div>
+<div class="prop">AGENDA · reglas Devuelven {ok, motivo, codigo} y no tocan la pantalla, igual que el resto de los servicios del sistema.</div>
+<div class="dep"><b>Usa</b> (6): <code>10_nucleo</code>(17) <code>26b_repo_agenda</code>(9) <code>10b_formato_compartido</code>(5) <code>12_sesion</code>(5) <code>13_repositorios</code>(5) <code>22c_srv_cotizaciones</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (1): <code>26_agenda</code>(6)</div>
+</div>
+</div>
+<h3>Calidad y almacén</h3><div class="tarjeta">
+<div class="mod" id="m-30_calidad"><div class="cab"><code>30_calidad</code><span class="meta">418 líneas · 23 símbolos</span></div>
+<div class="prop">CONTROL DE CALIDAD INTERNO</div>
+<div class="dep"><b>Usa</b> (7): <code>10b_formato_compartido</code>(46) <code>10_nucleo</code>(30) <code>12_sesion</code>(13) <code>31_almacen</code>(2) <code>23_ordenes</code>(1) <code>50_impresion</code>(1) <code>21_examenes</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (5): <code>31_almacen</code>(4) <code>32_sgc</code>(4) <code>23_ordenes</code>(3) <code>12_sesion</code>(1) <code>23c_srv_ordenes</code>(1)</div>
+</div>
+<div class="mod" id="m-31_almacen"><div class="cab"><code>31_almacen</code><span class="meta">352 líneas · 20 símbolos</span></div>
+<div class="prop">ALMACÉN E INVENTARIO</div>
+<div class="dep"><b>Usa</b> (7): <code>10b_formato_compartido</code>(90) <code>10_nucleo</code>(25) <code>12_sesion</code>(11) <code>50_impresion</code>(8) <code>31b_repo_almacen</code>(4) <code>30_calidad</code>(4) <code>31c_srv_almacen</code>(3)</div>
+<div class="dep"><b>Lo usan</b> (4): <code>32_sgc</code>(4) <code>30_calidad</code>(2) <code>12_sesion</code>(1) <code>31c_srv_almacen</code>(1)</div>
+</div>
+<div class="mod" id="m-31b_repo_almacen"><div class="cab"><code>31b_repo_almacen</code><span class="meta">39 líneas · 9 símbolos</span></div>
+<div class="prop">ALMACÉN: REPOSITORIO</div>
+<div class="dep"><b>Usa</b> (2): <code>10_nucleo</code>(2) <code>12_sesion</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (2): <code>31c_srv_almacen</code>(9) <code>31_almacen</code>(4)</div>
+</div>
+<div class="mod" id="m-31c_srv_almacen"><div class="cab"><code>31c_srv_almacen</code><span class="meta">55 líneas · 3 símbolos</span></div>
+<div class="prop">ALMACÉN: SERVICIO</div>
+<div class="dep"><b>Usa</b> (5): <code>31b_repo_almacen</code>(9) <code>10_nucleo</code>(3) <code>13_repositorios</code>(2) <code>12_sesion</code>(1) <code>31_almacen</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (1): <code>31_almacen</code>(3)</div>
+</div>
+<div class="mod" id="m-32_sgc"><div class="cab"><code>32_sgc</code><span class="meta">1204 líneas · 62 símbolos</span></div>
+<div class="prop">VISTA PREVIA DE PLANTILLAS</div>
+<div class="dep"><b>Usa</b> (11): <code>10b_formato_compartido</code>(171) <code>10_nucleo</code>(67) <code>12_sesion</code>(41) <code>23_ordenes</code>(8) <code>50_impresion</code>(8) <code>30_calidad</code>(4) <code>31_almacen</code>(4) <code>51_informe</code>(3) <code>23b_repo_ordenes</code>(1) <code>21_examenes</code>(1) <code>23c_srv_ordenes</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (3): <code>21_examenes</code>(4) <code>12_sesion</code>(1) <code>23_ordenes</code>(1)</div>
+</div>
+</div>
+<h3>Documentos</h3><div class="tarjeta">
+<div class="mod" id="m-40_envio"><div class="cab"><code>40_envio</code><span class="meta">122 líneas · 9 símbolos</span></div>
+<div class="prop">ENVÍO POR WHATSAPP Y CORREO</div>
+<div class="dep"><b>Usa</b> (6): <code>10_nucleo</code>(10) <code>10b_formato_compartido</code>(9) <code>12_sesion</code>(2) <code>22_cotizaciones</code>(1) <code>25_facturas</code>(1) <code>24_recibos</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (5): <code>23_ordenes</code>(2) <code>26_agenda</code>(2) <code>22_cotizaciones</code>(1) <code>24_recibos</code>(1) <code>25_facturas</code>(1)</div>
+</div>
+<div class="mod" id="m-50_impresion"><div class="cab"><code>50_impresion</code><span class="meta">709 líneas · 26 símbolos</span></div>
+<div class="prop">cssBaseImpresion y cssCabeceraDoc se movieron a 50b_plantillas_comunes.js (Fase 8, ago.</div>
+<div class="dep"><b>Usa</b> (9): <code>10b_formato_compartido</code>(49) <code>50b_plantillas_comunes</code>(16) <code>10_nucleo</code>(12) <code>12_sesion</code>(9) <code>22_cotizaciones</code>(6) <code>51_informe</code>(4) <code>55_instructivos</code>(4) <code>24_recibos</code>(2) <code>25_facturas</code>(2)</div>
+<div class="dep"><b>Lo usan</b> (15): <code>55_instructivos</code>(14) <code>23_ordenes</code>(13) <code>22_cotizaciones</code>(11) <code>31_almacen</code>(8) <code>32_sgc</code>(8) <code>51_informe</code>(8) <code>70_contabilidad</code>(8) <code>24_recibos</code>(6) <code>25_facturas</code>(6) <code>50b_plantillas_comunes</code>(4) <code>71_estadisticas</code>(4) <code>80_bitacora</code>(4) <code>52_etiquetas</code>(3) <code>23d_resultados</code>(2) <code>30_calidad</code>(1)</div>
+</div>
+<div class="mod" id="m-50b_plantillas_comunes"><div class="cab"><code>50b_plantillas_comunes</code><span class="meta">756 líneas · 20 símbolos</span></div>
+<div class="prop">BASE DE IMPRESIÓN DE ALTA CALIDAD cssBaseImpresion/cssCabeceraDoc se movieron aquí VERBATIM desde 50_impresion.js (Fase 8, ago.</div>
+<div class="dep"><b>Usa</b> (4): <code>10b_formato_compartido</code>(67) <code>12_sesion</code>(5) <code>50_impresion</code>(4) <code>10_nucleo</code>(3)</div>
+<div class="dep"><b>Lo usan</b> (8): <code>25_facturas</code>(18) <code>50_impresion</code>(16) <code>24_recibos</code>(15) <code>22_cotizaciones</code>(4) <code>55_instructivos</code>(3) <code>51_informe</code>(2) <code>51b_plantillas_informe</code>(2) <code>60_config</code>(1)</div>
+</div>
+<div class="mod" id="m-51_informe"><div class="cab"><code>51_informe</code><span class="meta">421 líneas · 10 símbolos</span></div>
+<div class="prop">cssInforme, horaLarga() y agruparHojas() se movieron a 51b_plantillas_informe.js (Fase 8, ago.</div>
+<div class="dep"><b>Usa</b> (10): <code>10b_formato_compartido</code>(64) <code>10_nucleo</code>(16) <code>50_impresion</code>(8) <code>22_cotizaciones</code>(8) <code>12_sesion</code>(5) <code>21e_medicos</code>(3) <code>23_ordenes</code>(3) <code>50b_plantillas_comunes</code>(2) <code>23b_evaluacion_compartida</code>(2) <code>51b_plantillas_informe</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (8): <code>23_ordenes</code>(8) <code>50_impresion</code>(4) <code>32_sgc</code>(3) <code>23d_resultados</code>(2) <code>22_cotizaciones</code>(1) <code>24_recibos</code>(1) <code>25_facturas</code>(1) <code>60_config</code>(1)</div>
+</div>
+<div class="mod" id="m-51b_plantillas_informe"><div class="cab"><code>51b_plantillas_informe</code><span class="meta">620 líneas · 7 símbolos</span></div>
+<div class="prop">CSS del informe institucional de resultados Movido VERBATIM desde 51_informe.js (Fase 8, ago.</div>
+<div class="dep"><b>Usa</b> (6): <code>10b_formato_compartido</code>(72) <code>23b_evaluacion_compartida</code>(17) <code>50b_plantillas_comunes</code>(2) <code>10_nucleo</code>(1) <code>23_ordenes</code>(1) <code>56_qr</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (2): <code>23_ordenes</code>(1) <code>51_informe</code>(1)</div>
+</div>
+<div class="mod" id="m-56_qr"><div class="cab"><code>56_qr</code><span class="meta">208 líneas · 8 símbolos</span></div>
+<div class="prop">CÓDIGO QR Generador propio, sin librerías externas: el informe se imprime igual aunque el laboratorio esté sin internet.</div>
+<div class="dep"><b>Usa</b> (0): —</div>
+<div class="dep"><b>Lo usan</b> (3): <code>24_recibos</code>(1) <code>25_facturas</code>(1) <code>51b_plantillas_informe</code>(1)</div>
+</div>
+<div class="mod" id="m-55_instructivos"><div class="cab"><code>55_instructivos</code><span class="meta">736 líneas · 15 símbolos</span></div>
+<div class="prop">INSTRUCTIVOS DE PREPARACIÓN DEL PACIENTE Basados en: CLSI GP41 (venipuntura) · CLSI GP44 · CLSI M40 (transporte de muestras microbiológicas) · OMS…</div>
+<div class="dep"><b>Usa</b> (6): <code>50_impresion</code>(14) <code>10b_formato_compartido</code>(11) <code>10_nucleo</code>(8) <code>12_sesion</code>(4) <code>50b_plantillas_comunes</code>(3) <code>21e_medicos</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (3): <code>50_impresion</code>(4) <code>12_sesion</code>(1) <code>22_cotizaciones</code>(1)</div>
+</div>
+<div class="mod" id="m-52_etiquetas"><div class="cab"><code>52_etiquetas</code><span class="meta">144 líneas · 13 símbolos</span></div>
+<div class="prop">ETIQUETAS 57 × 32 mm (horizontal)</div>
+<div class="dep"><b>Usa</b> (4): <code>10b_formato_compartido</code>(12) <code>10_nucleo</code>(11) <code>50_impresion</code>(3) <code>23b_repo_ordenes</code>(2)</div>
+<div class="dep"><b>Lo usan</b> (2): <code>23_ordenes</code>(2) <code>12_sesion</code>(1)</div>
+</div>
+</div>
+<h3>Dinero y datos</h3><div class="tarjeta">
+<div class="mod" id="m-60_config"><div class="cab"><code>60_config</code><span class="meta">371 líneas · 5 símbolos</span></div>
+<div class="prop">CONFIGURACIÓN</div>
+<div class="dep"><b>Usa</b> (8): <code>10b_formato_compartido</code>(36) <code>10_nucleo</code>(18) <code>21_examenes</code>(9) <code>12_sesion</code>(5) <code>25_facturas</code>(1) <code>50b_plantillas_comunes</code>(1) <code>51_informe</code>(1) <code>23b_repo_ordenes</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (1): <code>12_sesion</code>(2)</div>
+</div>
+<div class="mod" id="m-70_contabilidad"><div class="cab"><code>70_contabilidad</code><span class="meta">631 líneas · 31 símbolos</span></div>
+<div class="prop">DENOMINACIONES (Lempira, Honduras)</div>
+<div class="dep"><b>Usa</b> (7): <code>10_nucleo</code>(93) <code>10b_formato_compartido</code>(46) <code>22_cotizaciones</code>(21) <code>50_impresion</code>(8) <code>12_sesion</code>(7) <code>70c_srv_caja</code>(6) <code>23_ordenes</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (3): <code>70c_srv_caja</code>(5) <code>12_sesion</code>(2) <code>23_ordenes</code>(2)</div>
+</div>
+<div class="mod" id="m-70b_repo_caja"><div class="cab"><code>70b_repo_caja</code><span class="meta">31 líneas · 9 símbolos</span></div>
+<div class="prop">MOVIMIENTOS DE CAJA: REPOSITORIO</div>
+<div class="dep"><b>Usa</b> (0): —</div>
+<div class="dep"><b>Lo usan</b> (1): <code>70c_srv_caja</code>(7)</div>
+</div>
+<div class="mod" id="m-70c_srv_caja"><div class="cab"><code>70c_srv_caja</code><span class="meta">121 líneas · 7 símbolos</span></div>
+<div class="prop">MOVIMIENTOS DE CAJA: SERVICIO</div>
+<div class="dep"><b>Usa</b> (5): <code>10_nucleo</code>(25) <code>70b_repo_caja</code>(7) <code>70_contabilidad</code>(5) <code>22_cotizaciones</code>(4) <code>13_repositorios</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (3): <code>70_contabilidad</code>(6) <code>24_recibos</code>(2) <code>25_facturas</code>(2)</div>
+</div>
+<div class="mod" id="m-71_estadisticas"><div class="cab"><code>71_estadisticas</code><span class="meta">521 líneas · 27 símbolos</span></div>
+<div class="prop">ESTADÍSTICAS</div>
+<div class="dep"><b>Usa</b> (7): <code>10b_formato_compartido</code>(18) <code>10_nucleo</code>(10) <code>50_impresion</code>(4) <code>22_cotizaciones</code>(2) <code>23b_evaluacion_compartida</code>(1) <code>21e_medicos</code>(1) <code>23_ordenes</code>(1)</div>
+<div class="dep"><b>Lo usan</b> (1): <code>12_sesion</code>(1)</div>
+</div>
+<div class="mod" id="m-80_bitacora"><div class="cab"><code>80_bitacora</code><span class="meta">1276 líneas · 44 símbolos</span></div>
+<div class="prop">SINCRONIZACIÓN CON SERVIDOR Cuando el LIS está montado en web, los datos se guardan en el servidor en vez de en localStorage.</div>
+<div class="dep"><b>Usa</b> (4): <code>10_nucleo</code>(88) <code>10b_formato_compartido</code>(49) <code>12_sesion</code>(42) <code>50_impresion</code>(4)</div>
+<div class="dep"><b>Lo usan</b> (3): <code>12_sesion</code>(3) <code>10_nucleo</code>(2) <code>22_cotizaciones</code>(2)</div>
+</div>
+</div>
+<h2>Índice de símbolos</h2>
+<p class="sub">Dónde vive cada función. Es lo que evita abrir doce archivos para encontrar una.</p>
+<div class="tarjeta"><div class="idx">
+<div><code>10_nucleo</code> — CLAVE, IDB_NOMBRE, L, LOGO_CDIM, MODO_WEB, NOTIF_OBLIGATORIA_DEFAULT, S, SELLO_CDIM, SINONIMOS, _fmtHN, _idb, _idxPac, _tGuardar, abrirIDB, ahoraHN, ahoraHora, buscarPacientePorId, cargar, claseDatos, correlativoDia, edad, edadCorta, estadoInicial, fmtDNI, fmtId, fmtRTN, guardar, guardarEnIDB, hoy, idPaciente, invalidarIndices, leerDeIDB, migrarEstado, nombreCompleto, nombreCortoUsuario, normTxt, ordenesDe, responsableParaDocumento, simboloL, sinonimosDe, soloDigitos, tToast, textoPlano, toast, volcarEstado</div>
+<div><code>10b_formato_compartido</code> — MESES_LARGOS, barraHojas, codigoIdentidad, edadDetallada, esMenor, esc, etiquetaMes, fmtFecha, fmtTexto, hora12, nombreMes, numerosHoja, sexoTexto, trozoHoja, ultimoDiaDelMes</div>
+<div><code>11_catalogo</code> — semillaExamenes</div>
+<div><code>12_sesion</code> — CATALOGO_PERMISOS, MODAL_BLOQUEADO, PERMISOS, ROLES, USUARIO_WEB, _seccionActual, abrirModal, actualizarPieNav, alternarMenu, cerrarModal, esAdmin, irA, permisosDe, puede, puedeValidar, render, rolActivo, usuarioActivo, vInicio, vista</div>
+<div><code>13_repositorios</code> — _bitacora</div>
+<div><code>20_pacientes</code> — POR_HOJA_PAC, TITULO_PAC_BLOQUEADO, _edadAniosMeses, _fusionQ, _hojaPac, _pacBloqueado, _pacEditando, alternarModoFnac, borrarPaciente, calcularFnacDesdeEdad, cambioTipoId, confirmarFusionPaciente, filasPacientes, fnacDesdeEdad, guardarPaciente, habilitarEdicionPaciente, irHojaPac, modalBorradoBloqueado, modalFusionPaciente, modalPaciente, pintarModalPaciente, revisarDniPaciente, revisarMenor, vPacientes</div>
+<div><code>20b_repo_pacientes</code> — actualizarPaciente, buscarPaciente, crearPaciente, eliminarPaciente, listarPacientes, reasignarHistorial, siguienteCodigoPaciente</div>
+<div><code>20c_srv_pacientes</code> — CAMPOS_FUSION, ETIQUETA_CAMPO_PAC, _historialPaciente, _mensajeHistorialPaciente, _parecidoPaciente, srvEliminarPaciente, srvFusionarPacientes, srvGuardarPaciente, srvVerificarPacienteEliminable, srvVistaPreviaFusion</div>
+<div><code>21_examenes</code> — LADAS, TITULO_EXAM_BLOQUEADO, UNIDADES, _examBloqueado, agregarTramo, aplicarMoverArea, areasExistentes, borrarExamen, datalistUnidades, edadEnCampo, filaParam, filaTramo, filasExamenes, filasMover, fmtEnTarjeta, guardarExamen, habilitarEdicionExamen, modalExamen, modalMoverArea, partirTel, pintarModalExamen, quitarTramo, recogerTramos, selectLada, tramoInvalido, unidadTramo, unirTel, vExamenes</div>
+<div><code>21c_repo_examenes</code> — buscarExamen, crearExamen, eliminarExamen, existeExamen, listarExamenes, moverAreaExamenes, reemplazarExamen, sincronizarAreaEnOrdenes</div>
+<div><code>21d_srv_examenes</code> — srvEliminarExamen, srvGuardarExamen, srvMoverAreaExamenes</div>
+<div><code>21b_perfiles</code> — _perfilEditId, _perfilExamenesTmp, agregarExamenPerfil, borrarPerfil, calcPerfil, filasCatalogoPerfil, filasPerfilSel, guardarPerfil, modalPerfil, perfilesActivos, quitarExamenPerfil, refrescarPickerPerfil, refrescarPreviaPerfil, tarjetaCombosDisponibles, vPerfiles</div>
+<div><code>21e_medicos</code> — _medicoEditId, borrarMedico, guardarMedico, medicoIdPorNombreExacto, medicoSugeridoParaPaciente, medicosActivos, modalMedico, nombreMedico, nombreMedicoOrden, opcionesMedicoOrden, ordenesDeMedico, siguienteCodigoMedico, vMedicos</div>
+<div><code>22_cotizaciones</code> — CONS_COTIZACION, POR_HOJA_COT, _cotFecha, _hojaCot, abrirMenuCot, agregarComboCot, agregarItemCot, agregarPrimeroCot, alternarModoFnacCot, aprobarCotWeb, autoCliente, borrarCot, botonesExtraCot, buscarExamenCot, calcCot, calcularFnacDesdeEdadCot, contenidoListaCotizaciones, cotAOrden, cotizacionesDelMes, cotizacionesFiltradas, crearOrdenDesdeCot, descItem, estadoCot, filtrarVistaCotizaciones, guardarCotizacion, imprimirCotizacionesDelMes, irCotizacionesHoy, irHojaCot, itemsCotTmp, modalCotizacion, modalCotizacionesMes, modalVerCotizacion, pctItem, pctTodasCot, pintarItemsCot, refEdadCot, refTotalCot, resumenCotizacionesMes, revisarDniCot, round2, tablaCotizaciones, totalCot, ultimaBusquedaCot, vCotizaciones, verTodoHistorialCotizaciones</div>
+<div><code>22b_repo_cotizaciones</code> — actualizarCotizacion, buscarCotizacion, crearCotizacion, eliminarCotizacion, listarCotizaciones, siguienteNumeroCotizacion</div>
+<div><code>22c_srv_cotizaciones</code> — srvAprobarCotWeb, srvCrearOrdenDesdeCotizacion, srvEliminarCotizacion, srvGuardarCotizacion</div>
+<div><code>23_ordenes</code> — MH_NOHDL, MH_TABLA, MH_TG, MOTIVOS_CORRECCION, MOTIVOS_RECHAZO, POR_HOJA_ORD, _areaVistaActual, _examenesDesbloqueados, _hojaOrd, _motivoCorreccion, _ordFecha, _ordPorCobrar, abrirMenuOrden, actualizarMarcas, actualizarMedicoSugerido, actualizarPlantillaAnalizador, agregarComboSel, agregarExamenSel, alertasDelta, alertasExamen, alertasOrden, anularValidacion, aplicarFormato, aplicarImportar, barraFormato, borrarOrden, botonesExtraOrdenes, calcSel, calcularFormulas, calcularLDLOrden, cambiarEstado, cambiarLayout, campoObsArea, chipEstado, claveExamen, confirmarMotivoCorreccion, contenidoListaOrdenes, descuentoPorcentaje, edadOrden, etiquetaEdad, examenDesbloqueado, factorMartinHopkins, filasCatalogo, filasSeleccion, filtrarPacOrden, filtrarVistaOrdenes, graficoLinea, guardarEdicionOrden, guardarEquipoLote, guardarNotificacionCritico, guardarObsArea, guardarPreAnalitica, guardarQCRechazado, guardarRechazoMuestra, habilitarEdicionResultado, imprimirTendencia, infoLayout, irHojaOrd, irOrdenesHoy, ldlMartinHopkins, marcarEdicionTrasValidar, marcarNuevaHoja, modalEditarOrden, modalEquipoLote, modalHistorial, modalHistorialMedico, modalImportar, modalMotivoCorreccion, modalNotificarCritico, modalOrdenDirecta, modalQCRechazado, modalRechazarMuestra, modalResultados, modalTendencia, modalVersionesInforme, necesitaPlantillaAnalizador, opcionesPacOrden, ordenLlevaNotaAyuno, ordenLlevaNotaFum, ordenLlevaNotaOrina, ordenesFiltradas, panelPreAnalitica, panelSelector, parsearResultados, pieSelector, pintarObsArea, previewImportar, quitarExamenSel, quitarFiltroPorCobrar, refrescarResultados, refrescarSelector, registrarMuestraNueva, resumenDesc, selContexto, selDescGlobal, selExamenes, selIds, serieParametro, sexoDeOrden, tablaOrdenes, terminarValidacion, tieneAlertaSinNotificar, tokenOrden, totalizarOrden, urlInforme, usarObsFrecuente, usarObsFrecuenteArea, vOrdenes, validarExamen, validarSeccion, valorCapturado, valorEnOrden, valorPrevio, valoresPrevios, verOrdenesPorCobrar, verTodoHistorialOrdenes</div>
+<div><code>23b_evaluacion_compartida</code> — BQ_CON_AYUNO, EX_FUM, EX_ORINA, NORMALES_POSITIVOS, edadEnMeses, evalCualitativo, evalParam, rangoActivo, refTexto, textoNotaAyuno, textoNotaFum, textoNotaOrina</div>
+<div><code>23b_repo_ordenes</code> — desglosarOrden, diaHabilMas, nuevaOrden, numeroOrden</div>
+<div><code>23c_srv_ordenes</code> — abrirCorreccionInforme, analitosCorregidos, cerrarCorreccionInforme, esInformeCorregido, informeYaEmitido, srvCapturarValor, srvValidarExamen, ultimaCorreccion, versionInforme</div>
+<div><code>23d_resultados</code> — POR_HOJA_RES, _hojaRes, _resDesde, _resHasta, _resQ, _resSolo, contenidoListaResultados, estadoValidacion, filtrarVistaResultados, firmaInforme, irHojaRes, limpiarFiltrosResultados, pdfInformeValidado, resultadosFiltrados, resultadosUltimoMes, tablaResultados, vResultados, verInformeValidado</div>
+<div><code>24_recibos</code> — CONS_RECIBO, _recQ, alternarDatosPacienteRecibo, calcRecibo, cambiarModoRecibos, condicionItem, construirBorradorRecibo, cssReciboVenta, filasRecibos, filtrarVistaRecibos, imprimirReciboVenta, imprimirRecibosDelMes, itemsRec, modalRecibo, modalRecibosMes, numeroRecibo, pintarItemsRec, previsualizarBorradorRecibo, recibosDelMes, recibosFiltrados, renderizarReciboVenta, totalesRecibosMes, vRecibos, verTodosLosRecibos, volverAEditarRecibo</div>
+<div><code>25_facturas</code> — CONS_FACTURA, _facFecha, _topeFac, alternarDatosPaciente, botonesExtraFacturas, calcFactura, cambiarModoFacturas, construirBorradorFactura, contenidoListaFacturas, elegirClienteFactura, elegirPacienteFactura, facturaConfigLista, facturaVencida, facturasDelMes, facturasFiltradas, facturasRestantes, filtrarPacFactura, filtrarVistaFacturas, imprimirFactura, imprimirFacturasDelMes, irFacturasHoy, itemsFac, modalFactura, modalFacturasMes, numeroFactura, opcionesPacientesFactura, pintarItemsFac, previsualizarBorradorFactura, renderizarFactura, tablaFacturas, totalesFacturasMes, vFacturas, verMasFacturas, verTodoHistorialFacturas, volverAEditarFactura</div>
+<div><code>26_agenda</code> — AGENDA_DIA, DIAS_SEM, HORAS_SUGERIDAS, MESES_AG, abrirMenuCita, autocompletarPacienteCita, cancelarCitaUI, chipCitaCot, confirmarCancelarCita, confirmarNoAsistio, confirmarReagendar, diaLargo, diaRelativo, filaCita, guardarCitaUI, masDias, modalAgendar, modalPacienteParaCita, modalReagendar, noAsistioUI, panelProximos, pintarResumenCita, ponerDiaCita, ponerHoraCita, recibirCitaUI, recordatorioCita, vAgenda</div>
+<div><code>26b_repo_agenda</code> — ESTADOS_CITA, citaActivaDeCotizacion, citaPorId, citaRequiereAyuno, citaVencida, citas, citasDelDia, citasEntre, citasPendientes, examenesDeCita, itemsRequierenAyuno, nuevoIdCita</div>
+<div><code>26c_srv_agenda</code> — FECHA_VALIDA, HORA_LIMITE_AYUNO, HORA_VALIDA, avisoAyunoTarde, srvAgendar, srvCancelarCita, srvMarcarNoAsistio, srvReagendar, srvRecibirCita</div>
+<div><code>30_calidad</code> — CC_ANALITOS, borrarControl, buscarPorEquipoOLote, ccDatos, ccEstad, ccEvaluar, ccNivelLabel, ccZ, documentarAccion, filasCC, filasEquipoLote, graficoLJ, guardarControl, guardarCorrida, miniLJ, modalCCRegistro, modalControl, modalLJ, previewZ, qcRechazadosHoy, refAnalitosCC, vCalidad, westgard</div>
+<div><code>31_almacen</code> — CAT_INSUMO, borrarInsumo, cssDocGeneral, diasEntre, encabezadoDoc, estadoInsumo, filasAlmacen, firmaDoc, guardarInsumo, guardarMovAlmacen, imprimirInventario, imprimirKardex, imprimirLJ, modalInsumo, modalKardex, modalMovAlmacen, refSaldoMov, stockInsumo, trasAbrir, vAlmacen</div>
+<div><code>31b_repo_almacen</code> — actualizarInsumo, buscarInsumo, crearInsumo, eliminarInsumo, listarInsumos, listarMovimientosAlmacen, registrarMovimientoAlmacen, siguienteIdInsumo, siguienteIdMovAlmacen</div>
+<div><code>31c_srv_almacen</code> — srvEliminarInsumo, srvGuardarInsumo, srvRegistrarMovimientoAlmacen</div>
+<div><code>32_sgc</code> — CDN, GRADOS, LISTAS_SUGERIDAS, ORIGEN_NC, REQ_ISO, TIPOS_DOC, agregarCapacitacion, alternarOpcion, aplicarListaSugerida, archivoAImagen, armarSeleccion, borrarDoc, calcIndicadores, cargarScript, demoSexo, estadoImp, filaListaActiva, graduarOpcion, guardarDoc, guardarEquipo, guardarNC, guardarOpciones, guardarPersonal, guardarRevision, guardarRiesgo, imprimirActa, imprimirManualSGC, listaOpciones, modalDoc, modalEquipo, modalHistDoc, modalListas, modalNC, modalOpciones, modalPersonal, modalPreviaArea, modalPreviaAreas, modalPreviaPlantilla, modalRevision, modalRiesgo, ordenDemo, pacienteDemo, panelSGC, parseSeleccion, prepararImagen, quitarCapacitacion, refSGC, refrescarOpciones, registrarIntervencion, registrarSGC, selOpc, sgcTab, tabDocumentos, tabEquipos, tabIndicadores, tabNC, tabPanelSGC, tabPersonal, tabRevision, tabRiesgos, vSGC, valorEjemplo</div>
+<div><code>40_envio</code> — PLANTILLAS, abrirEnlace, copiarMensaje, enviarCorreo, enviarWhatsApp, modalCompartir, rellenarPlantilla, telWhatsApp, usarPlantilla</div>
+<div><code>50_impresion</code> — COLECCION_DOC, alternarOpcionFirma, alternarOpcionFirmaPDF, buscarDocImpresion, capturaImp, chipImpreso, cssAplanado, cssCotizacion, cssDoc, cssMarcaAguaDoc, filaOpcionesFirma, imprimirCotizacion, imprimirDesdePrevia, membrete, modalImpresiones, modalPDF, modoAplanado, nombreArchivo, nombreDeOrden, opcionesFirma, pdfModo, previsualizar, registrarImpresion, ultimaImpresion, vecesImpreso, ventanaImpresion</div>
+<div><code>50b_plantillas_comunes</code> — bloqueCab, bloqueDatosPersona, bloqueFirmaSello, bloquePieCompacto, cssBaseImpresion, cssBloqueDatos, cssCabeceraDoc, cssResumenMensual, docsDelMes, hojaResumenMensual, huecosCorrelativo, imprimirConsolidadoMes, modalConsolidadoMes, moneda, nombreConsolidadoMes, repaginarGrupo, repaginarHojas, repaginarPaginas, resumenFiscalMes, totalesDocsMes</div>
+<div><code>51_informe</code> — cssHojaTrabajo, cssSobre, enLetras, igualNombreHT, imprimirHojaTrabajo, imprimirRecibo, imprimirResultados, imprimirSobre, imprimirSoloValidados, modalInformeParcial</div>
+<div><code>51b_plantillas_informe</code> — agruparHojas, cabeceraInforme, construirHojasInforme, cssInforme, cuerpoResultados, horaLarga, igualNombre</div>
+<div><code>56_qr</code> — QR_ALIN, QR_EXP, QR_VER, qrEC, qrGenPoly, qrMatriz, qrMul, qrSVG</div>
+<div><code>55_instructivos</code> — AREAS_AYUNO, INSTRUCTIVOS, INSTRUCTIVO_POR_EXAMEN, PICTO, cssInstructivo, hojaInstructivo, imprimirInstructivoSuelto, imprimirInstructivos, imprimirInstructivosCotizacion, imprimirTodosInstructivos, instructivoDe, instructivosDeCotizacion, instructivosDeOrden, modalVerInstructivo, vInstructivos</div>
+<div><code>52_etiquetas</code> — _etqFecha, botonesExtraEtiquetas, claseNombre, cssEtiqueta, etiquetasDeOrden, etiquetasFiltradas, filtrarVistaEtiquetas, imprimirEtiquetas, irEtiquetasHoy, nombreEtiqueta, tablaEtiquetas, vEtiquetas, verTodoHistorialEtiquetas</div>
+<div><code>60_config</code> — exportarRespaldo, guardarConfig, importarRespaldo, modalAjustarCorrelativo, vConfig</div>
+<div><code>70_contabilidad</code> — CATS_EGR, CATS_ING, CATS_VENTA_DIA, DENOMS, METODOS_DOCUMENTO, METODOS_PAGO, abrirCaja, abrirComprobante, actualizarResumenCierre, afectaCaja, borrarMov, cerrarCaja, comprobanteTmp, confirmarCobro, desgloseTexto, esDocumentoValor, esVentaArqueable, esperadoCaja, gridDenoms, gridDenomsSplit, guardarMovimiento, historialCortes, imprimirConta, imprimirCorte, leerDenoms, modalCobro, modalMovimiento, resumenTurno, totalDenoms, vCaja, vConta</div>
+<div><code>70b_repo_caja</code> — actualizarMovimiento, buscarCorte, buscarMovimiento, crearCorte, crearMovimiento, eliminarMovimiento, listarCortes, listarMovimientos, siguienteIdMovimiento</div>
+<div><code>70c_srv_caja</code> — registrarMovimiento, srvAbrirCaja, srvCerrarCaja, srvConfirmarCobro, srvEliminarMovimiento, srvGuardarMovimiento, srvVerificarMovimientoEliminable</div>
+<div><code>71_estadisticas</code> — MESES_CORTOS, STATS_DECADAS, _statsModo, _statsSecciones, calcularAgregados, cambiarAnioStats, cambiarMesStats, cambiarModoStats, cambiarRangoStats, checkSeccionStats, columnaTendencia, deltaKPI, deltaTextoPlano, diferenciaDias, etiquetaPeriodoAnterior, filaBarra, filaBarraDual, imprimirEstadisticas, kpiConDelta, primerOrdenPorPaciente, rangoAnteriorEquivalente, rangoStats, statsDatos, sumarDias, tendenciaMensual, toggleStatsSeccion, vEstadisticas</div>
+<div><code>80_bitacora</code> — COLECCIONES_SYNC, REFRESCO_AUTOMATICO_SEGURO, SESION_LOCAL, SESION_LOCAL_HORAS, SINGLETONES_SYNC, SIN_CONEXION, SYNC_TOLERANCIA_MS, TIPOS_BIT, TOPE_KEEPALIVE, _arregloSync, _claveSync, _huellaSingle, _huellas, _permUsr, _refrescando, _ultimoSyncOk, actualizarIndicadorSync, borrarBitacora, calcularDelta, filasBitacora, guardarBitacora, guardarSesionLocal, haceCuanto, importarCotWeb, imprimirBitacora, irALogin, marcarEstadoSincronizado, modalBitacora, modalClaveObligatoria, modalEditarUsuario, modalNuevoUsuario, modalPin, mostrarAvisoVersion, olvidarSesionLocal, pintarIndicadorSync, programarSyncPeriodico, registrarServicioSinConexion, sesionLocalVigente, subirEstadoEmergencia, subirRespaldo, syncEnProblemas, vBitacora, vRespaldos, vUsuarios</div>
+</div></div>
+<script>
+(function(){
+  var g=document.querySelector('.grafo'); if(!g)return;
+  var activo=null;
+  function limpiar(){ g.classList.remove('foco');
+    g.querySelectorAll('.arista').forEach(function(a){a.classList.remove('sale','entra');});
+    g.querySelectorAll('.nodo').forEach(function(n){n.classList.remove('activo');}); }
+  g.querySelectorAll('.nodo').forEach(function(n){
+    function elegir(){
+      var m=n.getAttribute('data-mod');
+      if(activo===m){ limpiar(); activo=null; return; }
+      limpiar(); activo=m; n.classList.add('activo'); g.classList.add('foco');
+      g.querySelectorAll('.arista').forEach(function(a){
+        if(a.getAttribute('data-de')===m)a.classList.add('sale');
+        if(a.getAttribute('data-a')===m)a.classList.add('entra');
+      });
+    }
+    n.addEventListener('click',elegir);
+    n.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){e.preventDefault();elegir();} });
+  });
+})();
+</script>
+</main></body></html>
