@@ -5506,7 +5506,7 @@ function terminarValidacion(n,r){
        de la corrección ya existe igual; lo que falta es el porqué. */
     if(!c.motivo){
       const m=prompt('Se emitió la VERSIÓN '+c.version+' del informe de la orden '+n+'.\n\n'+
-        'Motivo de la corrección (se imprime en el informe corregido):');
+        'Motivo de la corrección (queda en bitácora; el informe impreso no lo lleva):');
       c.motivo=String(m||'').trim();
       if(c.motivo)_bitacora('Incidencia / No conformidad',
         'Motivo de la corrección de la orden '+n+' (versión '+c.version+'): '+c.motivo);
@@ -5518,7 +5518,7 @@ function terminarValidacion(n,r){
         ? 'Cambió:\n'+c.cambios.map(x=>'  · '+x.examen+' · '+x.parametro+': "'+
             (x.antes||'(vacío)')+'" → "'+(x.despues||'(vacío)')+'"').join('\n')
         : 'No cambió ningún valor reportado.')+
-      '\n\nAl imprimirlo saldrá marcado como INFORME CORREGIDO.'+
+      '\n\nLa corrección queda anotada en la bitácora; el informe impreso sale sin ninguna marca.'+
       (c.yaEntregado
         ? '\n\nATENCIÓN: la versión anterior YA HABÍA SIDO ENTREGADA. Hay que hacerle llegar '+
           'esta al paciente y al médico tratante, y dejar constancia de a quién se le avisó.'
@@ -5598,7 +5598,7 @@ function anularValidacion(n,ei){
       'Si cambias un resultado ahora, la copia que tienen el paciente o el médico queda '+
       'desactualizada: habrá que entregarles la versión corregida y avisarles.\n\n¿Continuar?'))return;
   const motivo=prompt(emitido
-    ? 'Motivo de la corrección (se imprime en el informe corregido y queda en bitácora):'
+    ? 'Motivo de la corrección (queda en bitácora; el informe impreso no lo lleva):'
     : 'Motivo de la anulación de la validación (queda en bitácora):');
   if(motivo===null)return;
   /* Se guarda lo que este examen decia ANTES de tocarlo: es el original que
@@ -6357,10 +6357,10 @@ function modalMotivoCorreccion(n,ei,o){
   <div class="aviso" style="border-left-color:var(--ambar)">
     El informe de la orden <b class="nw">${esc(n)}</b> ya salió del laboratorio:
     ${veces?'impreso o en PDF '+(veces===1?'una vez':veces+' veces'):''}${veces&&entregado?' y ':''}${entregado?'entregado'+(o.fechaEntrega?' el '+fmtFecha(o.fechaEntrega):''):''}.
-    Si cambias <b>${esc(e.nombre)}</b> se emitirá una <b>versión corregida</b> que sustituye a la anterior,
-    identificada como tal en el informe${entregado?', y habrá que hacérsela llegar a quien recibió la otra':''}.
+    Si cambias <b>${esc(e.nombre)}</b> se registrará una <b>corrección</b> del informe: el cambio, quién lo hizo
+    y el motivo quedan en la bitácora. El informe impreso sale sin ninguna marca${entregado?', así que habrá que hacerle llegar el nuevo a quien recibió el anterior':''}.
   </div>
-  <div class="campo"><label>Motivo de la corrección (se imprime en el informe)</label>
+  <div class="campo"><label>Motivo de la corrección (queda en bitácora)</label>
     ${MOTIVOS_CORRECCION.map((m,i)=>`<label class="opcion-motivo"><input type="radio" name="mc_m" value="${esc(m)}" ${i===0?'checked':''}> ${esc(m)}</label>`).join('')}
     <label class="opcion-motivo"><input type="radio" name="mc_m" value="__otro"> Otro:</label>
     <input id="mc_otro" placeholder="Escribe el motivo" oninput="const r=document.querySelector('input[name=mc_m][value=__otro]');if(r)r.checked=true">
@@ -6374,7 +6374,7 @@ function confirmarMotivoCorreccion(n,ei){
   const sel=document.querySelector('input[name=mc_m]:checked');
   let m=sel?sel.value:'';
   if(m==='__otro')m=((document.getElementById('mc_otro')||{}).value||'').trim();
-  if(!m||/^[\s0.-]*$/.test(m)){ toast('Indica un motivo real: se imprime en el informe corregido.'); return; }
+  if(!m||/^[\s0.-]*$/.test(m)){ toast('Indica un motivo real: queda en la bitácora de la corrección.'); return; }
   _motivoCorreccion.set(claveExamen(n,ei), m);
   _examenesDesbloqueados.add(claveExamen(n,ei));
   cerrarModal();
@@ -13732,18 +13732,14 @@ function imprimirResultados(n,forzarTodo){
   // siempre aquí reproduce exactamente el gate original
   // "c.portalPaciente && !preliminar && !o._parcial" (cabeceraInforme aplica
   // el resto de esa condición internamente).
-  /* Si esta orden ya se corrigio, el informe tiene que decirlo: es lo que
-     distingue la copia valida de la que anda circulando por ahi. */
-  const corr=esInformeCorregido(o)?ultimaCorreccion(o):null;
+  /* El informe impreso sale SIEMPRE limpio, aunque la orden se haya corregido.
+     Es decision del laboratorio: la correccion -que cambio, de que valor a
+     cual, quien y por que- queda en la bitacora y en o.correcciones, y la
+     pantalla de la orden lo indica dentro del sistema; el documento que se
+     entrega no lleva ninguna marca. Se dejo constancia del criterio de
+     ISO 15189 §7.4.1.7 (informes modificados) al tomar la decision. */
   const html=construirHojasInforme(o,p,c,{
     preliminar,
-    corregido:corr?{
-      version:versionInforme(o),
-      sustituyeA:(corr.sustituyeA&&corr.sustituyeA.fecha)||'',
-      horaSustituida:(corr.sustituyeA&&corr.sustituyeA.hora)||'',
-      motivo:corr.motivo||'',
-      analitos:analitosCorregidos(o),
-    }:null,
     urlQR:urlInforme(o),
     calcularAnteriores:exsHoja=>exsHoja.some(e=>e.params.some(pp=>valorPrevio(o.pacCodigo,e.id,pp.nombre,n))),
     alertas,
@@ -14181,16 +14177,6 @@ const cssInforme=`
  /* Informe parcial: SÍ está validado (lo que se muestra es firme), a
     diferencia de "preliminar" — por eso lleva un tono informativo (azul),
     no la advertencia ámbar de "no validado". */
- /* El informe corregido sustituye a uno que ya salio del laboratorio, asi que
-    tiene que decirlo con claridad: version, a cual sustituye, que cambio y
-    por que (ISO 15189 §7.4.1.7). Pero "con claridad" no es "en rojo": un
-    fondo rojo lo convertia en un documento que el laboratorio no queria
-    entregar, y el informe corregido es precisamente el que HAY que entregar.
-    Va sobrio, a toda anchura y en la tipografia del documento. */
- .marca-corregido{border:1.5px solid #333;background:#f6f6f6;color:#1a1a1a;font-weight:800;
-   text-align:center;padding:5px 8px;border-radius:4px;margin-top:6px;font-size:8.8pt;
-   letter-spacing:.3px;line-height:1.5}
- .marca-corregido .det{display:block;font-weight:600;font-size:8pt;letter-spacing:0;margin-top:2px;color:#333}
  .marca-parcial{border:2px dashed #285068;color:#285068;font-weight:800;text-align:center;padding:4px;border-radius:6px;margin-top:6px;font-size:8.6pt;letter-spacing:.4px}
  .nota-crit{background:#fbe9e9;border:1.2px solid #cc0000;color:#cc0000;font-weight:700;border-radius:6px;padding:5px 9px;margin-top:6px;font-size:8.4pt}
  /* Firma */
@@ -14589,16 +14575,6 @@ function cabeceraInforme(o,p,c,opts){
   </div>`;
 }
 
-/* hora12() ya termina en punto ("04:24 p.m."), asi que encadenar la frase
-   siguiente dejaba un "p.m.." en el informe. Se compone aparte y se le quita
-   el punto final antes de cerrar la oracion. */
-function fraseSustituyeInforme(corr){
-  const cuando=corr.sustituyeA
-    ? ' emitido el '+fmtFecha(corr.sustituyeA)+
-      (corr.horaSustituida?' a las '+hora12(corr.horaSustituida):'')
-    : ' anterior';
-  return ('Sustituye al informe'+cuando).replace(/\.$/,'')+'.';
-}
 /* Arma el HTML de TODAS las hojas del informe (una por cada entrada de
    agruparHojas(), más lo que repaginarHojas() termine de dividir después
    por altura real). Extraída, sin ningún cambio de regla, del bloque
@@ -14670,16 +14646,6 @@ function construirHojasInforme(o,p,c,opts){
       ${cabeceraInforme(o,p,c,{pagina:idx+1,totalPaginas:totalPag,preliminar:opts.preliminar,parcial:o._parcial,urlQR:opts.urlQR})}
       ${o._demo?'<div class="marca-demo">MUESTRA DE PLANTILLA · DOCUMENTO SIN VALIDEZ CLÍNICA · DATOS FICTICIOS</div>':''}
       ${(idx===0&&opts.preliminar&&!o._demo)?'<div class="marca-prelim">INFORME PRELIMINAR · NO VALIDADO POR EL PROFESIONAL · USO INTERNO — NO ENTREGAR AL PACIENTE</div>':''}
-      ${/* Informe corregido: identifica la version, declara a cual sustituye y
-            dice QUE se corrigio -- al medico que recibio el anterior le importa
-            saber cual dato cambio, no solo que algo cambio. */''
-       }${(idx===0&&opts.corregido&&!o._demo)?`<div class="marca-corregido">
-        INFORME CORREGIDO · VERSIÓN ${opts.corregido.version}
-        <span class="det">${fraseSustituyeInforme(opts.corregido)} Esta versión es la válida.</span>
-        ${opts.corregido.analitos&&opts.corregido.analitos.length
-          ?`<span class="det">Se corrigió: ${opts.corregido.analitos.map(esc).join(' · ')}.</span>`:''}
-        ${opts.corregido.motivo?`<span class="det">Motivo: ${esc(opts.corregido.motivo)}</span>`:''}
-      </div>`:''}
       ${(idx===0&&o._parcial)?`<div class="marca-parcial">INFORME PARCIAL · Incluye únicamente los análisis ya validados a esta fecha${(o._pendientesNombres&&o._pendientesNombres.length)?' · Pendiente(s): '+esc(o._pendientesNombres.join(', ')):''}</div>`:''}
       ${idx===0&&opts.alertas&&opts.alertas.length?`<div class="nota-crit">⚠ VALORES CRÍTICOS: ${opts.alertas.map(esc).join(' · ')} — Notificado al médico tratante.</div>`:''}
       ${secciones}
