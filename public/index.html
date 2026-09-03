@@ -933,6 +933,20 @@ input:focus,select:focus,textarea:focus{border-color:var(--azul);
 .modal h3{font-size:18px;font-weight:700;letter-spacing:-.25px;color:var(--tinta)}
 .toast{border-radius:10px;box-shadow:0 10px 30px rgba(11,29,40,.3);font-weight:500}
 
+/* ── Iconos fuera de la barra lateral ────────────────────────────
+   Los mismos trazos, en los sitios donde antes habia un emoji suelto
+   haciendo de icono: las tarjetas de Estadisticas, los titulos de sus
+   secciones, el calendario del filtro de fecha y el boton de tendencia.
+   Los emoji que acompanan a un texto dentro de un boton se quedan: ahi
+   funcionan como marca de accion, no como icono de seccion. */
+.st-ico,.h-ico,.ico-cal,.ico-btn{stroke:currentColor;fill:none;stroke-width:1.6;
+  stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+.st-ico{width:19px;height:19px;display:block;margin-bottom:7px;color:var(--kpi-c,var(--dorado));opacity:.95}
+.h-ico{width:18px;height:18px;display:inline-block;vertical-align:-3px;margin-right:2px}
+.ico-cal{width:17px;height:17px;display:block;color:var(--gris)}
+.ord-fecha-lbl:hover .ico-cal{color:var(--azul)}
+.ico-btn{width:15px;height:15px;display:block}
+
 /* ── Movimiento ──────────────────────────────────────────────────
    Quien pidió menos movimiento en su sistema no debería recibir
    transiciones ni el latido del aviso de sincronización. */
@@ -980,6 +994,8 @@ input:focus,select:focus,textarea:focus{border-color:var(--azul);
 <symbol id="i-cambiar" viewBox="0 0 24 24"><path d="M4 8.4h13.4"/><path d="m14.4 5.2 3.2 3.2-3.2 3.2"/><path d="M20 15.6H6.6"/><path d="m9.6 12.4-3.2 3.2 3.2 3.2"/></symbol>
 <symbol id="i-salir" viewBox="0 0 24 24"><path d="M9.6 20.4H5.4a.9.9 0 0 1-.9-.9V4.5a.9.9 0 0 1 .9-.9h4.2"/><path d="M15.4 16.2 19.8 12l-4.4-4.2"/><path d="M19.4 12H9.2"/></symbol>
 <symbol id="i-nuevo" viewBox="0 0 24 24"><circle cx="10" cy="8" r="3.2"/><path d="M4 19.6a6 6 0 0 1 10.4-4"/><path d="M17.4 14.4v6M20.4 17.4h-6"/></symbol>
+<symbol id="i-calendario" viewBox="0 0 24 24"><rect x="3.4" y="5.2" width="17.2" height="15.4" rx="1.8"/><path d="M3.4 10h17.2"/><path d="M8.2 3.4v3.6M15.8 3.4v3.6"/></symbol>
+<symbol id="i-tendencia" viewBox="0 0 24 24"><path d="M3.6 20.4h16.8"/><path d="m4.6 16.4 4.4-5 3.4 2.8 6.6-8"/><path d="M14.4 6.2h4.6v4.6"/></symbol>
 <symbol id="i-capturar" viewBox="0 0 24 24"><rect x="3.2" y="6.2" width="17.6" height="11.6" rx="1.6"/><path d="M7 10h.02M10.4 10h.02M13.8 10h.02M17.2 10h.02M7 13.4h.02M17.2 13.4h.02" stroke-width="2.2" stroke-linecap="round"/><path d="M10.4 13.4h3.4"/></symbol>
 </defs></svg>
 <a href="#vista" class="salto">Saltar al contenido</a>
@@ -4017,7 +4033,7 @@ function vCotizaciones(){
     <div class="ord-filtros">
       <input class="busqueda" id="cot_q" placeholder="Buscar por paciente, DNI o número de cotización…"
         value="${esc(_cotQ)}" oninput="filtrarVistaCotizaciones()">
-      <label class="ord-fecha-lbl" title="Ver las cotizaciones de otro día">📅
+      <label class="ord-fecha-lbl" title="Ver las cotizaciones de otro día"><svg class="ico-cal" aria-hidden="true"><use href="#i-calendario"/></svg>
         <input type="date" id="cot_fecha" value="${_cotFecha}" onchange="filtrarVistaCotizaciones()">
       </label>
       <span id="cot_extra_btns">${botonesExtraCot()}</span>
@@ -5584,7 +5600,7 @@ function vOrdenes(abrir){
     <div class="ord-filtros">
       <input class="busqueda" id="ord_q" placeholder="Buscar por paciente, DNI o número de orden…"
         value="${esc(_ordQ)}" oninput="filtrarVistaOrdenes()">
-      <label class="ord-fecha-lbl" title="Ver las órdenes de otro día">📅
+      <label class="ord-fecha-lbl" title="Ver las órdenes de otro día"><svg class="ico-cal" aria-hidden="true"><use href="#i-calendario"/></svg>
         <input type="date" id="ord_fecha" value="${_ordFecha}" onchange="filtrarVistaOrdenes(true)">
       </label>
       <span id="ord_extra_btns">${botonesExtraOrdenes()}</span>
@@ -6095,7 +6111,7 @@ function modalResultados(n,desde,sinScroll,areaActiva){
               return `<span class="prev-chip ${ev.critico?'pc-crit':ev.flag?'pc-alt':''}" title="Abrir orden ${v.orden}" onclick="modalResultados('${v.orden}','${n}')">
                 <b>${esc(v.valor)}</b><span class="pc-f">${fmtFecha(v.fecha).slice(0,5)}</span></span>`;}).join(''):'<span style="color:var(--gris)">—</span>'}</td>
           <td><span class="celda-marca">${r.critico?'<span class="chip chip-rj">CRÍTICO</span>':(r.flag==='▲'?'<span class="flag-alto">▲ Alto</span>':r.flag==='▼'?'<span class="flag-bajo">▼ Bajo</span>':'')}</span>
-          ${prevs.length?`<button class="btn btn-g btn-min" title="Ver tendencia" onclick="modalTendencia('${o.pacCodigo}','${e.id}','${esc(pp.nombre)}')">📈</button>`:''}</td>
+          ${prevs.length?`<button class="btn btn-g btn-min" title="Ver tendencia" onclick="modalTendencia('${o.pacCodigo}','${e.id}','${esc(pp.nombre)}')"><svg class="ico-btn" aria-hidden="true"><use href="#i-tendencia"/></svg></button>`:''}</td>
         </tr>`;}).join('');})()}
         </tbody></table>
         <div class="obs-caja">
@@ -7424,7 +7440,7 @@ function vRecibos(filtro){
         ?`<span class="chip chip-az" title="Todos los recibos emitidos, de cualquier fecha">Todos los emitidos</span>`
         :_recModo==='mes'
         ?`<input type="month" id="rec_mes" value="${_recMes||hoy().slice(0,7)}" onchange="filtrarVistaRecibos()">`
-        :`<label class="ord-fecha-lbl" title="Ver los recibos de otro día">📅
+        :`<label class="ord-fecha-lbl" title="Ver los recibos de otro día"><svg class="ico-cal" aria-hidden="true"><use href="#i-calendario"/></svg>
         <input type="date" id="rec_fecha" value="${_recFecha}" onchange="filtrarVistaRecibos()">
       </label>`}
       ${_recModo!=='todas'?`<button class="btn btn-g btn-min" onclick="verTodosLosRecibos()">Ver todos los emitidos</button>`:''}
@@ -8101,7 +8117,7 @@ function vFacturas(){
         ?`<span class="chip chip-az" title="Todas las facturas emitidas, de cualquier fecha">Todas las emitidas</span>`
         :_facModo==='mes'
         ?`<input type="month" id="fac_mes" value="${_facMes||hoy().slice(0,7)}" onchange="filtrarVistaFacturas()">`
-        :`<label class="ord-fecha-lbl" title="Ver las facturas de otro día">📅
+        :`<label class="ord-fecha-lbl" title="Ver las facturas de otro día"><svg class="ico-cal" aria-hidden="true"><use href="#i-calendario"/></svg>
         <input type="date" id="fac_fecha" value="${_facFecha}" onchange="filtrarVistaFacturas()">
       </label>`}
       <span id="fac_extra_btns">${botonesExtraFacturas()}</span>
@@ -16035,11 +16051,14 @@ function columnaTendencia(mesInfo,max){
    01_estilos.css) y un emoji de apoyo — nunca la ÚNICA forma de distinguir
    una tarjeta de otra (el título en texto sigue ahí igual que antes), así
    que no depende de percibir el color para entender qué KPI es cada uno. */
+/* icono: el nombre de un simbolo del juego (ver el sprite en 02_cuerpo.html),
+   no un emoji. Un emoji lo dibuja el sistema operativo y sale distinto en cada
+   maquina; ademas choca con los iconos de trazo del resto de la interfaz. */
 function kpiConDelta(valorTexto,color,titulo,actual,anterior,etiqueta,borde,icono){
   const d=deltaKPI(actual,anterior);
   const acento=borde||color;
   return `<div class="kpi kpi-pro" style="--kpi-c:${acento}">
-    ${icono?`<span class="st-ico">${icono}</span>`:''}
+    ${icono?`<svg class="st-ico" aria-hidden="true"><use href="#i-${icono}"/></svg>`:''}
     <div class="n" style="color:${color}">${valorTexto}</div>
     <div class="t">${titulo}</div>
     <div style="font-size:10.5px;font-weight:700;color:${d.color};margin-top:3px">${d.texto} vs ${etiqueta}</div>
@@ -16098,26 +16117,26 @@ function vEstadisticas(){
       <input type="checkbox" ${_statsSecciones.kpis?'checked':''} onchange="toggleStatsSeccion('kpis')"> PDF</label>
     <div class="mini-et" style="margin-bottom:10px">Indicadores</div>
     <div class="kpis st-kpis" style="grid-template-columns:repeat(4,1fr)">
-      ${kpiConDelta(d.totalPacientes,'var(--azul)','Pacientes atendidos',d.totalPacientes,d.anterior.totalPacientes,d.etiquetaAnterior,'var(--azul)','👥')}
-      ${kpiConDelta(d.totalOrdenes,'var(--azul)','Órdenes del periodo',d.totalOrdenes,d.anterior.totalOrdenes,d.etiquetaAnterior,'var(--azul)','📋')}
-      ${kpiConDelta(L(d.ingresos),'var(--verde)','Ingresos del periodo',d.ingresos,d.anterior.ingresos,d.etiquetaAnterior,'var(--verde)','💰')}
-      ${kpiConDelta(d.promedioExamenesPorOrden,'var(--dorado)','Exámenes por orden (prom.)',d.promedioExamenesPorOrden,d.anterior.promedioExamenesPorOrden,d.etiquetaAnterior,'var(--dorado)','🧪')}
-      ${kpiConDelta(L(d.ticketPromedio),'var(--verde)','Ticket promedio (por orden)',d.ticketPromedio,d.anterior.ticketPromedio,d.etiquetaAnterior,'var(--verde)','💳')}
+      ${kpiConDelta(d.totalPacientes,'var(--azul)','Pacientes atendidos',d.totalPacientes,d.anterior.totalPacientes,d.etiquetaAnterior,'var(--azul)','pacientes')}
+      ${kpiConDelta(d.totalOrdenes,'var(--azul)','Órdenes del periodo',d.totalOrdenes,d.anterior.totalOrdenes,d.etiquetaAnterior,'var(--azul)','ordenes')}
+      ${kpiConDelta(L(d.ingresos),'var(--verde)','Ingresos del periodo',d.ingresos,d.anterior.ingresos,d.etiquetaAnterior,'var(--verde)','caja')}
+      ${kpiConDelta(d.promedioExamenesPorOrden,'var(--dorado)','Exámenes por orden (prom.)',d.promedioExamenesPorOrden,d.anterior.promedioExamenesPorOrden,d.etiquetaAnterior,'var(--dorado)','examenes')}
+      ${kpiConDelta(L(d.ticketPromedio),'var(--verde)','Ticket promedio (por orden)',d.ticketPromedio,d.anterior.ticketPromedio,d.etiquetaAnterior,'var(--verde)','recibos')}
       ${kpiConDelta(d.pacientesNuevos,'#3d7ab0','Pacientes nuevos',d.pacientesNuevos,d.anterior.pacientesNuevos,d.etiquetaAnterior,'#3d7ab0','✨')}
-      ${kpiConDelta(d.pacientesRecurrentes,'var(--azul)','Pacientes recurrentes',d.pacientesRecurrentes,d.anterior.pacientesRecurrentes,d.etiquetaAnterior,'var(--azul)','🔁')}
+      ${kpiConDelta(d.pacientesRecurrentes,'var(--azul)','Pacientes recurrentes',d.pacientesRecurrentes,d.anterior.pacientesRecurrentes,d.etiquetaAnterior,'var(--azul)','cambiar')}
     </div>
   </div>
   <div class="rejilla c2">
     <div class="tarjeta st-card">
       ${checkSeccionStats('examenes')}
-      <h3 style="color:var(--azul);margin-bottom:10px">🧪 Exámenes más solicitados${d.totalSolicitudes?' · '+d.totalSolicitudes+' en total':''}</h3>
+      <h3 style="color:var(--azul);margin-bottom:10px"><svg class="h-ico" aria-hidden="true"><use href="#i-examenes"/></svg> Exámenes más solicitados${d.totalSolicitudes?' · '+d.totalSolicitudes+' en total':''}</h3>
       ${top.length?top.map(([nombre,n])=>filaBarra(nombre,n,maxExamen,degradadoAzul)).join('')
         :'<div class="ayuda">Sin órdenes en este periodo.</div>'}
       ${resto.length?`<div class="ayuda" style="margin-top:8px">Otros ${resto.length} examen(es) distintos · ${restoSolicitudes} solicitud(es) más</div>`:''}
     </div>
     <div class="tarjeta st-card">
       ${checkSeccionStats('medicos')}
-      <h3 style="color:var(--dorado);margin-bottom:10px">🩺 Médicos que más refieren${d.pacientesReferidos?' · '+d.pacientesReferidos+' referido(s)':''}</h3>
+      <h3 style="color:var(--dorado);margin-bottom:10px"><svg class="h-ico" aria-hidden="true"><use href="#i-medicos"/></svg> Médicos que más refieren${d.pacientesReferidos?' · '+d.pacientesReferidos+' referido(s)':''}</h3>
       ${topMed.length?topMed.map(([id,nombre,n])=>`<div style="cursor:pointer" onclick="modalHistorialMedico('${id}')" title="Ver historial de referencias">${filaBarra(nombre,n,maxMedico,degradadoDorado)}</div>`).join('')
         :'<div class="ayuda">Sin referencias médicas registradas en este periodo.</div>'}
       ${restoMed.length?`<div class="ayuda" style="margin-top:8px">Otros ${restoMed.length} médico(s)/institución(es) · ${restoMedReferidos} referido(s) más</div>`:''}
@@ -16126,7 +16145,7 @@ function vEstadisticas(){
   </div>
   <div class="tarjeta st-card">
     ${checkSeccionStats('edadSexo')}
-    <h3 style="color:var(--dorado);margin-bottom:10px">🎂 Pacientes por edad y sexo${d.totalPacientes?' · '+d.totalPacientes+' en total':''}</h3>
+    <h3 style="color:var(--dorado);margin-bottom:10px"><svg class="h-ico" aria-hidden="true"><use href="#i-pacientes"/></svg> Pacientes por edad y sexo${d.totalPacientes?' · '+d.totalPacientes+' en total':''}</h3>
     ${d.totalPacientes?`<div class="mfd-leyenda"><span><i style="background:#3d7ab0"></i>Masculino</span><span><i style="background:var(--dorado)"></i>Femenino</span></div>
       ${d.porDecadaSexo.filter(([,o])=>o.M>0||o.F>0).map(([rango,o])=>filaBarraDual(rango,o.M,o.F,maxDecadaSexo)).join('')}`
       :'<div class="ayuda">Sin pacientes atendidos en este periodo.</div>'}
@@ -16135,7 +16154,7 @@ function vEstadisticas(){
   </div>
   <div class="tarjeta st-card">
     ${checkSeccionStats('tendencia')}
-    <h3 style="color:var(--verde);margin-bottom:10px">📈 Tendencia mensual de pacientes · últimos 6 meses</h3>
+    <h3 style="color:var(--verde);margin-bottom:10px"><svg class="h-ico" aria-hidden="true"><use href="#i-tendencia"/></svg> Tendencia mensual de pacientes · últimos 6 meses</h3>
     <div class="ayuda" style="margin-bottom:6px">Independiente del periodo elegido arriba — siempre muestra los últimos 6 meses calendario, para ver el crecimiento de un vistazo.</div>
     <div class="mfd-leyenda"><span><i style="background:var(--verde)"></i>Nuevos</span><span><i style="background:#3d7ab0"></i>Recurrentes</span></div>
     <div class="tend-barras">
