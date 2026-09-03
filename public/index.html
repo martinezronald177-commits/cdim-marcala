@@ -3776,7 +3776,7 @@ function tablaCotizaciones(cs){
         <td class="col-sec" style="font-size:11px;font-family:ui-monospace,monospace">${esc(c.idNumero||c.identificacion||'—')}</td>
         <td class="col-sec" style="text-align:center">${c.items.length}</td>
         <td><b>${L(t.total)}</b></td>
-        <td>${estadoChip}</td>
+        <td>${estadoChip}<div style="margin-top:4px">${chipImpreso(c,'cotizacion')}</div></td>
         <td class="cel-acc">
           ${c.estadoCot==='Pendiente'
             ?`<button class="btn btn-v btn-min" onclick="aprobarCotWeb('${esc(c.numero)}')">✓ Aprobar</button>`
@@ -5230,7 +5230,10 @@ function tablaOrdenes(lista){
     <td><b>${L(o.total)}</b>
       ${(o.subtotal&&o.subtotal>o.total)?`<div class="cel-sub"><s>${L(o.subtotal)}</s> · desc. ${round2((o.subtotal-o.total)/o.subtotal*100)} %</div>`:''}
       <div>${o.pagada?'<span class="chip chip-vd">Pagada</span>':'<span class="chip chip-am">Pendiente pago</span>'}</div></td>
-    <td><span class="chip ${chipEstado(o.estado)}">${o.estado}</span></td>
+    <td><span class="chip ${chipEstado(o.estado)}">${o.estado}</span>
+      ${/* Solo tiene sentido cuando ya hay informe que imprimir. */''
+       }${(o.estado==='Validada'||o.estado==='Entregada'||vecesImpreso(o))
+        ?`<div style="margin-top:4px">${chipImpreso(o,'informe')}</div>`:''}</td>
     <td class="cel-acc">
       ${!o.pagada?`<button class="btn btn-v btn-min" onclick="modalCobro('${o.numero}')">L Cobrar</button>`:''}
       <button class="btn btn-p btn-min" onclick="modalResultados('${o.numero}')">Resultados</button>
@@ -7228,7 +7231,8 @@ function filasRecibos(){
       <td style="font-size:11.5px">${r.items.length} concepto(s)<div style="font-size:9.5px;color:var(--gris)">${esc(r.items[0]?r.items[0].desc:'')}${r.items.length>1?'…':''}</div></td>
       <td><span class="chip chip-az">${esc(r.metodo)}</span></td>
       <td style="text-align:right"><b>${L(t.total)}</b>${t.descuento?`<div style="font-size:9.5px;color:var(--gris)">desc. ${t.pctTotal} %</div>`:''}</td>
-      <td>${r.anulado?'<span class="chip chip-rj">Anulado</span>':'<span class="chip chip-vd">Emitido</span>'}</td>
+      <td>${r.anulado?'<span class="chip chip-rj">Anulado</span>':'<span class="chip chip-vd">Emitido</span>'}
+        <div style="margin-top:4px">${chipImpreso(r,'recibo')}</div></td>
       <td style="text-align:right;white-space:nowrap">
         <button class="btn btn-p btn-min" onclick="previsualizar(()=>imprimirReciboVenta('${r.numero}'),'Recibo ${r.numero}','Imprimir recibo',true)">Ver</button>
         <button class="btn btn-g btn-min" onclick="modalPDF('recibo','${r.numero}')">⬇ PDF</button>
@@ -7669,7 +7673,8 @@ function renderizarReciboVenta(r,opciones){
   const html=conCopia
     ? cuerpo('Original — Cliente','1 de 2')+cuerpo('Copia — Archivo del laboratorio','2 de 2')
     : cuerpo('Original — Cliente','1 de 1');
-  ventanaImpresion(html,cssReciboVenta,nombreArchivo('Recibo',r.numero,r.cliente,r.fecha));
+  ventanaImpresion(html,cssReciboVenta,nombreArchivo('Recibo',r.numero,r.cliente,r.fecha),
+    r.borrador?null:{tipo:'recibo',numero:r.numero});
 }
 
 /* =============== CONSOLIDADO MENSUAL DE RECIBOS ===============
@@ -7903,7 +7908,8 @@ function tablaFacturas(lista){
       <td style="font-size:11.5px">${x.items.length} concepto(s)<div style="font-size:9.5px;color:var(--gris)">${esc(x.items[0]?x.items[0].desc:'')}${x.items.length>1?'…':''}</div></td>
       <td><span class="chip chip-az">${esc(x.metodo)}</span></td>
       <td style="text-align:right"><b>${L(t.total)}</b>${t.descuento?`<div style="font-size:9.5px;color:var(--gris)">desc. ${t.pctTotal} %</div>`:''}</td>
-      <td>${x.anulado?'<span class="chip chip-rj">Anulada</span>':'<span class="chip chip-vd">Emitida</span>'}</td>
+      <td>${x.anulado?'<span class="chip chip-rj">Anulada</span>':'<span class="chip chip-vd">Emitida</span>'}
+        <div style="margin-top:4px">${chipImpreso(x,'factura')}</div></td>
       <td style="text-align:right;white-space:nowrap">
         <button class="btn btn-p btn-min" onclick="previsualizar(()=>imprimirFactura('${x.numero}'),'Factura ${x.numero}','Imprimir factura',true)">Ver</button>
         <button class="btn btn-g btn-min" onclick="modalPDF('factura','${x.numero}')">⬇ PDF</button>
@@ -8474,7 +8480,10 @@ function renderizarFactura(f,opciones){
   const html=conCopia
     ? cuerpo('Original — Cliente','1 de 2')+cuerpo('Copia — Archivo del laboratorio','2 de 2')
     : cuerpo('Original — Cliente','1 de 1');
-  ventanaImpresion(html,cssReciboVenta,nombreArchivo('Factura',f.numero,f.clienteNombre,f.fecha));
+  /* Los borradores (la previa de "Ver factura" antes de emitir) no llevan
+     numero definitivo: no hay documento al que anotarle nada. */
+  ventanaImpresion(html,cssReciboVenta,nombreArchivo('Factura',f.numero,f.clienteNombre,f.fecha),
+    f.borrador?null:{tipo:'factura',numero:f.numero});
 }
 
 /* =============== CONSOLIDADO MENSUAL DE FACTURAS ===============
@@ -10991,10 +11000,14 @@ function cssMarcaAguaDoc(){
    background-repeat:no-repeat;background-position:center;background-size:48%;
    opacity:.06;z-index:-1;pointer-events:none}`;
 }
-function ventanaImpresion(html,css,nombre){
+function ventanaImpresion(html,css,nombre,registro){
   volcarEstado();
   css=cssBaseImpresion+'\n'+cssCabeceraDoc+'\n'+cssBloqueDatos+'\n'+cssMarcaAguaDoc()+'\n'+css+(modoAplanado?'\n'+cssAplanado:'');   // base, encabezado y datos del paciente/cliente comunes
   if(capturaImp){capturaImp.html=html;capturaImp.css=css;capturaImp.nombre=nombre||'';return;}
+  /* Pasado capturaImp, el documento sale de verdad hacia el papel o el PDF.
+     Es el unico sitio por el que pasan los cuatro tipos, asi que se anota
+     aqui una vez en vez de en cada generador. */
+  if(registro)registrarImpresion(registro.tipo,registro.numero);
   // Iframe oculto: evita bloqueadores de ventanas emergentes (popup blockers)
   const previo=document.getElementById('marco-imp');if(previo)previo.remove();
   const fr=document.createElement('iframe');
@@ -11335,9 +11348,79 @@ function imprimirCotizacion(n,opciones){
      cada una en vez de que cada llamada abra su propio dialogo. Mismo trato
      que renderizarFactura() y renderizarReciboVenta(). */
   if(opciones&&opciones.devolver)return html;
-  ventanaImpresion(html,cssCotizacion,nombreArchivo('Cotizacion',c.numero,c.nombre,c.fecha));
+  ventanaImpresion(html,cssCotizacion,nombreArchivo('Cotizacion',c.numero,c.nombre,c.fecha),
+    {tipo:'cotizacion',numero:c.numero});
 }
 
+/* =============== CONTROL DE IMPRESIÓN ===============
+   Qué documentos ya salieron del laboratorio y cuáles no. Antes no quedaba
+   rastro: una factura impresa y otra sin imprimir se veían exactamente igual
+   en la lista, y la única forma de saberlo era acordarse.
+
+   Qué se anota, con precisión: el momento en que el documento se manda al
+   diálogo del navegador —papel o «Guardar como PDF»—. El navegador NO dice si
+   al final se imprimió o si se canceló; nadie puede saberlo desde la página.
+   Por eso el rótulo dice "enviado a imprimir" y no "impreso en papel": es lo
+   que de verdad se puede afirmar.
+
+   La vista previa no cuenta. Pasa por capturaImp y ni llega aquí, así que
+   mirar un documento no lo marca como emitido. */
+const COLECCION_DOC={
+  factura:    ()=>S.facturas,
+  recibo:     ()=>S.recibos,
+  cotizacion: ()=>S.cotizaciones,
+  informe:    ()=>S.ordenes,
+};
+function buscarDocImpresion(tipo,numero){
+  const col=COLECCION_DOC[tipo];
+  if(!col||!numero)return null;
+  return (col()||[]).find(x=>x.numero===numero)||null;
+}
+function registrarImpresion(tipo,numero){
+  const d=buscarDocImpresion(tipo,numero);
+  if(!d)return null;                    // borradores y previas: no hay qué anotar
+  (d.impresiones=d.impresiones||[]).push({
+    fecha:hoy(), hora:ahoraHora(), por:usuarioActivo().nombre});
+  guardar();
+  return d.impresiones.length;
+}
+function vecesImpreso(d){ return ((d&&d.impresiones)||[]).length; }
+function ultimaImpresion(d){
+  const i=(d&&d.impresiones)||[];
+  return i.length?i[i.length-1]:null;
+}
+/* La marca que va en las listas. Sin imprimir NO se deja en blanco: un hueco
+   se lee como "no aplica", y aquí "todavía no ha salido" es justo el dato que
+   se está buscando. */
+function chipImpreso(d,tipo){
+  const n=vecesImpreso(d);
+  const abre=tipo?` style="cursor:pointer" onclick="event.stopPropagation();modalImpresiones('${tipo}','${esc(d.numero)}')"`:'';
+  if(!n)return `<span class="chip chip-medio"${abre} title="Este documento todavía no se ha enviado a imprimir ni a PDF">○ Sin imprimir</span>`;
+  const u=ultimaImpresion(d);
+  const det='Enviado a imprimir o a PDF '+n+' '+(n===1?'vez':'veces')+
+    '. Última: '+fmtFecha(u.fecha)+(u.hora?' a las '+hora12(u.hora):'')+
+    (u.por?' por '+u.por:'')+
+    '. El navegador no informa si finalmente se imprimió o se canceló.';
+  return `<span class="chip chip-vd"${abre} title="${esc(det)}">🖨 Impreso${n>1?' ×'+n:''}</span>`;
+}
+/* Historial completo, para cuando el resumen del chip no basta. */
+function modalImpresiones(tipo,numero){
+  const d=buscarDocImpresion(tipo,numero);
+  if(!d)return;
+  const i=(d.impresiones||[]).slice().reverse();
+  abrirModal(`
+  <h3>Control de impresión · ${esc(numero)}</h3>
+  <p style="font-size:12.5px;color:var(--gris);margin:0 0 10px">
+    Cada vez que este documento se envió al diálogo de impresión, sea a papel o a
+    «Guardar como PDF». El navegador no informa si finalmente se imprimió o si se
+    canceló, así que esto registra el envío, no el papel.</p>
+  ${i.length?`<table><thead><tr><th>#</th><th>Fecha</th><th>Hora</th><th>Quién</th></tr></thead><tbody>
+    ${i.map((x,k)=>`<tr><td>${i.length-k}</td><td>${fmtFecha(x.fecha)}</td>
+      <td>${x.hora?hora12(x.hora):'—'}</td><td>${esc(x.por||'—')}</td></tr>`).join('')}
+  </tbody></table>`
+  :'<div class="vacio">Todavía no se ha enviado a imprimir.</div>'}
+  <div class="modal-pie"><button class="btn btn-g" onclick="cerrarModal()">Cerrar</button></div>`);
+}
 /* =============== BASE DE IMPRESIÓN DE ALTA CALIDAD ===============
    cssBaseImpresion/cssCabeceraDoc se movieron aquí VERBATIM desde
    50_impresion.js (Fase 8, ago. 2026): son texto CSS puro, sin ninguna
@@ -12225,7 +12308,8 @@ function imprimirResultados(n,forzarTodo){
     firmaHTML:firma,
     pieHTML:pie,
   });
-  ventanaImpresion(html,cssInforme,nombreDeOrden(o,'Resultados'));
+  ventanaImpresion(html,cssInforme,nombreDeOrden(o,'Resultados'),
+    {tipo:'informe',numero:o.numero});
 }
 
 /* ---- Sobre vertical con datos del paciente ---- */
