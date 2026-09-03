@@ -946,6 +946,14 @@ input:focus,select:focus,textarea:focus{border-color:var(--azul);
 .ico-cal{width:17px;height:17px;display:block;color:var(--gris)}
 .ord-fecha-lbl:hover .ico-cal{color:var(--azul)}
 .ico-btn{width:15px;height:15px;display:block}
+/* Icono en linea, dentro de un boton, un distintivo o un titulo. Se mide en
+   em y no en pixeles: asi crece y encoge con el texto que acompana, y el
+   mismo simbolo sirve en un boton normal, en uno .btn-min y en un chip de
+   9.5 px sin tener que declarar tres tamanos. */
+.ico-en{width:1.05em;height:1.05em;display:inline-block;vertical-align:-.17em;
+  stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;
+  stroke-linejoin:round;flex:0 0 auto}
+.btn .ico-en{margin-right:-1px}
 
 /* ── Movimiento ──────────────────────────────────────────────────
    Quien pidió menos movimiento en su sistema no debería recibir
@@ -994,6 +1002,17 @@ input:focus,select:focus,textarea:focus{border-color:var(--azul);
 <symbol id="i-cambiar" viewBox="0 0 24 24"><path d="M4 8.4h13.4"/><path d="m14.4 5.2 3.2 3.2-3.2 3.2"/><path d="M20 15.6H6.6"/><path d="m9.6 12.4-3.2 3.2 3.2 3.2"/></symbol>
 <symbol id="i-salir" viewBox="0 0 24 24"><path d="M9.6 20.4H5.4a.9.9 0 0 1-.9-.9V4.5a.9.9 0 0 1 .9-.9h4.2"/><path d="M15.4 16.2 19.8 12l-4.4-4.2"/><path d="M19.4 12H9.2"/></symbol>
 <symbol id="i-nuevo" viewBox="0 0 24 24"><circle cx="10" cy="8" r="3.2"/><path d="M4 19.6a6 6 0 0 1 10.4-4"/><path d="M17.4 14.4v6M20.4 17.4h-6"/></symbol>
+<symbol id="i-ver" viewBox="0 0 24 24"><path d="M1.8 12S5.4 5.4 12 5.4 22.2 12 22.2 12 18.6 18.6 12 18.6 1.8 12 1.8 12z"/><circle cx="12" cy="12" r="3.2"/></symbol>
+<symbol id="i-imprimir" viewBox="0 0 24 24"><path d="M6.6 8.6V3.6h10.8v5"/><path d="M6.6 17.4H4.4a1.4 1.4 0 0 1-1.4-1.4v-5.6a1.6 1.6 0 0 1 1.6-1.6h14.8a1.6 1.6 0 0 1 1.6 1.6V16a1.4 1.4 0 0 1-1.4 1.4h-2.2"/><rect x="6.6" y="14.2" width="10.8" height="6.4" rx="1"/><path d="M17.6 11.6h.02" stroke-width="2.2" stroke-linecap="round"/></symbol>
+<symbol id="i-abrir" viewBox="0 0 24 24"><rect x="4.6" y="10.6" width="14.8" height="9.8" rx="1.8"/><path d="M8.4 10.6V7.4a3.6 3.6 0 0 1 7-1.2"/><path d="M12 14.4v2.4"/></symbol>
+<symbol id="i-bloqueado" viewBox="0 0 24 24"><rect x="4.6" y="10.6" width="14.8" height="9.8" rx="1.8"/><path d="M8.4 10.6V7.6a3.6 3.6 0 0 1 7.2 0v3"/><path d="M12 14.4v2.4"/></symbol>
+<symbol id="i-rechazar" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.6"/><path d="m6.4 6.4 11.2 11.2"/></symbol>
+<symbol id="i-equipo" viewBox="0 0 24 24"><path d="M15.4 3.4a5 5 0 0 0-4.2 7.6L3.8 18.4a1.8 1.8 0 0 0 2.6 2.6l7.4-7.4a5 5 0 0 0 6.1-7.1l-2.9 2.9-2.6-.7-.7-2.6z"/></symbol>
+<symbol id="i-web" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.8"/><path d="M3.4 12h17.2"/><path d="M12 3.2a13.4 13.4 0 0 1 0 17.6 13.4 13.4 0 0 1 0-17.6z"/></symbol>
+<symbol id="i-buscar" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.6"/><path d="m15.6 15.6 4.8 4.8"/></symbol>
+<symbol id="i-sello" viewBox="0 0 24 24"><path d="M8.4 10.4V7.6a3.6 3.6 0 0 1 7.2 0v2.8"/><path d="M5.4 10.4h13.2l-1 4.6H6.4z"/><rect x="4.4" y="17.2" width="15.2" height="3.4" rx="1"/></symbol>
+<symbol id="i-firma" viewBox="0 0 24 24"><path d="M3.4 19.4c3.4 0 3.4-11.4 6.2-11.4 2 0 1 8.4 3.2 8.4 1.6 0 1.8-4.6 3.4-4.6 1.2 0 1.2 2.6 2.6 2.6h1.8"/><path d="M3.4 21.6h17.2"/></symbol>
+<symbol id="i-llave" viewBox="0 0 24 24"><circle cx="8" cy="8" r="4.4"/><path d="m11.2 11.2 8.4 8.4"/><path d="m16.4 16.4 2-2M18.8 18.8l1.8-1.8"/></symbol>
 <symbol id="i-calendario" viewBox="0 0 24 24"><rect x="3.4" y="5.2" width="17.2" height="15.4" rx="1.8"/><path d="M3.4 10h17.2"/><path d="M8.2 3.4v3.6M15.8 3.4v3.6"/></symbol>
 <symbol id="i-tendencia" viewBox="0 0 24 24"><path d="M3.6 20.4h16.8"/><path d="m4.6 16.4 4.4-5 3.4 2.8 6.6-8"/><path d="M14.4 6.2h4.6v4.6"/></symbol>
 <symbol id="i-capturar" viewBox="0 0 24 24"><rect x="3.2" y="6.2" width="17.6" height="11.6" rx="1.6"/><path d="M7 10h.02M10.4 10h.02M13.8 10h.02M17.2 10h.02M7 13.4h.02M17.2 13.4h.02" stroke-width="2.2" stroke-linecap="round"/><path d="M10.4 13.4h3.4"/></symbol>
@@ -2472,7 +2491,7 @@ function vInicio(){
     ${vencidas.slice(0,10).map(o=>`<div class="aviso">⏱ ENTREGA VENCIDA · ${o.numero} · ${esc(o.pacienteNombre)} — prometida para ${fmtFecha(o.entrega)}
       <button class="btn btn-g btn-min" style="float:right" onclick="modalResultados('${o.numero}')">Ver</button></div>`).join('')}
     ${vencidas.length>10?`<div style="font-size:11.5px;color:var(--gris);margin:4px 0 8px">y ${vencidas.length-10} entrega(s) vencida(s) más.</div>`:''}
-    ${hoyEntrega.slice(0,10).map(o=>`<div class="aviso">📅 ENTREGA HOY · ${o.numero} · ${esc(o.pacienteNombre)} — prometida para hoy, aún pendiente de enviar
+    ${hoyEntrega.slice(0,10).map(o=>`<div class="aviso"><svg class="ico-en" aria-hidden="true"><use href="#i-calendario"/></svg> ENTREGA HOY · ${o.numero} · ${esc(o.pacienteNombre)} — prometida para hoy, aún pendiente de enviar
       <button class="btn btn-g btn-min" style="float:right" onclick="modalResultados('${o.numero}')">Ver</button></div>`).join('')}
     ${hoyEntrega.length>10?`<div style="font-size:11.5px;color:var(--gris);margin:4px 0 8px">y ${hoyEntrega.length-10} entrega(s) más que vencen hoy.</div>`:''}
     ${parciales.slice(0,10).map(o=>`<div class="aviso" style="border-left-color:var(--ambar)">◐ VALIDADA A MEDIAS · ${o.numero} · ${esc(o.pacienteNombre)} — ${o.examenes.filter(e=>e.validado).length} de ${o.examenes.length} exámenes validados
@@ -2484,7 +2503,7 @@ function vInicio(){
       <button class="btn btn-g btn-min" style="float:right" onclick="modalResultados('${o.numero}')">Ver</button></div>`).join('')}
     ${porCobrar.length?`<div class="aviso">L ${porCobrar.length} orden(es) pendientes de cobro por ${L(porCobrar.reduce((a,o)=>a+o.total,0))}
       <button class="btn btn-g btn-min" style="float:right" onclick="verOrdenesPorCobrar()">Ver órdenes</button></div>`:''}
-    ${necesitaResp?`<div class="aviso">💾 Han pasado ${S.meta.ultimoRespaldo?Math.round((new Date(hoy())-new Date(S.meta.ultimoRespaldo))/86400000)+' días desde el último respaldo':'varios días sin respaldo registrado'}. Exporta uno hoy.
+    ${necesitaResp?`<div class="aviso"><svg class="ico-en" aria-hidden="true"><use href="#i-respaldos"/></svg> Han pasado ${S.meta.ultimoRespaldo?Math.round((new Date(hoy())-new Date(S.meta.ultimoRespaldo))/86400000)+' días desde el último respaldo':'varios días sin respaldo registrado'}. Exporta uno hoy.
       <button class="btn btn-g btn-min" style="float:right" onclick="exportarRespaldo()">Respaldar ahora</button></div>`:''}
   </div>`:'<div class="tarjeta" style="border-left:4px solid var(--verde)"><b style="color:var(--verde)">✓ Sin alertas pendientes.</b> Todas las órdenes están al día.</div>'}
   <div class="rejilla c2">
@@ -2596,8 +2615,8 @@ function pintarModalPaciente(cod){
   const dis=bloq?`disabled title="${TITULO_PAC_BLOQUEADO}"`:'';
   return `
   <h3>${cod?'Editar':'Nuevo'} paciente ${cod?'· '+cod:''}</h3>
-  ${bloq?`<div class="aviso">🔒 Los datos de este paciente están bloqueados para evitar modificaciones accidentales.
-    <button class="btn btn-g btn-min" style="margin-left:8px" onclick="habilitarEdicionPaciente('${cod}')">🔓 Habilitar edición</button></div>`:''}
+  ${bloq?`<div class="aviso"><svg class="ico-en" aria-hidden="true"><use href="#i-bloqueado"/></svg> Los datos de este paciente están bloqueados para evitar modificaciones accidentales.
+    <button class="btn btn-g btn-min" style="margin-left:8px" onclick="habilitarEdicionPaciente('${cod}')"><svg class="ico-en" aria-hidden="true"><use href="#i-abrir"/></svg> Habilitar edición</button></div>`:''}
   <label style="margin-bottom:6px;color:var(--azul)">Nombre del paciente</label>
   <div class="rejilla c4" style="margin-bottom:6px">
     <div class="campo"><label>Primer nombre *</label><input id="p_n1" value="${esc(p.nombre1||'')}" ${ro}></div>
@@ -3151,7 +3170,7 @@ function filasExamenes(filtro=''){
     <td style="font-size:10.5px;color:var(--gris);max-width:190px">${esc(e.entrega||'—')}</td>
     <td>${e.params.length}</td><td><b>${L(e.precio)}</b></td>
     <td style="text-align:right;white-space:nowrap">
-      <button class="btn btn-p btn-min" onclick="modalPreviaPlantilla('${e.id}')">👁 Vista previa</button>
+      <button class="btn btn-p btn-min" onclick="modalPreviaPlantilla('${e.id}')"><svg class="ico-en" aria-hidden="true"><use href="#i-ver"/></svg> Vista previa</button>
       <button class="btn btn-g btn-min" onclick="modalExamen('${e.id}')">Editar</button>
       <button class="btn btn-r btn-min" onclick="borrarExamen('${e.id}')">✕</button>
     </td></tr>`).join('')}
@@ -3163,7 +3182,7 @@ function vExamenes(filtro=''){
     <div style="display:flex;gap:10px">
       <input class="busqueda" id="q_exa" placeholder="Buscar por examen, código, área o tubo…"
         value="${esc(filtro)}" oninput="document.getElementById('lista_exa').innerHTML=filasExamenes(this.value)">
-      <button class="btn btn-d" onclick="modalPreviaAreas()">👁 Ver un área completa</button>
+      <button class="btn btn-d" onclick="modalPreviaAreas()"><svg class="ico-en" aria-hidden="true"><use href="#i-ver"/></svg> Ver un área completa</button>
       <button class="btn btn-g" onclick="modalMoverArea()">⇄ Cambiar de área</button>
       <button class="btn btn-p" onclick="modalExamen()">+ Nuevo examen</button>
     </div>
@@ -3390,8 +3409,8 @@ function pintarModalExamen(id){
   const dis=bloq?`disabled title="${TITULO_EXAM_BLOQUEADO}"`:'';
   return `
   <h3>${id?'Editar':'Nuevo'} examen</h3>
-  ${bloq?`<div class="aviso">🔒 Esta plantilla está bloqueada para evitar modificaciones accidentales.
-    <button class="btn btn-g btn-min" style="margin-left:8px" onclick="habilitarEdicionExamen('${id}')">🔓 Habilitar edición</button></div>`:''}
+  ${bloq?`<div class="aviso"><svg class="ico-en" aria-hidden="true"><use href="#i-bloqueado"/></svg> Esta plantilla está bloqueada para evitar modificaciones accidentales.
+    <button class="btn btn-g btn-min" style="margin-left:8px" onclick="habilitarEdicionExamen('${id}')"><svg class="ico-en" aria-hidden="true"><use href="#i-abrir"/></svg> Habilitar edición</button></div>`:''}
   <div class="rejilla c4">
     <div class="campo"><label>Código *</label><input id="e_id" value="${esc(e.id||'')}" ${id?'readonly style="background:#f2f5f7"':''} placeholder="Ej. GLU"></div>
     <div class="campo" style="grid-column:span 2"><label>Nombre *</label><input id="e_nombre" value="${esc(e.nombre||'')}" ${ro}></div>
@@ -3433,7 +3452,7 @@ function pintarModalExamen(id){
   </div>
   <div class="modal-pie">
     <button class="btn btn-g" onclick="cerrarModal()">Cancelar</button>
-    ${id?`<button class="btn btn-d" onclick="modalPreviaPlantilla('${id}')">👁 Vista previa</button>`:''}
+    ${id?`<button class="btn btn-d" onclick="modalPreviaPlantilla('${id}')"><svg class="ico-en" aria-hidden="true"><use href="#i-ver"/></svg> Vista previa</button>`:''}
     <button class="btn btn-p" onclick="guardarExamen('${id||''}')" ${bloq?'disabled title="'+TITULO_EXAM_BLOQUEADO+'"':''}>Guardar</button>
   </div>`;
 }
@@ -3606,7 +3625,7 @@ function tarjetaCombosDisponibles(onClickFn){
   const activos=perfilesActivos();
   if(!activos.length)return '';
   return `<div class="tarjeta" style="margin-bottom:10px;background:#f7fbf3">
-    <label style="margin-bottom:8px;display:block">📦 Combos / Perfiles promocionales — un clic agrega todos sus exámenes</label>
+    <label style="margin-bottom:8px;display:block"><svg class="ico-en" aria-hidden="true"><use href="#i-perfiles"/></svg> Combos / Perfiles promocionales — un clic agrega todos sus exámenes</label>
     <div style="display:flex;flex-wrap:wrap;gap:8px">
     ${activos.map(p=>{const c=calcPerfil(p);return `
       <div style="border:1px solid var(--gris-cl);border-radius:8px;padding:8px 10px;min-width:210px">
@@ -3945,7 +3964,7 @@ function botonesExtraCot(){
   const enHoySinBusqueda=!_cotQ&&_cotFecha===hy;
   const filtrandoOtroDia=!_cotQ&&_cotFecha&&_cotFecha!==hy;
   const n=cotizacionesFiltradas().length;
-  return `${!enHoySinBusqueda?`<button class="btn btn-g btn-min" onclick="irCotizacionesHoy()">📅 Hoy</button>`:''}
+  return `${!enHoySinBusqueda?`<button class="btn btn-g btn-min" onclick="irCotizacionesHoy()"><svg class="ico-en" aria-hidden="true"><use href="#i-calendario"/></svg> Hoy</button>`:''}
   ${filtrandoOtroDia?`<button class="btn btn-g btn-min" onclick="verTodoHistorialCotizaciones()">Ver todo el historial</button>`:''}
   <span class="ord-conteo">${n} cotización(es)</span>`;
 }
@@ -3999,7 +4018,7 @@ function tablaCotizaciones(cs){
       return `<tr>
         <td><b class="num-largo">${esc(c.numero)}</b>
           <div class="solo-movil" style="margin-top:4px">${estadoChip}</div></td>
-        <td class="col-sec"><span class="chip ${esWeb?'chip-az':'chip-do'}">${esWeb?'🌐 Web':'Interno'}</span></td>
+        <td class="col-sec"><span class="chip ${esWeb?'chip-az':'chip-do'}">${esWeb?'<svg class="ico-en" aria-hidden="true"><use href="#i-web"/></svg> Web':'Interno'}</span></td>
         <td class="col-sec" style="font-size:11.5px">${fmtFecha(c.fecha)}</td>
         <td><b>${esc(c.nombre)}</b>${c.tel?'<div class="cel-sub">'+esc(c.tel)+'</div>':''}</td>
         <td class="col-sec" style="font-size:11px;font-family:ui-monospace,monospace">${esc(c.idNumero||c.identificacion||'—')}</td>
@@ -4021,12 +4040,12 @@ function vCotizaciones(){
   <div class="cabecera"><h2>Cotizaciones</h2>
     <div style="display:flex;gap:10px">
       <button class="btn btn-g btn-min" onclick="importarCotWeb();vCotizaciones()">⟳ Refrescar</button>
-      <button class="btn btn-d" onclick="modalCotizacionesMes()" title="Todas las cotizaciones de un mes en un solo PDF">📄 Cotizaciones del mes</button>
+      <button class="btn btn-d" onclick="modalCotizacionesMes()" title="Todas las cotizaciones de un mes en un solo PDF"><svg class="ico-en" aria-hidden="true"><use href="#i-cotizaciones"/></svg> Cotizaciones del mes</button>
       <button class="btn btn-p" onclick="modalCotizacion()">+ Nueva cotización</button>
     </div>
   </div>
   ${pendWeb.length?`<div class="aviso" style="border-left:4px solid var(--dorado);background:#fff8e6">
-    <b>📲 ${pendWeb.length} solicitud(es) del portal web esperan tu revisión.</b>
+    <b><svg class="ico-en" aria-hidden="true"><use href="#i-web"/></svg> ${pendWeb.length} solicitud(es) del portal web esperan tu revisión.</b>
     Revisa, ajusta el precio si aplica y apruébalas para crear la orden directamente.
   </div>`:''}
   <div class="tarjeta">
@@ -4052,7 +4071,7 @@ function abrirMenuCot(ev,n){
   <h3>${esc(c.numero)}</h3>
   <p style="font-size:12.5px;color:var(--gris);margin-bottom:12px">
     ${esc(c.nombre)} · ${fmtFecha(c.fecha)} · ${c.items.length} examen(es) · ${L(t.total)}
-    ${c.origen==='web'?' · <span class="chip chip-az">🌐 Portal web</span>':''}</p>
+    ${c.origen==='web'?' · <span class="chip chip-az"><svg class="ico-en" aria-hidden="true"><use href="#i-web"/></svg> Portal web</span>':''}</p>
 
   ${c.estadoCot==='Pendiente'?`<div class="acc-grupo"><b>Solicitud del portal</b>
     <div class="acc-botones">
@@ -4071,7 +4090,7 @@ function abrirMenuCot(ev,n){
 
   <div class="acc-grupo"><b>Documentos</b>
     <div class="acc-botones">
-      <button class="btn btn-d" onclick="cerrarModal();previsualizar(()=>imprimirCotizacion('${n}'),'${n}','Imprimir',true)">🖨 Imprimir</button>
+      <button class="btn btn-d" onclick="cerrarModal();previsualizar(()=>imprimirCotizacion('${n}'),'${n}','Imprimir',true)"><svg class="ico-en" aria-hidden="true"><use href="#i-imprimir"/></svg> Imprimir</button>
       <button class="btn btn-g" onclick="cerrarModal();modalPDF('cotizacion','${n}')">⬇ PDF</button>
       <button class="btn btn-v" onclick="cerrarModal();modalCompartir('cotizacion','${n}')">✆ Enviar</button>
     </div>
@@ -4079,7 +4098,7 @@ function abrirMenuCot(ev,n){
 
   <div class="acc-grupo"><b>Para el paciente</b>
     <div class="acc-botones">
-      <button class="btn btn-g" title="Instructivo de preparación según los exámenes cotizados" onclick="cerrarModal();previsualizar(()=>imprimirInstructivosCotizacion('${n}'),'Instructivos · ${n}','Imprimir')">📋 Instructivo</button>
+      <button class="btn btn-g" title="Instructivo de preparación según los exámenes cotizados" onclick="cerrarModal();previsualizar(()=>imprimirInstructivosCotizacion('${n}'),'Instructivos · ${n}','Imprimir')"><svg class="ico-en" aria-hidden="true"><use href="#i-instructivos"/></svg> Instructivo</button>
       <button class="btn btn-g" title="Instructivo en PDF para enviar al paciente" onclick="cerrarModal();modalPDF('instructivoCot','${n}')">⬇ PDF del instructivo</button>
     </div>
     <p style="font-size:11.5px;color:var(--gris);margin-top:7px;line-height:1.5">
@@ -4362,7 +4381,7 @@ function pintarItemsCot(){
     ${itemsCotTmp.map((i,x)=>{const pc=pctItem(i),d=descItem(i);return `<tr>
       <td>${x+1}</td>
       <td style="font-size:12px">${esc(i.nombre)}<div style="font-size:10px;color:var(--gris)">${i.id}</div>
-        ${i.comboNombre?`<span class="chip chip-do" style="margin-top:2px">📦 ${esc(i.comboNombre)}</span>`:''}</td>
+        ${i.comboNombre?`<span class="chip chip-do" style="margin-top:2px"><svg class="ico-en" aria-hidden="true"><use href="#i-perfiles"/></svg> ${esc(i.comboNombre)}</span>`:''}</td>
       <td style="font-size:11px">${esc(i.unidad)}</td>
       <td><input type="number" min="1" step="1" value="${i.cantidad}" onchange="itemsCotTmp[${x}].cantidad=Math.max(1,parseInt(this.value)||1);pintarItemsCot()"></td>
       <td><input type="number" min="0" step="0.01" value="${i.precio}" onchange="itemsCotTmp[${x}].precio=Number(this.value)||0;pintarItemsCot()"></td>
@@ -4461,7 +4480,7 @@ function modalVerCotizacion(n){
   ${c.nota?`<div class="aviso" style="margin-top:10px"><b>Nota:</b> ${esc(c.nota)}</div>`:''}
   <div class="modal-pie">
     <button class="btn btn-g" onclick="cerrarModal()">Cerrar</button>
-    <button class="btn btn-d" onclick="previsualizar(()=>imprimirCotizacion('${n}'),'Cotización ${n}','Imprimir cotización',true)">👁 Vista previa</button>
+    <button class="btn btn-d" onclick="previsualizar(()=>imprimirCotizacion('${n}'),'Cotización ${n}','Imprimir cotización',true)"><svg class="ico-en" aria-hidden="true"><use href="#i-ver"/></svg> Vista previa</button>
     <button class="btn btn-g" onclick="modalPDF('cotizacion','${n}')">⬇ PDF</button>
     ${!c.ot?`<button class="btn btn-g" onclick="modalCotizacion('${n}')">✎ Modificar</button>
     <button class="btn btn-v" onclick="cotAOrden('${n}')">→ Convertir en orden</button>`:
@@ -4469,7 +4488,7 @@ function modalVerCotizacion(n){
        buscarla a Órdenes de Trabajo: los dos documentos se precargan con los
        exámenes, los precios y los descuentos pactados en esta cotización. */
     `${puede('cobrar')?`<button class="btn btn-v" onclick="cerrarModal();modalRecibo('${c.ot}')">₤ Recibo</button>
-    <button class="btn btn-v" onclick="cerrarModal();modalFactura('${c.ot}')">🧾 Factura</button>`:''}
+    <button class="btn btn-v" onclick="cerrarModal();modalFactura('${c.ot}')"><svg class="ico-en" aria-hidden="true"><use href="#i-facturas"/></svg> Factura</button>`:''}
     <button class="btn btn-p" onclick="cerrarModal();irA('ordenes');modalResultados('${c.ot}')">Ver orden ${c.ot}</button>`}
   </div>`);
 }
@@ -5330,7 +5349,7 @@ const MOTIVOS_RECHAZO=['Hemólisis','Lipemia','Muestra coagulada','Volumen insuf
 function modalRechazarMuestra(n,ei){
   const o=S.ordenes.find(x=>x.numero===n),e=o.examenes[ei];
   abrirModal(`
-  <h3>🚫 Rechazar muestra — ${esc(e.nombre)}</h3>
+  <h3><svg class="ico-en" aria-hidden="true"><use href="#i-rechazar"/></svg> Rechazar muestra — ${esc(e.nombre)}</h3>
   <p style="font-size:12.5px;color:var(--gris);margin-bottom:10px">
     Mientras quede marcada como rechazada, este examen no se podrá capturar ni validar.
     Marca uno o más motivos y, si corresponde, toma o solicita una muestra nueva.
@@ -5342,7 +5361,7 @@ function modalRechazarMuestra(n,ei){
     <textarea id="rm_obs" rows="2" placeholder="Detalle adicional (opcional)"></textarea></div>
   <div class="modal-pie">
     <button class="btn btn-g" onclick="modalResultados('${n}')">Cancelar</button>
-    <button class="btn btn-r" onclick="guardarRechazoMuestra('${n}',${ei})">🚫 Rechazar muestra</button>
+    <button class="btn btn-r" onclick="guardarRechazoMuestra('${n}',${ei})"><svg class="ico-en" aria-hidden="true"><use href="#i-rechazar"/></svg> Rechazar muestra</button>
   </div>`);
 }
 function guardarRechazoMuestra(n,ei){
@@ -5377,7 +5396,7 @@ function modalEquipoLote(n,ei){
   const o=S.ordenes.find(x=>x.numero===n),e=o.examenes[ei];
   const equipos=S.sgc.equipos;
   abrirModal(`
-  <h3>🔧 Equipo y lote de reactivo — ${esc(e.nombre)}</h3>
+  <h3><svg class="ico-en" aria-hidden="true"><use href="#i-equipo"/></svg> Equipo y lote de reactivo — ${esc(e.nombre)}</h3>
   <p style="font-size:12.5px;color:var(--gris);margin-bottom:10px">
     Deja constancia de con qué equipo y qué lote de reactivo se obtuvo este resultado. Es lo que
     permite, ante un hallazgo de calidad o el retiro de un lote, ubicar qué órdenes pudieron verse
@@ -5486,7 +5505,7 @@ function abrirMenuOrden(ev,n){
     <div class="acc-botones">
       <button class="btn btn-p" onclick="cerrarModal();modalResultados('${n}')">Resultados</button>
       <button class="btn btn-g" onclick="cerrarModal();modalEditarOrden('${n}')">Modificar orden</button>
-      <button class="btn btn-p" onclick="cerrarModal();previsualizar(()=>imprimirHojaTrabajo('${n}'),'Hoja de trabajo · ${n}','Imprimir')">📋 Hoja de trabajo</button>
+      <button class="btn btn-p" onclick="cerrarModal();previsualizar(()=>imprimirHojaTrabajo('${n}'),'Hoja de trabajo · ${n}','Imprimir')"><svg class="ico-en" aria-hidden="true"><use href="#i-instructivos"/></svg> Hoja de trabajo</button>
     </div>
   </div>
 
@@ -5509,7 +5528,7 @@ function abrirMenuOrden(ev,n){
     <div class="acc-botones">
       ${!o.pagada?`<button class="btn btn-v" onclick="cerrarModal();modalCobro('${n}')">L Registrar cobro</button>`:''}
       <button class="btn btn-d" onclick="cerrarModal();modalRecibo('${n}')">₤ Recibo</button>
-      <button class="btn btn-d" onclick="cerrarModal();modalFactura('${n}')">🧾 Factura</button>
+      <button class="btn btn-d" onclick="cerrarModal();modalFactura('${n}')"><svg class="ico-en" aria-hidden="true"><use href="#i-facturas"/></svg> Factura</button>
     </div>
   </div>
 
@@ -5555,7 +5574,7 @@ function botonesExtraOrdenes(){
   const n=ordenesFiltradas().length;
   return `${_ordPorCobrar?`<button class="btn btn-p btn-min" onclick="quitarFiltroPorCobrar()"
       title="Quitar el filtro y volver a las órdenes de hoy">Solo pendientes de cobro ✕</button>`:''}
-  ${!enHoySinBusqueda?`<button class="btn btn-g btn-min" onclick="irOrdenesHoy()">📅 Hoy</button>`:''}
+  ${!enHoySinBusqueda?`<button class="btn btn-g btn-min" onclick="irOrdenesHoy()"><svg class="ico-en" aria-hidden="true"><use href="#i-calendario"/></svg> Hoy</button>`:''}
   ${filtrandoOtroDia?`<button class="btn btn-g btn-min" onclick="verTodoHistorialOrdenes()">Ver todo el historial</button>`:''}
   <span class="ord-conteo">${n} orden(es)</span>`;
 }
@@ -5671,7 +5690,7 @@ function filasSeleccion(){
           const d=descItem(i), neto=Math.max(0,(Number(i.precio)||0)-d);
           return `<div class="sel-item">
             <div class="ci-txt"><b>${x+1}. ${esc(e.nombre)}</b><span class="ci-sub">${i.id} · ${esc(e.tubo)}${d?' · − '+L(d):''}</span>
-              ${i.comboNombre?`<div><span class="chip chip-do" style="margin-top:2px">📦 ${esc(i.comboNombre)}</span></div>`:''}</div>
+              ${i.comboNombre?`<div><span class="chip chip-do" style="margin-top:2px"><svg class="ico-en" aria-hidden="true"><use href="#i-perfiles"/></svg> ${esc(i.comboNombre)}</span></div>`:''}</div>
             <input class="in-num" type="number" min="0" step="0.01" value="${i.precio}"
               onchange="selExamenes[${x}].precio=Math.max(0,Number(this.value)||0);refrescarSelector()">
             <input class="in-num in-desc" type="number" min="0" max="100" step="0.5" value="${pctItem(i)}"
@@ -6060,16 +6079,16 @@ function modalResultados(n,desde,sinScroll,areaActiva){
           <div>${(o.layout==='manual'&&ei>0)?`<label class="chk-hoja ${e.nuevaHoja?'activo':''}" title="Empezar una hoja nueva a partir de este examen">
               <input type="checkbox" ${e.nuevaHoja?'checked':''} onchange="marcarNuevaHoja('${n}',${ei},this.checked)"> ⤵ Nueva hoja aquí</label>`:''}
             ${(!e.muestraRechazada&&e.params.length>3&&!bloqueado)?`<button class="btn btn-d btn-min" title="Pegar los resultados del analizador" onclick="modalImportar('${n}',${ei})">⇓ Importar</button>`:''}
-            ${(!e.muestraRechazada&&(e.validado||puede('capturar')))?`<button class="btn btn-g btn-min" title="Registrar con qué equipo y lote de reactivo se obtuvo este resultado" onclick="modalEquipoLote('${n}',${ei})">🔧 ${e.equipoId||e.loteReactivo?esc((e.equipoNombre||'Equipo')+(e.loteReactivo?' · '+e.loteReactivo:'')):'Equipo/lote'}</button>`:''}
+            ${(!e.muestraRechazada&&(e.validado||puede('capturar')))?`<button class="btn btn-g btn-min" title="Registrar con qué equipo y lote de reactivo se obtuvo este resultado" onclick="modalEquipoLote('${n}',${ei})"><svg class="ico-en" aria-hidden="true"><use href="#i-equipo"/></svg> ${e.equipoId||e.loteReactivo?esc((e.equipoNombre||'Equipo')+(e.loteReactivo?' · '+e.loteReactivo:'')):'Equipo/lote'}</button>`:''}
             ${e.muestraRechazada
-            ?`<span class="chip chip-rj" title="${esc(e.muestraRechazada.motivos.join(', '))}${e.muestraRechazada.obs?' — '+esc(e.muestraRechazada.obs):''}">🚫 Muestra rechazada: ${esc(e.muestraRechazada.motivos.join(', '))}</span>
+            ?`<span class="chip chip-rj" title="${esc(e.muestraRechazada.motivos.join(', '))}${e.muestraRechazada.obs?' — '+esc(e.muestraRechazada.obs):''}"><svg class="ico-en" aria-hidden="true"><use href="#i-rechazar"/></svg> Muestra rechazada: ${esc(e.muestraRechazada.motivos.join(', '))}</span>
               <button class="btn btn-v btn-min" onclick="registrarMuestraNueva('${n}',${ei})">↺ Registrar muestra nueva</button>`
             :(e.validado
               ?`<span class="chip chip-vd">✓ Validado por ${esc(e.validadoPor)} · ${fmtFecha(e.fechaValidacion)}</span>
-                ${(bloqValidado&&puedeValidar())?`<button class="btn btn-g btn-min" onclick="habilitarEdicionResultado('${n}',${ei})">🔓 Habilitar edición</button>`:''}
-                ${(!bloqValidado)?`<span class="chip chip-am" title="El próximo cambio anulará esta validación">🔓 Edición habilitada</span>`:''}
+                ${(bloqValidado&&puedeValidar())?`<button class="btn btn-g btn-min" onclick="habilitarEdicionResultado('${n}',${ei})"><svg class="ico-en" aria-hidden="true"><use href="#i-abrir"/></svg> Habilitar edición</button>`:''}
+                ${(!bloqValidado)?`<span class="chip chip-am" title="El próximo cambio anulará esta validación"><svg class="ico-en" aria-hidden="true"><use href="#i-abrir"/></svg> Edición habilitada</span>`:''}
                 <button class="btn btn-g btn-min" onclick="anularValidacion('${n}',${ei})">Anular</button>`
-              :`<button class="btn btn-g btn-min" title="La muestra llegó en mal estado o no apta para procesar" onclick="modalRechazarMuestra('${n}',${ei})">🚫 Rechazar muestra</button>
+              :`<button class="btn btn-g btn-min" title="La muestra llegó en mal estado o no apta para procesar" onclick="modalRechazarMuestra('${n}',${ei})"><svg class="ico-en" aria-hidden="true"><use href="#i-rechazar"/></svg> Rechazar muestra</button>
                 ${puedeValidar()
                 ?`${(qcRechazadosHoy(e).length&&!e.qcRechazadoObservado)?'<span class="chip chip-rj" title="Control de calidad interno de hoy en Rechazo para este analito">⚠ QC en rechazo</span> ':''}${tieneAlertaSinNotificar(e,sx,em)?'<span class="chip chip-rj" title="Hay que registrar a quién se notificó antes de poder validar">⚠ requiere notificar</span> ':''}<button class="btn btn-v btn-min" onclick="validarExamen('${n}',${ei})">✓ Validar examen</button>`
                 :`<span class="chip chip-am" title="La validación corresponde a un usuario con rol Dr o Admin">⏳ Pendiente de validación</span>`}`)}
@@ -6177,9 +6196,9 @@ function modalResultados(n,desde,sinScroll,areaActiva){
       <input type="date" value="${o.entrega||''}" onchange="S.ordenes.find(x=>x.numero==='${n}').entrega=this.value;guardar();toast('Entrega actualizada')"></div>
     <div style="align-self:end;text-align:right">
       <button class="btn btn-g btn-min" onclick="modalEditarOrden('${n}')">✎ Modificar</button>
-      <button class="btn btn-p btn-min" onclick="previsualizar(()=>imprimirHojaTrabajo('${n}'),'Hoja de trabajo · ${n}','Imprimir hoja de trabajo')">📋 Hoja de trabajo</button>
+      <button class="btn btn-p btn-min" onclick="previsualizar(()=>imprimirHojaTrabajo('${n}'),'Hoja de trabajo · ${n}','Imprimir hoja de trabajo')"><svg class="ico-en" aria-hidden="true"><use href="#i-instructivos"/></svg> Hoja de trabajo</button>
       <button class="btn btn-d btn-min" onclick="previsualizar(()=>imprimirEtiquetas('${n}'),'Etiquetas · ${n}','Imprimir etiquetas')">▤ Etiquetas</button>
-      <button class="btn btn-v btn-min" onclick="imprimirResultados('${n}')">👁 Ver informe</button>
+      <button class="btn btn-v btn-min" onclick="imprimirResultados('${n}')"><svg class="ico-en" aria-hidden="true"><use href="#i-ver"/></svg> Ver informe</button>
       <button class="btn btn-g btn-min" onclick="previsualizar(()=>imprimirSobre('${n}'),'Sobre · ${n}','Imprimir sobre',true)">✉ Imprimir sobre</button>
       <button class="btn btn-v btn-min" onclick="modalCompartir('informe','${n}')">✆ Enviar al paciente</button>
       ${o.pagada?`<button class="btn btn-g btn-min" onclick="previsualizar(()=>imprimirRecibo('${n}'),'Recibo · ${n}','Imprimir recibo')">Recibo</button>`:''}
@@ -6288,7 +6307,7 @@ function modalHistorial(pacCodigo){
   ${graficables.length?`<div class="tarjeta" style="padding:12px;margin-bottom:12px">
     <label style="margin-bottom:6px">Parámetros con evolución disponible — clic para ver la tendencia</label>
     ${graficables.map(([k,c])=>{const[ei,pn]=k.split('|');
-      return `<span class="chip chip-medio" style="margin:3px" onclick="modalTendencia('${pacCodigo}','${ei}','${esc(pn)}')">📈 ${esc(pn)} <b>(${c})</b></span>`;}).join('')}
+      return `<span class="chip chip-medio" style="margin:3px" onclick="modalTendencia('${pacCodigo}','${ei}','${esc(pn)}')"><svg class="ico-en" aria-hidden="true"><use href="#i-tendencia"/></svg> ${esc(pn)} <b>(${c})</b></span>`;}).join('')}
   </div>`:''}
   <div style="max-height:52vh;overflow:auto">
   ${ords.map(o=>`<div style="border:1px solid var(--linea);border-radius:10px;padding:10px 12px;margin-bottom:8px">
@@ -6564,7 +6583,7 @@ function modalImportar(n,ei){
   </label>
   <div id="imp_estado"></div>
   <div class="desc-barra" style="margin:8px 0 6px">
-    <button class="btn btn-g btn-min" onclick="pegarPortapapeles()">📋 Pegar del portapapeles</button>
+    <button class="btn btn-g btn-min" onclick="pegarPortapapeles()"><svg class="ico-en" aria-hidden="true"><use href="#i-instructivos"/></svg> Pegar del portapapeles</button>
     <button class="btn btn-g btn-min" onclick="document.getElementById('imp_txt').value='';previewImportar('${n}',${ei})">Limpiar</button>
     <span style="font-size:11px">o escribe/pega el texto abajo · <b>${e.params.length}</b> análisis en esta plantilla</span>
   </div>
@@ -7413,7 +7432,7 @@ function vRecibos(filtro){
   vista.innerHTML=`
   <div class="cabecera"><h2>Recibos de Venta</h2>
     <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-d" onclick="modalRecibosMes()" title="Todos los recibos de un mes en un solo PDF">📄 Recibos del mes</button>
+      <button class="btn btn-d" onclick="modalRecibosMes()" title="Todos los recibos de un mes en un solo PDF"><svg class="ico-en" aria-hidden="true"><use href="#i-cotizaciones"/></svg> Recibos del mes</button>
       <button class="btn btn-p" onclick="modalRecibo()">+ Nuevo recibo</button>
     </div>
   </div>
@@ -7534,7 +7553,7 @@ function modalRecibo(ot){
   ${o&&o.pagada?'<div class="aviso">Esta orden ya fue cobrada y registrada en contabilidad; el recibo <b>no volverá a sumar</b> el ingreso, solo documenta la venta.</div>':''}
   <div class="modal-pie">
     <button class="btn btn-g" onclick="cerrarModal()">Cancelar</button>
-    <button class="btn btn-d" onclick="previsualizarBorradorRecibo()">👁 Ver recibo</button>
+    <button class="btn btn-d" onclick="previsualizarBorradorRecibo()"><svg class="ico-en" aria-hidden="true"><use href="#i-ver"/></svg> Ver recibo</button>
     <button class="btn btn-p" onclick="guardarRecibo()">✓ Emitir recibo</button>
   </div>`,true);
   pintarItemsRec();
@@ -8024,7 +8043,7 @@ function botonesExtraFacturas(){
   const filtrandoPorFecha=!_facQ&&_facModo!=='todas'&&
     (_facModo==='mes'||(_facModo==='dia'&&_facFecha));
   const n=facturasFiltradas().length;
-  return `${!enHoySinBusqueda?`<button class="btn btn-g btn-min" onclick="irFacturasHoy()">📅 Hoy</button>`:''}
+  return `${!enHoySinBusqueda?`<button class="btn btn-g btn-min" onclick="irFacturasHoy()"><svg class="ico-en" aria-hidden="true"><use href="#i-calendario"/></svg> Hoy</button>`:''}
   ${filtrandoPorFecha?`<button class="btn btn-g btn-min" onclick="verTodoHistorialFacturas()">Ver todas las emitidas</button>`:''}
   <span class="ord-conteo">${n} factura(s)</span>`;
 }
@@ -8068,7 +8087,7 @@ function vFacturas(){
       ${/* Consolidado mensual: se ofrece desde la cabecera y no dentro del
            filtro de "Mes", para que se encuentre sin tener que saber antes
            que el filtro existe. El mes se elige en el propio modal. */''}
-      <button class="btn btn-d" onclick="modalFacturasMes()" title="Todas las facturas de un mes en un solo PDF">📄 Facturas del mes</button>
+      <button class="btn btn-d" onclick="modalFacturasMes()" title="Todas las facturas de un mes en un solo PDF"><svg class="ico-en" aria-hidden="true"><use href="#i-cotizaciones"/></svg> Facturas del mes</button>
       <button class="btn btn-p" onclick="modalFactura()">+ Nueva factura</button>
     </div>
   </div>
@@ -8266,7 +8285,7 @@ function modalFactura(ot){
   ${o&&o.pagada?'<div class="aviso">Esta orden ya fue cobrada y registrada en contabilidad; la factura <b>no volverá a sumar</b> el ingreso, solo documenta la venta.</div>':''}
   <div class="modal-pie">
     <button class="btn btn-g" onclick="cerrarModal()">Cancelar</button>
-    <button class="btn btn-d" onclick="previsualizarBorradorFactura()">👁 Ver factura</button>
+    <button class="btn btn-d" onclick="previsualizarBorradorFactura()"><svg class="ico-en" aria-hidden="true"><use href="#i-ver"/></svg> Ver factura</button>
     <button class="btn btn-p" onclick="guardarFactura()">✓ Emitir factura</button>
   </div>`,true);
   pintarItemsFac();
@@ -8869,10 +8888,10 @@ function vCalidad(filtro=''){
   ${venc.length?`<div class="aviso"><b>Material vencido:</b> ${venc.map(c=>esc(c.material)+' lote '+esc(c.lote)).join(' · ')}.</div>`:''}
   <div class="tarjeta" id="lista_cc">${filasCC(filtro)}</div>
   <div class="tarjeta" style="margin-top:14px">
-    <div style="font-weight:800;color:var(--azul);margin-bottom:8px">🔍 Buscar por equipo o lote de reactivo</div>
+    <div style="font-weight:800;color:var(--azul);margin-bottom:8px"><svg class="ico-en" aria-hidden="true"><use href="#i-buscar"/></svg> Buscar por equipo o lote de reactivo</div>
     <div class="ayuda" style="margin:0 0 8px">Encuentra qué resultados se obtuvieron con un equipo o un lote de
       reactivo dado — para cuando hay que responder qué órdenes pudieron verse afectadas por un hallazgo de
-      calidad o el retiro de un lote (el equipo/lote se registra desde el botón 🔧 al capturar cada examen).</div>
+      calidad o el retiro de un lote (el equipo/lote se registra desde el botón <svg class="ico-en" aria-hidden="true"><use href="#i-equipo"/></svg> al capturar cada examen).</div>
     <input class="busqueda" id="q_eqlt" placeholder="Nombre del equipo o número de lote…"
       oninput="document.getElementById('res_eqlt').innerHTML=filasEquipoLote(this.value)">
     <div id="res_eqlt" style="margin-top:10px"></div>
@@ -8936,7 +8955,7 @@ function filasCC(filtro=''){
             ult.avisos.length?`<div style="font-size:9.5px;color:var(--ambar)">${ult.avisos.join(', ')}</div>`:''}`
           :'<span class="chip chip-do">Sin datos</span>'}</td>
         <td style="text-align:right;white-space:nowrap">
-          <button class="btn btn-p btn-min" onclick="modalLJ('${c.id}')">📈 Levey-Jennings</button>
+          <button class="btn btn-p btn-min" onclick="modalLJ('${c.id}')"><svg class="ico-en" aria-hidden="true"><use href="#i-tendencia"/></svg> Levey-Jennings</button>
           <button class="btn btn-g btn-min" onclick="modalControl('${c.id}')">Editar</button>
         </td></tr>`;}).join('')}
     </tbody></table>`).join('');
@@ -9032,7 +9051,7 @@ function modalLJ(cid,dias){
     </tbody></table></div>`:''}
   <div class="modal-pie">
     <button class="btn btn-g" onclick="cerrarModal()">Cerrar</button>
-    <button class="btn btn-d" onclick="previsualizar(()=>imprimirLJ('${cid}'),'Carta de control · ${esc(c.analito)}','Imprimir carta')">👁 Carta de control</button>
+    <button class="btn btn-d" onclick="previsualizar(()=>imprimirLJ('${cid}'),'Carta de control · ${esc(c.analito)}','Imprimir carta')"><svg class="ico-en" aria-hidden="true"><use href="#i-ver"/></svg> Carta de control</button>
     <button class="btn btn-p" onclick="modalCCRegistro('${cid}')">+ Registrar valor</button>
   </div>`,true);
 }
@@ -9214,7 +9233,7 @@ function vAlmacen(filtro=''){
       <input class="busqueda" id="q_alm" placeholder="Buscar insumo, lote, proveedor o ubicación…"
         value="${esc(filtro)}" oninput="document.getElementById('lista_alm').innerHTML=filasAlmacen(this.value)">
       <button class="btn btn-d" onclick="modalMovAlmacen()">± Movimiento</button>
-      <button class="btn btn-g" onclick="previsualizar(()=>imprimirInventario(),'Inventario general','Imprimir inventario')">👁 Inventario</button>
+      <button class="btn btn-g" onclick="previsualizar(()=>imprimirInventario(),'Inventario general','Imprimir inventario')"><svg class="ico-en" aria-hidden="true"><use href="#i-ver"/></svg> Inventario</button>
       <button class="btn btn-p" onclick="modalInsumo()">+ Nuevo insumo</button>
     </div>
   </div>
@@ -9388,7 +9407,7 @@ function modalKardex(iid){
     </tbody></table></div>`:'<div class="vacio">Sin movimientos registrados.</div>'}
   <div class="modal-pie">
     <button class="btn btn-g" onclick="cerrarModal()">Cerrar</button>
-    <button class="btn btn-d" onclick="previsualizar(()=>imprimirKardex('${iid}'),'Kardex · ${esc(i.nombre)}','Imprimir kardex')">👁 Imprimir kardex</button>
+    <button class="btn btn-d" onclick="previsualizar(()=>imprimirKardex('${iid}'),'Kardex · ${esc(i.nombre)}','Imprimir kardex')"><svg class="ico-en" aria-hidden="true"><use href="#i-ver"/></svg> Imprimir kardex</button>
   </div>`,true);
 }
 
@@ -9717,7 +9736,7 @@ function modalPreviaPlantilla(id){
   <div class="modal-pie">
     <button class="btn btn-g" onclick="cerrarModal()">Cerrar</button>
     <button class="btn btn-g" onclick="modalExamen('${id}')">✎ Editar plantilla</button>
-    <button class="btn btn-d" onclick="previsualizar(()=>imprimirResultados(ordenDemo(['${id}'],demoSexo,demoValores)),'Muestra · ${esc(e.nombre)}','Imprimir muestra')">🖨 Imprimir muestra</button>
+    <button class="btn btn-d" onclick="previsualizar(()=>imprimirResultados(ordenDemo(['${id}'],demoSexo,demoValores)),'Muestra · ${esc(e.nombre)}','Imprimir muestra')"><svg class="ico-en" aria-hidden="true"><use href="#i-imprimir"/></svg> Imprimir muestra</button>
   </div>`,true);
 }
 /* Vista previa de varios exámenes juntos, como se verían en una orden real */
@@ -9765,7 +9784,7 @@ function vSGC(){
   vista.innerHTML=`
   <div class="cabecera"><h2>Sistema de Gestión de la Calidad</h2>
     <div style="display:flex;gap:10px">
-      <button class="btn btn-d" onclick="previsualizar(()=>imprimirManualSGC(),'Estado del SGC','Imprimir informe')">👁 Informe del SGC</button>
+      <button class="btn btn-d" onclick="previsualizar(()=>imprimirManualSGC(),'Estado del SGC','Imprimir informe')"><svg class="ico-en" aria-hidden="true"><use href="#i-ver"/></svg> Informe del SGC</button>
     </div>
   </div>
   <div class="tabs-sgc">
@@ -10986,15 +11005,15 @@ function filaOpcionesFirma(cf,manejador){
   manejador=manejador||'alternarOpcionFirma';
   const opciones=[
     {clave:'firma', etiqueta:'✍️ Firma', disponible:!!cf.firma},
-    {clave:'selloMicro', etiqueta:'🩺 Sello de microbiólogo', disponible:!!cf.selloMicro},
-    {clave:'selloLab', etiqueta:'🏥 Sello del laboratorio', disponible:!!cf.sello},
+    {clave:'selloMicro', etiqueta:'<svg class="ico-en" aria-hidden="true"><use href="#i-medicos"/></svg> Sello de microbiólogo', disponible:!!cf.selloMicro},
+    {clave:'selloLab', etiqueta:'<svg class="ico-en" aria-hidden="true"><use href="#i-sello"/></svg> Sello del laboratorio', disponible:!!cf.sello},
   ];
   if(!opciones.some(o=>o.disponible))
     return `<div class="aviso" style="margin-bottom:8px;font-size:12.5px">
       Para poder firmar y sellar tus documentos, sube la firma y los sellos en
       <b>Configuración → Firma y sellos</b>. Mientras no subas ninguno, esta opción no aparece.</div>`;
   return `<div class="firma-selector">
-    <div class="firma-selector-tit">🖋 Firmar y sellar — solo para esta copia</div>
+    <div class="firma-selector-tit"><svg class="ico-en" aria-hidden="true"><use href="#i-firma"/></svg> Firmar y sellar — solo para esta copia</div>
     ${opciones.map(o=>`<label class="firma-chip ${opcionesFirma[o.clave]?'activo':''} ${o.disponible?'':'deshabilitado'}"
         title="${o.disponible?'':'Sube esta imagen en Configuración → Firma y sellos para activarla'}">
       <input type="checkbox" ${o.disponible?'':'disabled'} ${opcionesFirma[o.clave]?'checked':''}
@@ -11028,7 +11047,7 @@ function previsualizar(generador,titulo,etiquetaBoton,conFirma){
     <h3 style="margin:0">Vista previa · ${esc(titulo)}</h3>
     <div>
       <button class="btn btn-g btn-min" onclick="cerrarModal()">Cerrar</button>
-      <button class="btn btn-v" onclick="imprimirDesdePrevia()">🖨 ${esc(etiquetaBoton||'Imprimir')}</button>
+      <button class="btn btn-v" onclick="imprimirDesdePrevia()"><svg class="ico-en" aria-hidden="true"><use href="#i-imprimir"/></svg> ${esc(etiquetaBoton||'Imprimir')}</button>
     </div>
   </div>
   ${conFirma?filaOpcionesFirma(S.config):''}
@@ -11636,7 +11655,7 @@ function chipImpreso(d,tipo){
     '. Última: '+fmtFecha(u.fecha)+(u.hora?' a las '+hora12(u.hora):'')+
     (u.por?' por '+u.por:'')+
     '. El navegador no informa si finalmente se imprimió o se canceló.';
-  return `<span class="chip chip-vd"${abre} title="${esc(det)}">🖨 Impreso${n>1?' ×'+n:''}</span>`;
+  return `<span class="chip chip-vd"${abre} title="${esc(det)}"><svg class="ico-en" aria-hidden="true"><use href="#i-imprimir"/></svg> Impreso${n>1?' ×'+n:''}</span>`;
 }
 /* Historial completo, para cuando el resumen del chip no basta. */
 function modalImpresiones(tipo,numero){
@@ -12407,7 +12426,7 @@ function modalConsolidadoMes(cfg,mes){
     <b>${esc(etiquetaMes(mes))}</b>. Elige otro mes.</div>`}
   <div class="modal-pie">
     <button class="btn btn-g" onclick="cerrarModal()">Cancelar</button>
-    ${hay?`<button class="btn btn-d" onclick="previsualizar(()=>${cfg.fnImprimir}('${esc(mes)}'),'${esc(T.tituloPrevia)} ${esc(etiquetaMes(mes))}','Imprimir todos',true)">👁 Vista previa</button>
+    ${hay?`<button class="btn btn-d" onclick="previsualizar(()=>${cfg.fnImprimir}('${esc(mes)}'),'${esc(T.tituloPrevia)} ${esc(etiquetaMes(mes))}','Imprimir todos',true)"><svg class="ico-en" aria-hidden="true"><use href="#i-ver"/></svg> Vista previa</button>
     <button class="btn btn-p" onclick="modalPDF('${esc(cfg.tipoPDF)}','${esc(mes)}')">⬇ Generar PDF</button>`:''}
   </div>`,true);
 }
@@ -14366,7 +14385,7 @@ function vInstructivos(){
   vista.innerHTML = `
   <div class="cabecera"><h2>Instructivos de preparación</h2>
     <div style="display:flex;gap:8px">
-      <button class="btn btn-d" onclick="previsualizar(()=>imprimirTodosInstructivos(),'Todos los instructivos','Imprimir todos')">🖨 Imprimir todos</button>
+      <button class="btn btn-d" onclick="previsualizar(()=>imprimirTodosInstructivos(),'Todos los instructivos','Imprimir todos')"><svg class="ico-en" aria-hidden="true"><use href="#i-imprimir"/></svg> Imprimir todos</button>
       <button class="btn btn-p" onclick="modalPDF('instructivoTodos','')">⬇ PDF con todos</button>
     </div>
   </div>
@@ -14389,8 +14408,8 @@ function vInstructivos(){
           <b>${usos.length}</b> examen(es) usan este instructivo${usos.length?': '+esc(usos.slice(0,4).join(', '))+(usos.length>4?` y ${usos.length-4} más`:''):''}
         </p>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="btn btn-g btn-min" onclick="modalVerInstructivo('${ins.id}')">👁 Ver</button>
-          <button class="btn btn-d btn-min" onclick="previsualizar(()=>imprimirInstructivoSuelto('${ins.id}'),'${esc(ins.titulo)}','Imprimir')">🖨 Imprimir</button>
+          <button class="btn btn-g btn-min" onclick="modalVerInstructivo('${ins.id}')"><svg class="ico-en" aria-hidden="true"><use href="#i-ver"/></svg> Ver</button>
+          <button class="btn btn-d btn-min" onclick="previsualizar(()=>imprimirInstructivoSuelto('${ins.id}'),'${esc(ins.titulo)}','Imprimir')"><svg class="ico-en" aria-hidden="true"><use href="#i-imprimir"/></svg> Imprimir</button>
           <button class="btn btn-p btn-min" onclick="modalPDF('instructivoUno','${ins.id}')">⬇ PDF</button>
         </div>
       </div>`;
@@ -14419,7 +14438,7 @@ function modalVerInstructivo(id){
   </div>`:''}
   <div class="modal-pie">
     <button class="btn btn-g" onclick="cerrarModal()">Cerrar</button>
-    <button class="btn btn-d" onclick="cerrarModal();previsualizar(()=>imprimirInstructivoSuelto('${id}'),'${esc(ins.titulo)}','Imprimir')">🖨 Imprimir</button>
+    <button class="btn btn-d" onclick="cerrarModal();previsualizar(()=>imprimirInstructivoSuelto('${id}'),'${esc(ins.titulo)}','Imprimir')"><svg class="ico-en" aria-hidden="true"><use href="#i-imprimir"/></svg> Imprimir</button>
     <button class="btn btn-p" onclick="cerrarModal();modalPDF('instructivoUno','${id}')">⬇ Descargar PDF</button>
   </div>`, true);
 }
@@ -14509,7 +14528,7 @@ function botonesExtraEtiquetas(){
   const enHoySinBusqueda=!_etqQ&&_etqFecha===hy;
   const filtrandoOtroDia=!_etqQ&&_etqFecha&&_etqFecha!==hy;
   const n=etiquetasFiltradas().length;
-  return `${!enHoySinBusqueda?`<button class="btn btn-g btn-min" onclick="irEtiquetasHoy()">📅 Hoy</button>`:''}
+  return `${!enHoySinBusqueda?`<button class="btn btn-g btn-min" onclick="irEtiquetasHoy()"><svg class="ico-en" aria-hidden="true"><use href="#i-calendario"/></svg> Hoy</button>`:''}
   ${filtrandoOtroDia?`<button class="btn btn-g btn-min" onclick="verTodoHistorialEtiquetas()">Ver todo el historial</button>`:''}
   <span class="ord-conteo">${n} orden(es)</span>`;
 }
@@ -14541,7 +14560,7 @@ function vEtiquetas(){
     <div class="ord-filtros">
       <input class="busqueda" id="etq_q" placeholder="Buscar por paciente, DNI o número de orden…"
         value="${esc(_etqQ)}" oninput="filtrarVistaEtiquetas()">
-      <label class="ord-fecha-lbl" title="Ver las órdenes de otro día">📅
+      <label class="ord-fecha-lbl" title="Ver las órdenes de otro día"><svg class="ico-en" aria-hidden="true"><use href="#i-calendario"/></svg>
         <input type="date" id="etq_fecha" value="${_etqFecha}" onchange="filtrarVistaEtiquetas()">
       </label>
       <span id="etq_extra_btns">${botonesExtraEtiquetas()}</span>
@@ -15302,7 +15321,7 @@ function vConta(mes){
       <input type="month" value="${mes}" onchange="vConta(this.value)" style="width:170px">
       <button class="btn btn-v" onclick="modalMovimiento('Ingreso')">+ Otros ingresos</button>
       <button class="btn btn-r" onclick="modalMovimiento('Egreso')">− Otras salidas</button>
-      <button class="btn btn-d" onclick="previsualizar(()=>imprimirConta('${mes}'),'Reporte contable ${mes}','Imprimir reporte')">👁 Reporte del mes</button>
+      <button class="btn btn-d" onclick="previsualizar(()=>imprimirConta('${mes}'),'Reporte contable ${mes}','Imprimir reporte')"><svg class="ico-en" aria-hidden="true"><use href="#i-ver"/></svg> Reporte del mes</button>
     </div>
   </div>
   <div class="kpis" style="grid-template-columns:repeat(4,1fr)">
@@ -16107,7 +16126,7 @@ function vEstadisticas(){
           <input type="date" id="st_desde" value="${_statsDesde||hoy()}" onchange="cambiarRangoStats()" style="width:150px">
           <span class="ayuda" style="margin:0">a</span>
           <input type="date" id="st_hasta" value="${_statsHasta||hoy()}" onchange="cambiarRangoStats()" style="width:150px">`:''}
-        <button class="btn btn-d" onclick="previsualizar(()=>imprimirEstadisticas(),'Reporte de estadísticas','Imprimir reporte')">👁 Ver reporte</button>
+        <button class="btn btn-d" onclick="previsualizar(()=>imprimirEstadisticas(),'Reporte de estadísticas','Imprimir reporte')"><svg class="ico-en" aria-hidden="true"><use href="#i-ver"/></svg> Ver reporte</button>
       </div>
     </div>
     <div class="ayuda">Periodo: ${fmtFecha(d.desde)} — ${fmtFecha(d.hasta)} · comparado contra ${d.etiquetaAnterior} (${fmtFecha(d.anterior.desde)} — ${fmtFecha(d.anterior.hasta)})</div>
@@ -16748,7 +16767,7 @@ async function revisarActualizacionesServidor(){
     localStorage.setItem(CLAVE+'_ts',String(ts));
     invalidarIndices();
     marcarEstadoSincronizado();   // nueva referencia: lo que acaba de llegar
-    toast('🔄 Datos actualizados: otro usuario guardó cambios');
+    toast('Datos actualizados: otro usuario guardó cambios');
     if(REFRESCO_AUTOMATICO_SEGURO.includes(_seccionActual))render(_seccionActual);
   }catch(e){
     // Sin conexión o el servidor no respondió: se reintenta en el próximo barrido.
@@ -16932,8 +16951,8 @@ function vUsuarios(){
           ${(u.permisos&&Object.keys(u.permisos).length)?'<div class="cel-sub" style="color:var(--dorado)">permisos propios</div>':''}</td>
         <td><span class="chip ${u.activo!==false?'chip-vd':'chip-rj'}">${u.activo!==false?'Activo':'Inactivo'}</span></td>
         <td style="text-align:right">
-          <button class="btn btn-p btn-min" onclick="modalPermisos('${u.id}')">🔑 Permisos</button>
-          <button class="btn btn-d btn-min" onclick="modalPin('${u.id}','${esc(u.nombre)}',${!!u.tienePin})">🔢 PIN</button>
+          <button class="btn btn-p btn-min" onclick="modalPermisos('${u.id}')"><svg class="ico-en" aria-hidden="true"><use href="#i-llave"/></svg> Permisos</button>
+          <button class="btn btn-d btn-min" onclick="modalPin('${u.id}','${esc(u.nombre)}',${!!u.tienePin})"><svg class="ico-en" aria-hidden="true"><use href="#i-conta"/></svg> PIN</button>
           <button class="btn btn-g btn-min" onclick="modalEditarUsuario('${u.id}','${esc(u.nombre)}','${esc(u.usuario)}','${esc(u.rol)}',${u.activo!==false})">Editar</button>
           ${u.id!==usuarioActivo().id?`<button class="btn btn-r btn-min" onclick="eliminarUsuario('${u.id}','${esc(u.nombre)}')">Eliminar</button>`:''}
         </td></tr>`).join('')}
@@ -17224,7 +17243,7 @@ function filasBitacora(filtro=''){
       <td><span class="chip ${/Incidencia|correctiva/.test(b.tipo)?'chip-rj':/caja/.test(b.tipo)?'chip-do':'chip-az'}">${esc(b.tipo)}</span></td>
       <td style="font-size:12.5px">${esc(b.descripcion)}</td><td style="font-size:12px">${esc(b.responsable)}</td>
       <td>${b.manual?`<button class="btn btn-r btn-min" onclick="borrarBitacora(${b._i})">✕</button>`
-        :`<span class="chip chip-vd" style="font-size:9.5px" title="Entrada generada por el sistema: no se puede eliminar">🔒 sistema</span>`}</td></tr>`).join('')}
+        :`<span class="chip chip-vd" style="font-size:9.5px" title="Entrada generada por el sistema: no se puede eliminar"><svg class="ico-en" aria-hidden="true"><use href="#i-bloqueado"/></svg> sistema</span>`}</td></tr>`).join('')}
   </tbody></table>`:`<div class="vacio">${filtro?'Ninguna entrada coincide con “'+esc(filtro)+'”.':'Sin entradas en la bitácora.'}</div>`}`;
 }
 function vBitacora(filtro=''){
@@ -17233,7 +17252,7 @@ function vBitacora(filtro=''){
     <div style="display:flex;gap:10px">
       <input class="busqueda" id="q_bit" placeholder="Buscar en la bitácora…"
         value="${esc(filtro)}" oninput="document.getElementById('lista_bit').innerHTML=filasBitacora(this.value)">
-      <button class="btn btn-d" onclick="previsualizar(()=>imprimirBitacora(),'Bitácora de trabajo','Imprimir bitácora')">👁 Ver e imprimir</button>
+      <button class="btn btn-d" onclick="previsualizar(()=>imprimirBitacora(),'Bitácora de trabajo','Imprimir bitácora')"><svg class="ico-en" aria-hidden="true"><use href="#i-ver"/></svg> Ver e imprimir</button>
       <button class="btn btn-p" onclick="modalBitacora()">+ Nueva entrada</button>
     </div>
   </div>
