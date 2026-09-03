@@ -987,6 +987,34 @@ input:focus,select:focus,textarea:focus{border-color:var(--azul);
    nosotros. Partirla por la mitad no arregla nada y se lee como un defecto.
    Con table-layout:auto la columna simplemente se ensancha lo justo. */
 th{word-break:normal;overflow-wrap:normal;hyphens:none}
+
+/* ---------- Identificadores y cifras: enteros o nada ---------- */
+/* .nw ya se usaba en el codigo pero nunca se habia definido. Un codigo de
+   paciente, un numero de orden o un DNI se parten en la raya -"PAC-8001" en
+   dos lineas, "0801-1985-01234" tambien- porque el navegador considera el
+   guion un sitio valido para cortar. En un texto corrido lo es; en un numero
+   de documento no: quien lo copia a mano puede equivocarse. */
+/* .num-largo es el numero de cotizacion, que es el mas largo de todos; ya
+   tenia un tratamiento para movil (fuente menor) pero nada que le impidiera
+   partirse en las rayas. */
+.nw,.num-largo{white-space:nowrap}
+
+/* Los rotulos y cifras de los KPI se parten a media palabra en pantalla
+   angosta porque .kpi hereda overflow-wrap:anywhere. Esa regla protege a las
+   tarjetas de un dato largo, pero el rotulo de un KPI lo escribimos nosotros
+   y siempre es corto: que baje de linea en un espacio, nunca dentro de una
+   palabra. */
+.kpi .t,.kpi .n,.kpi-t,.kpi-n{overflow-wrap:normal;word-break:normal;hyphens:none}
+
+/* Y que quepan. La regla de arriba (max-width:1400) forzaba tres columnas sin
+   ponerle un piso, asi que en telefono los KPI quedaban de ~100px y hasta
+   "L 0.00" salia en tres lineas. */
+@media (max-width:720px){
+  .kpis,.kpis[style*="repeat"]{grid-template-columns:repeat(2,1fr) !important}
+}
+@media (max-width:460px){
+  .kpis,.kpis[style*="repeat"]{grid-template-columns:1fr !important}
+}
 </style>
 </head>
 <body>
@@ -2590,12 +2618,12 @@ function filasPacientes(filtro=''){
     <span style="color:var(--gris)">· usa el buscador para llegar directo a uno</span></div>`:''}
   ${lista.length?`<table><thead><tr><th>Código</th><th>Nombre</th><th>Identificación</th><th>Edad</th><th>Sexo</th><th>Teléfono</th><th></th></tr></thead><tbody>
     ${lista.map(p=>{const menor=p.fnac&&esMenor(p.fnac);return `<tr>
-      <td><b>${p.codigo}</b></td>
+      <td><b class="nw">${p.codigo}</b></td>
       <td>${esc(nombreCompleto(p))}
         ${menor?'<span class="chip chip-am" style="font-size:9px;margin-left:5px">Menor</span>':''}
         ${(menor&&p.respNombre)?`<div style="font-size:9.5px;color:var(--gris)">Resp.: ${esc(p.respNombre)}${p.respParentesco?' · '+esc(p.respParentesco):''}</div>`:''}
         ${(menor&&!p.respNombre)?'<div style="font-size:9.5px;color:var(--ambar);font-weight:700">Sin responsable registrado</div>':''}</td>
-      <td>${p.idNumero?`<span class="chip chip-az">${p.idTipo||'DNI'}</span> ${p.idNumero}`:'—'}</td>
+      <td>${p.idNumero?`<span class="chip chip-az">${p.idTipo||'DNI'}</span> <span class="nw">${p.idNumero}</span>`:'—'}</td>
       <td style="font-size:12px">${edadDetallada(p.fnac)}${p.fnacAproximada?' <span style="color:var(--gris)" title="Fecha de nacimiento calculada a partir de la edad, no un dato exacto">(aprox.)</span>':''}</td><td>${sexoTexto(p.sexo)}</td><td>${p.tel||'—'}</td>
       <td style="text-align:right;white-space:nowrap">
         <button class="btn btn-d btn-min" onclick="modalHistorial('${p.codigo}')">☰ Historial</button>
@@ -4043,7 +4071,7 @@ function tablaCotizaciones(cs){
         <td><b class="num-largo">${esc(c.numero)}</b>
           <div class="solo-movil" style="margin-top:4px">${estadoChip}</div></td>
         <td class="col-sec"><span class="chip ${esWeb?'chip-az':'chip-do'}">${esWeb?'<svg class="ico-en" aria-hidden="true"><use href="#i-web"/></svg> Web':'Interno'}</span></td>
-        <td class="col-sec" style="font-size:11.5px">${fmtFecha(c.fecha)}</td>
+        <td class="col-sec nw" style="font-size:11.5px">${fmtFecha(c.fecha)}</td>
         <td><b>${esc(c.nombre)}</b>${c.tel?'<div class="cel-sub">'+esc(c.tel)+'</div>':''}</td>
         <td class="col-sec" style="font-size:11px;font-family:ui-monospace,monospace">${esc(c.idNumero||c.identificacion||'—')}</td>
         <td class="col-sec" style="text-align:center">${c.items.length}</td>
@@ -4302,7 +4330,7 @@ function autoCliente(cod){
   const avisoResp=resp?`<div class="aviso" style="border-left-color:var(--azul);margin-bottom:8px">Paciente menor de edad: la cotización se precargó a nombre de su
     responsable registrado${resp.parentesco?' ('+esc(resp.parentesco)+')':''}. Puedes cambiarlo si corresponde otra persona.</div>`:'';
   if(av)av.innerHTML=avisoResp+(faltan.length
-    ? `<div class="aviso" style="margin-bottom:8px">Datos cargados de <b>${p.codigo}</b>. Sin registro en la ficha: ${faltan.join(', ')} — puedes escribirlos aquí.</div>`
+    ? `<div class="aviso" style="margin-bottom:8px">Datos cargados de <b class="nw">${p.codigo}</b>. Sin registro en la ficha: ${faltan.join(', ')} — puedes escribirlos aquí.</div>`
     : `<div style="font-size:12px;color:var(--verde);font-weight:700;margin-bottom:8px">✓ Datos cargados de ${p.codigo}</div>`);
 }
 function refEdadCot(){
@@ -5492,11 +5520,11 @@ function tablaOrdenes(lista){
     const al=alertasOrden(o).length, dg=desglosarOrden(o.numero);
     const ids=o.examenes.map(e=>e.id);
     return `<tr>
-    <td><b style="letter-spacing:.3px">${o.numero}</b>
+    <td><b class="nw" style="letter-spacing:.3px">${o.numero}</b>
       ${dg?`<div class="cel-sub">Suc. ${dg.sucursal} · ${dg.dia}/${dg.mes}/${dg.anio} · N° ${dg.correlativo} del día</div>`:''}
       ${o.numeroAnterior?`<div class="cel-sub">antes: ${o.numeroAnterior}</div>`:''}
       ${o.cot?`<div class="cel-sub">de ${o.cot}</div>`:''}</td>
-    <td class="col-sec">${fmtFecha(o.fecha)}</td>
+    <td class="col-sec nw">${fmtFecha(o.fecha)}</td>
     <td><b>${esc(o.pacienteNombre)}</b>${al?' <span class="chip chip-rj">⚠ '+al+'</span>':''}</td>
     <td class="cel-ex col-sec" title="${esc(ids.join(', '))}">${esc(ids.slice(0,4).join(', '))}${ids.length>4?` <span class="cel-sub">+${ids.length-4}</span>`:''}</td>
     <td><b>${L(o.total)}</b>
@@ -6286,7 +6314,7 @@ function modalTendencia(pacCodigo,examenId,paramNombre){
   ${graficoLinea(serie,p,sx,em)}
   <table style="margin-top:12px"><thead><tr><th>Fecha</th><th>Orden</th><th>Resultado</th><th>Estado</th></tr></thead><tbody>
   ${serie.slice().reverse().map(s=>{const ev=evalParam({...s.param,valor:String(s.valor)},sx,edadEnMeses(pac.fnac,s.fecha));
-    return `<tr><td>${fmtFecha(s.fecha)}</td><td>${s.orden}</td><td><b>${esc(s.texto)}</b> ${esc(s.unidad||'')}</td>
+    return `<tr><td class="nw">${fmtFecha(s.fecha)}</td><td>${s.orden}</td><td><b>${esc(s.texto)}</b> ${esc(s.unidad||'')}</td>
     <td>${ev.critico?'<span class="chip chip-rj">Crítico</span>':ev.flag==='▲'?'<span class="flag-alto">▲ Alto</span>':ev.flag==='▼'?'<span class="flag-bajo">▼ Bajo</span>':'<span class="chip chip-vd">Normal</span>'}</td></tr>`;}).join('')}
   </tbody></table>
   <div class="modal-pie"><button class="btn btn-g" onclick="cerrarModal()">Cerrar</button>
@@ -6308,7 +6336,7 @@ function imprimirTendencia(pacCodigo,examenId,paramNombre){
   <div style="max-width:520px;margin:0 auto 10px">${graficoLinea(serie,p,sx,em)}</div>
   <table><thead><tr><th>Fecha</th><th>Orden</th><th>Resultado</th><th>Referencia</th></tr></thead><tbody>
   ${serie.slice().reverse().map(s=>{const ev=evalParam({...s.param,valor:String(s.valor)},sx,edadEnMeses(pac.fnac,s.fecha));
-    return `<tr class="${ev.critico?'critico':''}"><td>${fmtFecha(s.fecha)}</td><td>${s.orden}</td>
+    return `<tr class="${ev.critico?'critico':''}"><td class="nw">${fmtFecha(s.fecha)}</td><td>${s.orden}</td>
     <td class="${ev.flag==='▲'?'alto':ev.flag==='▼'?'bajo':''}"><b>${esc(s.texto)}</b> ${esc(s.unidad||'')} ${ev.flag}</td><td>${esc(refTexto(p,sx,em))}</td></tr>`;}).join('')}
   </tbody></table>
   <div class="firma"><div class="linea">${esc(S.config.regente)}</div><div class="sub">Microbiólogo Regente · ${esc(S.config.colegiacion)}</div></div>
@@ -7295,7 +7323,7 @@ function tablaResultados(lista){
     const v=estadoValidacion(o), fi=firmaInforme(o), dg=desglosarOrden(o.numero);
     const ids=o.examenes.filter(e=>e.validado).map(e=>e.id);
     return `<tr>
-    <td><b style="letter-spacing:.3px">${o.numero}</b>
+    <td><b class="nw" style="letter-spacing:.3px">${o.numero}</b>
       ${dg?`<div class="cel-sub">Suc. ${dg.sucursal} · ${dg.dia}/${dg.mes}/${dg.anio}</div>`:''}
       <div class="cel-sub">Tomada: ${fmtFecha(o.fecha)}</div></td>
     <td><b>${esc(o.pacienteNombre)}</b></td>
@@ -7503,8 +7531,8 @@ function filasRecibos(){
     :'Sin recibos emitidos. Crea el primero con “+ Nuevo recibo”.'}</div>`;
   return `<table><thead><tr><th>No.</th><th>Fecha</th><th>Cliente</th><th>Concepto</th><th>Método</th><th style="text-align:right">Total</th><th>Estado</th><th></th></tr></thead><tbody>
     ${lista.map(r=>{const t=calcRecibo(r);return `<tr class="${r.anulado?'fila-anulada':''}">
-      <td><b>${r.numero}</b>${r.ot?`<div style="font-size:9.5px;color:var(--gris)">Orden ${r.ot}</div>`:''}</td>
-      <td>${fmtFecha(r.fecha)}<div style="font-size:9.5px;color:var(--gris)">${hora12(r.hora||'')}</div></td>
+      <td><b class="nw">${r.numero}</b>${r.ot?`<div style="font-size:9.5px;color:var(--gris)">Orden ${r.ot}</div>`:''}</td>
+      <td class="nw">${fmtFecha(r.fecha)}<div style="font-size:9.5px;color:var(--gris)">${hora12(r.hora||'')}</div></td>
       <td>${esc(r.clienteNombre)}${r.clienteId?`<div style="font-size:9.5px;color:var(--gris)">${esc(r.clienteId)}</div>`:''}</td>
       <td style="font-size:11.5px">${r.items.length} concepto(s)<div style="font-size:9.5px;color:var(--gris)">${esc(r.items[0]?r.items[0].desc:'')}${r.items.length>1?'…':''}</div></td>
       <td><span class="chip chip-az">${esc(r.metodo)}</span></td>
@@ -7536,7 +7564,7 @@ function modalRecibo(ot){
             :[{desc:'',cantidad:1,precio:0,descPct:0,gravado:false}];
   abrirModal(`
   <h3>Emitir recibo de venta</h3>
-  <div class="aviso" style="margin-bottom:10px">Se asignará el número <b>${numeroRecibo()}</b>${o?` para la orden <b>${o.numero}</b>`:''}.</div>
+  <div class="aviso" style="margin-bottom:10px">Se asignará el número <b>${numeroRecibo()}</b>${o?` para la orden <b class="nw">${o.numero}</b>`:''}.</div>
   ${resp?`<div class="aviso" style="border-left-color:var(--azul)">Paciente menor de edad: el recibo se precargó a nombre de su
     responsable registrado${resp.parentesco?' ('+esc(resp.parentesco)+')':''}. Puedes cambiarlo si corresponde otra persona.</div>`:''}
   <div class="rejilla c3">
@@ -8179,8 +8207,8 @@ function tablaFacturas(lista){
     :'Sin facturas emitidas. Crea la primera con “+ Nueva factura”.'}</div>`;
   return `<table><thead><tr><th>No.</th><th>Fecha</th><th>Cliente</th><th>Identificación</th><th>Concepto</th><th>Método</th><th style="text-align:right">Total</th><th>Estado</th><th></th></tr></thead><tbody>
     ${lista.map(x=>{const t=calcFactura(x);return `<tr class="${x.anulado?'fila-anulada':''}">
-      <td><b>${x.numero}</b>${x.ot?`<div style="font-size:9.5px;color:var(--gris)">Orden ${x.ot}</div>`:''}</td>
-      <td>${fmtFecha(x.fecha)}<div style="font-size:9.5px;color:var(--gris)">${hora12(x.hora||'')}</div></td>
+      <td><b class="nw">${x.numero}</b>${x.ot?`<div style="font-size:9.5px;color:var(--gris)">Orden ${x.ot}</div>`:''}</td>
+      <td class="nw">${fmtFecha(x.fecha)}<div style="font-size:9.5px;color:var(--gris)">${hora12(x.hora||'')}</div></td>
       <td>${esc(x.clienteNombre)}</td>
       <td style="font-family:ui-monospace,monospace;font-size:11px">${x.clienteId?esc(x.clienteIdTipo||'RTN')+' '+esc(x.clienteId):'Consumidor Final'}</td>
       <td style="font-size:11.5px">${x.items.length} concepto(s)<div style="font-size:9.5px;color:var(--gris)">${esc(x.items[0]?x.items[0].desc:'')}${x.items.length>1?'…':''}</div></td>
@@ -8950,7 +8978,7 @@ function filasEquipoLote(t){
   if(!r.length)return '<div class="vacio">Sin coincidencias.</div>';
   return `<table><thead><tr><th>Orden</th><th>Paciente</th><th>Examen</th><th>Equipo</th><th>Lote</th><th>Fecha</th><th>Estado</th><th></th></tr></thead><tbody>
     ${r.map(x=>`<tr><td>${esc(x.orden)}</td><td>${esc(x.paciente)}</td><td>${esc(x.examen)}</td>
-      <td>${esc(x.equipo||'—')}</td><td>${esc(x.lote||'—')}</td><td>${fmtFecha(x.fecha)}</td>
+      <td>${esc(x.equipo||'—')}</td><td>${esc(x.lote||'—')}</td><td class="nw">${fmtFecha(x.fecha)}</td>
       <td><span class="chip ${x.validado?'chip-vd':'chip-am'}">${x.validado?'Validado':'Pendiente'}</span></td>
       <td><button class="btn btn-g btn-min" onclick="modalResultados('${x.orden}')">Ver</button></td></tr>`).join('')}
   </tbody></table>`;
@@ -9063,7 +9091,7 @@ function modalLJ(cid,dias){
   ${serie.length?`<div style="max-height:26vh;overflow:auto;margin-top:10px">
     <table><thead><tr><th>Fecha</th><th>Valor</th><th>z</th><th>Estado</th><th>Regla</th><th>Responsable</th><th>Acción correctiva</th></tr></thead><tbody>
     ${serie.slice().reverse().map(d=>`<tr class="${d.estado==='Rechazo'?'fila-critica':''}">
-      <td>${fmtFecha(d.fecha)} <span style="color:var(--gris);font-size:10px">${esc(d.hora||'')}</span></td>
+      <td class="nw">${fmtFecha(d.fecha)} <span style="color:var(--gris);font-size:10px">${esc(d.hora||'')}</span></td>
       <td><b>${esc(d.valor)}</b></td>
       <td>${d.z>0?'+':''}${d.z.toFixed(2)}</td>
       <td><span class="chip ${d.estado==='Rechazo'?'chip-rj':d.estado==='Advertencia'?'chip-am':'chip-vd'}">${d.estado}</span></td>
@@ -9419,7 +9447,7 @@ function modalKardex(iid){
   ${ms.length?`<div style="max-height:48vh;overflow:auto">
     <table><thead><tr><th>Fecha</th><th>Tipo</th><th style="text-align:right">Cantidad</th><th style="text-align:right">Saldo</th><th>Lote</th><th>Motivo</th><th>Responsable</th></tr></thead><tbody>
     ${ms.map(m=>`<tr>
-      <td>${fmtFecha(m.fecha)}<div style="font-size:9.5px;color:var(--gris)">${esc(m.hora)}</div></td>
+      <td class="nw">${fmtFecha(m.fecha)}<div style="font-size:9.5px;color:var(--gris)">${esc(m.hora)}</div></td>
       <td><span class="chip ${m.tipo==='Entrada'?'chip-vd':/^Baja/.test(m.tipo)?'chip-rj':'chip-az'}">${esc(m.tipo)}</span></td>
       <td style="text-align:right;font-weight:700;color:${m.tipo==='Entrada'?'var(--verde)':/Ajuste/.test(m.tipo)?'var(--azul)':'var(--rojo)'}">
         ${m.tipo==='Entrada'?'+':/Ajuste/.test(m.tipo)?'=':'−'}${m.cantidad}</td>
@@ -9465,7 +9493,7 @@ function imprimirLJ(cid){
     <div class="sec-doc">CORRIDAS FUERA DE CONTROL Y ACCIONES CORRECTIVAS</div>
     <table class="tdoc"><thead><tr><th>Fecha</th><th>Valor</th><th>z</th><th>Regla</th><th>Acción correctiva documentada</th></tr></thead><tbody>
       ${serie.filter(d=>d.estado!=='Aceptado').map(d=>`<tr>
-        <td>${fmtFecha(d.fecha)}</td><td>${esc(d.valor)}</td><td>${d.z>0?'+':''}${d.z.toFixed(2)}s</td>
+        <td class="nw">${fmtFecha(d.fecha)}</td><td>${esc(d.valor)}</td><td>${d.z>0?'+':''}${d.z.toFixed(2)}s</td>
         <td>${[...d.rechazos,...d.avisos].join(', ')}</td><td>${esc(d.accion||'—')}</td></tr>`).join('')}
     </tbody></table>`:''}
     <div class="reglas-doc"><b>Reglas de Westgard aplicadas:</b>
@@ -9493,7 +9521,7 @@ function imprimirKardex(iid){
     <table class="tdoc"><thead><tr><th>Fecha</th><th>Hora</th><th>Movimiento</th><th class="num">Entrada</th>
       <th class="num">Salida</th><th class="num">Saldo</th><th>Lote</th><th>Motivo</th><th>Responsable</th></tr></thead><tbody>
       ${ms.map(m=>`<tr>
-        <td>${fmtFecha(m.fecha)}</td><td>${esc(m.hora)}</td><td>${esc(m.tipo)}</td>
+        <td class="nw">${fmtFecha(m.fecha)}</td><td>${esc(m.hora)}</td><td>${esc(m.tipo)}</td>
         <td class="num">${m.tipo==='Entrada'?m.cantidad:''}</td>
         <td class="num">${/Salida|Baja/.test(m.tipo)?m.cantidad:''}</td>
         <td class="num"><b>${m.saldo}</b></td>
@@ -9991,7 +10019,7 @@ function modalHistDoc(id){
   <table><thead><tr><th>Versión</th><th>Estado</th><th>Aprobación</th><th>Registrado</th><th>Motivo del cambio</th><th>Responsable</th></tr></thead><tbody>
     ${(d.historial||[]).slice().reverse().map(h=>`<tr>
       <td><b>v${esc(h.version)}</b></td><td>${esc(h.estado)}</td><td>${h.aprobacion?fmtFecha(h.aprobacion):'—'}</td>
-      <td>${fmtFecha(h.fecha)} ${esc(h.hora||'')}</td><td>${esc(h.motivo)}</td><td>${esc(h.responsable)}</td></tr>`).join('')
+      <td class="nw">${fmtFecha(h.fecha)} ${esc(h.hora||'')}</td><td>${esc(h.motivo)}</td><td>${esc(h.responsable)}</td></tr>`).join('')
       ||'<tr><td colspan="6">Sin historial</td></tr>'}
   </tbody></table>
   <div class="modal-pie"><button class="btn btn-g" onclick="cerrarModal()">Cerrar</button></div>`,true);
@@ -10012,7 +10040,7 @@ function tabNC(){
   ${ns.length?`<div class="tarjeta"><table><thead><tr><th>N°</th><th>Fecha</th><th>Origen</th><th>Descripción</th>
     <th>Causa raíz</th><th>Plazo</th><th>Estado</th><th></th></tr></thead><tbody>
     ${ns.map(n=>{const venc=n.plazo&&n.plazo<hoyF&&n.estado!=='Cerrada';return `<tr class="${venc?'fila-critica':''}">
-      <td><b>${esc(n.numero)}</b></td><td>${fmtFecha(n.fecha)}</td>
+      <td><b>${esc(n.numero)}</b></td><td class="nw">${fmtFecha(n.fecha)}</td>
       <td style="font-size:11.5px">${esc(n.origen)}</td>
       <td style="font-size:11.5px;max-width:280px">${esc((n.descripcion||'').slice(0,110))}${(n.descripcion||'').length>110?'…':''}</td>
       <td style="font-size:11px">${n.causa?'<span class="chip chip-vd">Analizada</span>':'<span class="chip chip-am">Pendiente</span>'}</td>
@@ -10143,7 +10171,7 @@ function modalPersonal(id){
     </div>
     ${(p.capacitaciones||[]).length?`<table><thead><tr><th>Tema</th><th>Fecha</th><th>Horas</th><th>Impartida por</th><th>Vence</th><th></th></tr></thead><tbody>
       ${(p.capacitaciones||[]).map((c,i)=>{const v=c.vence&&c.vence<hoy();return `<tr class="${v?'fila-critica':''}">
-        <td>${esc(c.tema)}</td><td>${fmtFecha(c.fecha)}</td><td>${esc(c.horas||'—')}</td>
+        <td>${esc(c.tema)}</td><td class="nw">${fmtFecha(c.fecha)}</td><td>${esc(c.horas||'—')}</td>
         <td style="font-size:11.5px">${esc(c.imparte||'—')}</td>
         <td style="color:${v?'var(--rojo)':''}">${c.vence?fmtFecha(c.vence):'—'}${v?' vencida':''}</td>
         <td style="text-align:right"><button class="btn btn-r btn-min" onclick="quitarCapacitacion('${id}',${i})">✕</button></td></tr>`;}).join('')}
@@ -10238,7 +10266,7 @@ function modalEquipo(id){
   ${e&&(e.intervenciones||[]).length?`<div class="obs-seccion" style="margin-top:12px">
     <b style="color:var(--azul);font-size:13px">Historial de intervenciones</b>
     <table style="margin-top:8px"><thead><tr><th>Fecha</th><th>Tipo</th><th>Descripción</th><th>Realizada por</th><th>Verificación</th></tr></thead><tbody>
-      ${e.intervenciones.slice().reverse().map(i=>`<tr><td>${fmtFecha(i.fecha)}</td><td>${esc(i.tipo)}</td>
+      ${e.intervenciones.slice().reverse().map(i=>`<tr><td class="nw">${fmtFecha(i.fecha)}</td><td>${esc(i.tipo)}</td>
         <td style="font-size:11.5px">${esc(i.descripcion)}</td><td style="font-size:11.5px">${esc(i.responsable)}</td>
         <td style="font-size:11.5px">${esc(i.verificacion||'—')}</td></tr>`).join('')}
     </tbody></table></div>`:''}
@@ -10406,7 +10434,7 @@ function tabRevision(){
     <button class="btn btn-p" onclick="modalRevision()">+ Acta</button>
   </div>
   ${rs.length?`<div class="tarjeta"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Alcance</th><th>Hallazgos</th><th>Responsable</th><th></th></tr></thead><tbody>
-    ${rs.map(r=>`<tr><td>${fmtFecha(r.fecha)}</td><td><span class="chip chip-az">${esc(r.tipo)}</span></td>
+    ${rs.map(r=>`<tr><td class="nw">${fmtFecha(r.fecha)}</td><td><span class="chip chip-az">${esc(r.tipo)}</span></td>
       <td style="font-size:11.5px;max-width:280px">${esc((r.alcance||'').slice(0,90))}</td>
       <td style="text-align:center">${r.hallazgos||0}</td><td style="font-size:11.5px">${esc(r.responsable||'')}</td>
       <td style="text-align:right">
@@ -10485,7 +10513,7 @@ function imprimirManualSGC(){
 
     <div class="sec-doc">3. NO CONFORMIDADES ABIERTAS (${ncAb.length})</div>
     ${ncAb.length?`<table class="tdoc"><thead><tr><th>N°</th><th>Fecha</th><th>Origen</th><th>Descripción</th><th>Acción correctiva</th><th>Plazo</th></tr></thead><tbody>
-      ${ncAb.map(n=>`<tr><td>${esc(n.numero)}</td><td>${fmtFecha(n.fecha)}</td><td>${esc(n.origen)}</td>
+      ${ncAb.map(n=>`<tr><td>${esc(n.numero)}</td><td class="nw">${fmtFecha(n.fecha)}</td><td>${esc(n.origen)}</td>
         <td>${esc((n.descripcion||'').slice(0,120))}</td><td>${esc((n.accion||'Pendiente').slice(0,110))}</td>
         <td>${n.plazo?fmtFecha(n.plazo):'—'}</td></tr>`).join('')}</tbody></table>`:'<div style="padding:6px">Sin no conformidades abiertas.</div>'}
 
@@ -11693,7 +11721,7 @@ function modalImpresiones(tipo,numero){
     «Guardar como PDF». El navegador no informa si finalmente se imprimió o si se
     canceló, así que esto registra el envío, no el papel.</p>
   ${i.length?`<table><thead><tr><th>#</th><th>Fecha</th><th>Hora</th><th>Quién</th></tr></thead><tbody>
-    ${i.map((x,k)=>`<tr><td>${i.length-k}</td><td>${fmtFecha(x.fecha)}</td>
+    ${i.map((x,k)=>`<tr><td>${i.length-k}</td><td class="nw">${fmtFecha(x.fecha)}</td>
       <td>${x.hora?hora12(x.hora):'—'}</td><td>${esc(x.por||'—')}</td></tr>`).join('')}
   </tbody></table>`
   :'<div class="vacio">Todavía no se ha enviado a imprimir.</div>'}
@@ -12376,7 +12404,7 @@ function hojaResumenMensual(cfg,mes,lista){
         return `<tr class="${e.mal?'apag':''}">
         <td>${i+1}</td>
         <td class="mono nw"><b>${esc(d.numero)}</b></td>
-        <td>${fmtFecha(d.fecha)}</td>
+        <td class="nw">${fmtFecha(d.fecha)}</td>
         <td>${esc(cfg.cliente(d))}</td>
         <td class="mono ident">${esc(cfg.ident(d))}</td>
         <td class="est">${esc(e.txt)}</td>
@@ -14569,7 +14597,7 @@ function tablaEtiquetas(lista){
   return `<table><thead><tr><th>Orden</th><th>Paciente</th><th>Tubos a etiquetar</th><th></th></tr></thead><tbody>
   ${lista.map(o=>{
     const tubos={};o.examenes.forEach(e=>{(tubos[e.tubo]=tubos[e.tubo]||[]).push(e.id);});
-    return `<tr><td><b>${o.numero}</b></td><td>${esc(o.pacienteNombre)}</td>
+    return `<tr><td><b class="nw">${o.numero}</b></td><td>${esc(o.pacienteNombre)}</td>
     <td style="font-size:12px">${Object.entries(tubos).map(([t,ids])=>`<span class="chip chip-az" style="margin:2px">${esc(t)} (${ids.join(', ')})</span>`).join(' ')}</td>
     <td style="text-align:right"><button class="btn btn-d btn-min" onclick="previsualizar(()=>imprimirEtiquetas('${o.numero}'),'Etiquetas · ${o.numero}','Imprimir etiquetas')">▤ Ver ${Object.keys(tubos).length} etiqueta(s)</button></td></tr>`;
   }).join('')}
@@ -14673,7 +14701,7 @@ function vConfig(){
         <option value="no" ${c.facCopia===false?'selected':''}>No — solo el original</option></select></div>
       ${c.facCAI?`<div class="campo" style="grid-column:1/-1">
         <div class="aviso" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin:0">
-          <span>Próximo correlativo de Facturas: <b>${numeroFactura()}</b> (siguiente número: ${S.seq.fac||c.facDesde||1})</span>
+          <span>Próximo correlativo de Facturas: <b class="nw">${numeroFactura()}</b> (siguiente número: ${S.seq.fac||c.facDesde||1})</span>
           <button class="btn btn-g btn-min" type="button" onclick="modalAjustarCorrelativo('fac')">Ajustar correlativo…</button>
         </div>
         <div class="ayuda" style="margin-top:4px">Úsalo para continuar una numeración que ya se venía usando en otro
@@ -15233,7 +15261,7 @@ function historialCortes(){
   return `<div class="tarjeta"><h3 style="color:var(--azul);margin-bottom:10px">Historial de cortes de caja</h3>
   <table><thead><tr><th>N°</th><th>Fecha</th><th>Turno</th><th>Responsable</th><th style="text-align:right">Fondo</th><th style="text-align:right">Contado</th><th style="text-align:right">Documentos</th><th style="text-align:right">Total depósito</th><th style="text-align:right">Diferencia</th><th></th></tr></thead><tbody>
   ${S.cortes.slice().reverse().map((k,ri)=>{const i=S.cortes.length-1-ri;const dg=k.diferenciaGeneral!==undefined?k.diferenciaGeneral:k.diferencia;return `<tr>
-    <td>${k.numero||'—'}</td><td>${fmtFecha(k.fecha)}</td><td>${k.horaApertura}–${k.horaCierre}</td><td>${esc(k.responsable)}</td>
+    <td>${k.numero||'—'}</td><td class="nw">${fmtFecha(k.fecha)}</td><td>${k.horaApertura}–${k.horaCierre}</td><td>${esc(k.responsable)}</td>
     <td style="text-align:right">${L(k.fondo)}</td><td style="text-align:right"><b>${L(k.contado)}</b></td>
     <td style="text-align:right">${L(k.documentosValor||0)}</td>
     <td style="text-align:right">${L(k.totalDeposito!==undefined?k.totalDeposito:k.contado)}</td>
@@ -15398,7 +15426,7 @@ function vConta(mes){
       <div><span class="mini-et">Órdenes con descuento</span><div style="font-size:16px;font-weight:800">${conDesc.length} de ${ordMes.length}</div></div>
     </div>
     ${conDesc.length?`<table style="margin-top:10px"><thead><tr><th>Orden</th><th>Paciente</th><th style="text-align:right">Lista</th><th style="text-align:right">Descuento</th><th style="text-align:right">%</th><th style="text-align:right">Cobrado</th></tr></thead><tbody>
-      ${conDesc.slice().reverse().map(o=>`<tr><td><b>${o.numero}</b></td><td>${esc(o.pacienteNombre)}</td>
+      ${conDesc.slice().reverse().map(o=>`<tr><td><b class="nw">${o.numero}</b></td><td>${esc(o.pacienteNombre)}</td>
         <td style="text-align:right">${L(o.subtotal)}</td>
         <td style="text-align:right;color:var(--rojo)">− ${L(o.subtotal-o.total)}</td>
         <td style="text-align:right;font-weight:700">${round2((o.subtotal-o.total)/o.subtotal*100)} %</td>
@@ -15414,7 +15442,7 @@ function vConta(mes){
   <div class="tarjeta">
     <h3 style="color:var(--azul);margin-bottom:8px">Libro de movimientos · ${mes}</h3>
     ${movs.length?`<table><thead><tr><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Categoría</th><th>Concepto</th><th>Método</th><th>Ref.</th><th style="text-align:right">Monto</th><th></th></tr></thead><tbody>
-    ${movs.map(m=>`<tr><td>${fmtFecha(m.fecha)}</td><td>${m.hora}</td>
+    ${movs.map(m=>`<tr><td class="nw">${fmtFecha(m.fecha)}</td><td>${m.hora}</td>
     <td><span class="chip ${m.tipo==='Ingreso'?'chip-vd':'chip-rj'}">${m.tipo}</span></td>
     <td style="font-size:12px">${esc(m.categoria)}</td><td style="font-size:12px">${esc(m.concepto)}</td>
     <td>${m.metodo}</td><td>${m.ref||'—'}</td>
@@ -15601,7 +15629,7 @@ function imprimirConta(mes){
   </tbody></table>
   <div class="sec">LIBRO DE MOVIMIENTOS</div>
   <table><thead><tr><th>Fecha</th><th>Tipo</th><th>Categoría</th><th>Concepto</th><th>Método</th><th style="text-align:right">Monto</th></tr></thead><tbody>
-  ${movs.map(m=>`<tr><td>${fmtFecha(m.fecha)}</td><td>${m.tipo}</td><td>${esc(m.categoria)}</td><td>${esc(m.concepto)}</td><td>${m.metodo}</td><td style="text-align:right">${m.tipo==='Egreso'?'−':''}${L(m.monto)}</td></tr>`).join('')}
+  ${movs.map(m=>`<tr><td class="nw">${fmtFecha(m.fecha)}</td><td>${m.tipo}</td><td>${esc(m.categoria)}</td><td>${esc(m.concepto)}</td><td>${m.metodo}</td><td style="text-align:right">${m.tipo==='Egreso'?'−':''}${L(m.monto)}</td></tr>`).join('')}
   </tbody></table>
   <div class="firma"><div class="linea">${esc(S.config.regente)}</div><div class="sub">Microbiólogo Regente · ${esc(S.config.colegiacion)}</div></div>
   <div class="pie">${esc(S.config.anclaSGC)} · ${esc(S.config.nombre)}</div>`;
@@ -17278,7 +17306,7 @@ function filasBitacora(filtro=''){
   const lista=S.bitacora.map((b,i)=>({...b,_i:i})).filter(b=>normTxt(b.tipo+' '+b.descripcion+' '+b.responsable+' '+b.fecha).includes(f)).reverse();
   return `${lista.length?`<table class="tabla-bit"><thead><tr><th style="width:90px">Fecha</th><th style="width:55px">Hora</th><th>Tipo</th><th>Descripción</th><th>Responsable</th><th></th></tr></thead><tbody>
     ${lista.map(b=>`<tr>
-      <td>${fmtFecha(b.fecha)}<div class="solo-movil cel-sub">${esc(b.hora||'')}</div></td><td>${b.hora}</td>
+      <td class="nw">${fmtFecha(b.fecha)}<div class="solo-movil cel-sub">${esc(b.hora||'')}</div></td><td>${b.hora}</td>
       <td><span class="chip ${/Incidencia|correctiva/.test(b.tipo)?'chip-rj':/caja/.test(b.tipo)?'chip-do':'chip-az'}">${esc(b.tipo)}</span></td>
       <td style="font-size:12.5px">${esc(b.descripcion)}</td><td style="font-size:12px">${esc(b.responsable)}</td>
       <td>${b.manual?`<button class="btn btn-r btn-min" onclick="borrarBitacora(${b._i})">✕</button>`
@@ -17338,7 +17366,7 @@ function imprimirBitacora(){
   <h2>BITÁCORA DE TRABAJO</h2>
   <div class="datos"><div><b>Entradas:</b> ${lista.length}</div><div><b>Emitido:</b> ${fmtFecha(hoy())}</div></div>
   <table><thead><tr><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Descripción</th><th>Responsable</th></tr></thead><tbody>
-  ${lista.map(b=>`<tr><td>${fmtFecha(b.fecha)}<div class="solo-movil cel-sub">${esc(b.hora||'')}</div></td><td>${b.hora}</td><td>${esc(b.tipo)}</td><td>${esc(b.descripcion)}</td><td>${esc(b.responsable)}</td></tr>`).join('')}
+  ${lista.map(b=>`<tr><td class="nw">${fmtFecha(b.fecha)}<div class="solo-movil cel-sub">${esc(b.hora||'')}</div></td><td>${b.hora}</td><td>${esc(b.tipo)}</td><td>${esc(b.descripcion)}</td><td>${esc(b.responsable)}</td></tr>`).join('')}
   </tbody></table>
   <div class="firma"><div class="linea">${esc(S.config.regente)}</div><div class="sub">Microbiólogo Regente · ${esc(S.config.colegiacion)}</div></div>
   <div class="pie">${esc(S.config.anclaSGC)} · ${esc(S.config.nombre)}</div>`;
