@@ -964,6 +964,8 @@ const COLECCIONES = {
   perfiles:           {ruta:['perfiles'],            clave:'id'},
   medicos:            {ruta:['medicos'],             clave:'id'},
   cotizaciones:       {ruta:['cotizaciones'],        clave:'numero'},
+  citas:              {ruta:['citas'],               clave:'id'},
+  cortes:             {ruta:['cortes'],              clave:'numero'},
   ordenes:            {ruta:['ordenes'],             clave:'numero'},
   recibos:            {ruta:['recibos'],             clave:'numero'},
   facturas:           {ruta:['facturas'],            clave:'numero'},
@@ -983,7 +985,11 @@ const COLECCIONES = {
   // si el envío se reintenta.
   bitacora:           {ruta:['bitacora'],            clave:null},
 };
-const SINGLETONES = ['config','caja','meta'];
+// usuarios: cuentas de acceso LOCAL ya retiradas, con el PIN en texto plano.
+// Viaja para que el vaciado que hace la migracion llegue de verdad al estado
+// guardado. Los usuarios reales del sistema no viven aqui, sino en su propia
+// coleccion (/api/usuarios).
+const SINGLETONES = ['config','caja','meta','usuarios'];
 function claveBitacora(b){
   return [b.fecha,b.hora,b.responsable,b.tipo,b.descripcion].join('');
 }

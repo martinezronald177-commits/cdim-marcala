@@ -1289,13 +1289,20 @@ function migrarEstado(s){
     // por completo: cualquier registro que quedara aquí tiene su PIN EN TEXTO
     // PLANO (nunca fue hasheado). No se descarta en silencio: se deja constancia
     // en la bitácora de cuántas cuentas había y sus nombres (nunca el PIN).
-    if(s.usuarios && s.usuarios.length){
+    if(s.usuarios && s.usuarios.length && !s.meta.usuariosLocalesV1){
       s.bitacora = s.bitacora || [];
       s.bitacora.push({fecha:hoy(), hora:ahoraHora(), responsable:'Sistema', tipo:'Actividad de rutina',
         descripcion:'Migración de seguridad: se retiraron '+s.usuarios.length+
           ' cuenta(s) de acceso local obsoletas ('+s.usuarios.map(u=>u.nombre).join(', ')+
           '). El inicio de sesión ahora es exclusivamente por el servidor.'});
     }
+    /* La marca va SIEMPRE, aunque no hubiera nada que retirar: dice "esta
+       instalacion ya paso por la retirada del acceso local". Sin ella el
+       asiento se repetia en cada arranque, porque s.usuarios vuelve intacto
+       del servidor — no viajaba en la sincronizacion, asi que vaciarlo aqui
+       no llegaba a ninguna parte. Se descubrio auditando que migraciones no
+       se estaban guardando. */
+    s.meta.usuariosLocalesV1=1;
     s.usuarios = [];
     s.perfiles=s.perfiles||[];   // combos/perfiles promocionales (catálogo de exámenes agrupados)
     s.seq.perfil=s.seq.perfil||1;
@@ -17217,6 +17224,8 @@ const COLECCIONES_SYNC={
   perfiles:{ruta:['perfiles'],clave:'id'},
   medicos:{ruta:['medicos'],clave:'id'},
   cotizaciones:{ruta:['cotizaciones'],clave:'numero'},
+  citas:{ruta:['citas'],clave:'id'},
+  cortes:{ruta:['cortes'],clave:'numero'},
   ordenes:{ruta:['ordenes'],clave:'numero'},
   recibos:{ruta:['recibos'],clave:'numero'},
   facturas:{ruta:['facturas'],clave:'numero'},
@@ -17233,7 +17242,12 @@ const COLECCIONES_SYNC={
   'sgc.revisiones':{ruta:['sgc','revisiones'],clave:'id'},
   bitacora:{ruta:['bitacora'],clave:null},
 };
-const SINGLETONES_SYNC=['config','caja','meta'];
+/* usuarios entra aqui a proposito: son las cuentas de acceso LOCAL, que se
+   retiraron hace tiempo y guardaban el PIN en texto plano. La migracion las
+   vacia desde entonces, pero como no viajaban, el servidor seguia guardandolas
+   intactas y la retirada nunca llegaba a cumplirse. Nada de la aplicacion lee
+   S.usuarios: los usuarios de verdad viven en el servidor (/api/usuarios). */
+const SINGLETONES_SYNC=['config','caja','meta','usuarios'];
 let _huellas=null;      // Map "coleccion clave" -> JSON del registro
 let _huellaSingle={};   // singleton -> su JSON
 
