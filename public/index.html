@@ -2637,7 +2637,7 @@ function vInicio(){
   const hoyF=hoy();
   const desde=new Date(hoyF+'T12:00:00');desde.setDate(desde.getDate()-30);const d30=desde.toISOString().slice(0,10);
   // UNA sola pasada por las órdenes en vez de seis recorridos completos
-  let pend=0;const criticos=[],deltas=[],vencidas=[],hoyEntrega=[],sinValidar=[],parciales=[],porCobrar=[],conteo={};
+  let pend=0;const criticos=[],deltas=[],vencidas=[],hoyEntrega=[],sinValidar=[],parciales=[],sinReportar=[],porCobrar=[],conteo={};
   S.ordenes.forEach(o=>{
     const activa=o.estado!=='Entregada';
     if(activa)pend++;
@@ -2664,6 +2664,16 @@ function vInicio(){
          nada. Una orden a medio validar es justo la que se olvida. */
       const validados=o.examenes.filter(e=>e.validado).length;
       if(validados>0&&validados<o.examenes.length)parciales.push(o);
+      /* MUESTRA SIN REPORTAR: la orden está activa y hay al menos un examen
+         al que no se le ha capturado NADA. Es el escalón anterior a "sin
+         validar" -que exige algún valor escrito- y era el único tramo del
+         flujo sin aviso: la muestra ya está aquí, nadie la ha trabajado, y el
+         tablero decía "todo al día". Los exámenes sin parámetros (líneas
+         informativas) no cuentan: no hay nada que capturar en ellos. */
+      const sinCapturar=o.examenes.filter(e=>!e.validado&&(e.params||[]).length&&
+        !e.params.some(p=>p.valor!==''&&p.valor!==undefined&&p.valor!==null));
+      if(sinCapturar.length)sinReportar.push({o,n:sinCapturar.length,
+        dias:Math.max(0,Math.round((new Date(hoyF+'T12:00:00')-new Date(o.fecha+'T12:00:00'))/86400000))});
     }
     if(!o.pagada)porCobrar.push(o);
     if(o.fecha>=d30)o.examenes.forEach(e=>conteo[e.nombre]=(conteo[e.nombre]||0)+1);
@@ -2715,7 +2725,7 @@ function vInicio(){
         validar dejaba el tablero diciendo "Sin alertas pendientes. Todas las
         órdenes están al día", que era sencillamente falso. */''
    }${(criticos.length||deltas.length||vencidas.length||hoyEntrega.length
-      ||parciales.length||sinValidar.length||porCobrar.length||necesitaResp
+      ||parciales.length||sinValidar.length||sinReportar.length||porCobrar.length||necesitaResp
       ||citasHoy.length||citasManana.length)?`
   <div class="tarjeta">
     <h3 style="color:var(--azul);margin-bottom:10px">Centro de alertas</h3>
@@ -2741,6 +2751,11 @@ function vInicio(){
     ${parciales.slice(0,10).map(o=>`<div class="aviso" style="border-left-color:var(--ambar)">◐ VALIDADA A MEDIAS · ${o.numero} · ${esc(o.pacienteNombre)} — ${o.examenes.filter(e=>e.validado).length} de ${o.examenes.length} exámenes validados
       <button class="btn btn-g btn-min" style="float:right" onclick="modalResultados('${o.numero}')">Ver</button></div>`).join('')}
     ${parciales.length>10?`<div style="font-size:11.5px;color:var(--gris);margin:4px 0 8px">y ${parciales.length-10} orden(es) más a medio validar.</div>`:''}
+    ${/* La más vieja primero: en un laboratorio, una muestra esperando es
+          tiempo de respuesta. Las que ya salen como "a medias" no se repiten. */''
+     }${sinReportar.filter(x=>!parciales.includes(x.o)).sort((a,b)=>b.dias-a.dias).slice(0,10).map(x=>`<div class="aviso" style="border-left-color:${x.dias>=1?'var(--rojo)':'var(--ambar)'}">◯ MUESTRA SIN REPORTAR · ${x.o.numero} · ${esc(x.o.pacienteNombre)} — ${x.n} examen(es) sin resultado${x.dias>=1?' · <b>lleva '+x.dias+' día'+(x.dias===1?'':'s')+'</b>':' · recibida hoy'}
+      <button class="btn btn-p btn-min" style="float:right" onclick="modalResultados('${x.o.numero}')">Capturar</button></div>`).join('')}
+    ${sinReportar.length>10?`<div style="font-size:11.5px;color:var(--gris);margin:4px 0 8px">y ${sinReportar.length-10} muestra(s) más sin reportar.</div>`:''}
     ${/* Las que ya salen arriba como "a medias" no se repiten aquí: seria el
           mismo aviso dos veces para la misma orden. */''
      }${sinValidar.filter(o=>!parciales.includes(o)).slice(0,10).map(o=>`<div class="aviso">⧗ RESULTADOS SIN VALIDAR · ${o.numero} · ${esc(o.pacienteNombre)} — capturados, esperando validación
