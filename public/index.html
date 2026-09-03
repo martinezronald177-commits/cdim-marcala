@@ -955,6 +955,18 @@ input:focus,select:focus,textarea:focus{border-color:var(--azul);
   stroke-linejoin:round;flex:0 0 auto}
 .btn .ico-en{margin-right:-1px}
 
+/* ── Aviso de version nueva ──────────────────────────────────────
+   Aparece cuando el service worker descarga una version distinta mientras
+   alguien trabaja. NO se recarga sola: hacerlo en medio de una captura de
+   resultados perderia lo que se esta escribiendo. */
+.aviso-version{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);
+  z-index:120;display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  background:var(--azul-osc);color:#fff;padding:12px 16px;border-radius:11px;
+  box-shadow:0 12px 34px rgba(11,29,40,.4);font-size:12.5px;max-width:min(560px,94vw)}
+.aviso-version b{font-weight:600}
+.aviso-version span{color:rgba(255,255,255,.72)}
+.aviso-version .btn{margin-left:2px}
+
 /* ── Movimiento ──────────────────────────────────────────────────
    Quien pidió menos movimiento en su sistema no debería recibir
    transiciones ni el latido del aviso de sincronización. */
@@ -16656,6 +16668,8 @@ function importarCotWeb(){
    FALLÓ, o cuando lleva demasiado tiempo pendiente sin haber fallado —que es
    la forma silenciosa del mismo problema. */
 let _ultimoSyncOk=0, _syncFallido=false, _tickerSync=null;
+/* true cuando se entro sin servidor: cambia lo que dice el indicador. */
+let SIN_CONEXION=false;
 /* El reintento periódico va cada 30 s: pasado minuto y medio sin subir, algo
    no está funcionando aunque no haya saltado ningún error. */
 const SYNC_TOLERANCIA_MS=90000;
@@ -16680,6 +16694,19 @@ function pintarIndicadorSync(){
   if(!MODO_WEB){el.hidden=true;return;}
   el.hidden=false;
   const mal=syncEnProblemas();
+  /* Entrar sin servidor no es lo mismo que no haber podido subir un cambio:
+     ahi no hay NADA en la nube de esta jornada, y quien esta capturando tiene
+     que saberlo. */
+  if(SIN_CONEXION){
+    el.className='sync-pill sync-mal';
+    el.title='Se entro sin conexion con el servidor. Todo lo que captures se '+
+      'guarda en esta computadora y sube solo cuando vuelva la linea.';
+    el.innerHTML=`<span class="s-t"><span class="s-punto"></span>Trabajando sin conexion</span>
+       <span class="s-d">Sesion local de ${esc((USUARIO_WEB&&USUARIO_WEB.nombre)||'')}.
+         Lo que captures se guarda aqui y sube solo al volver la linea.
+         No cierres el navegador mientras tanto.</span>`;
+    return;
+  }
   el.className='sync-pill '+(mal?'sync-mal':'sync-ok');
   el.title=mal
     ? 'Hay cambios guardados solo en esta computadora. Se reintenta cada 30 segundos.'
@@ -17310,6 +17337,11 @@ function imprimirBitacora(){
 /* En modo web: detecta el servidor, carga el estado, muestra botones extra.
    En modo local: arranca exactamente igual que antes. */
 (async function arrancar(){
+  /* Lo primero, y sin depender de nada: el service worker solo guarda el
+     programa para que haya algo que abrir sin red. Estuvo un rato dentro de
+     continuarArranque() y ahi no llegaba a ejecutarse cuando la cuenta tenia
+     que cambiar la contrasena, que es justo el primer arranque de todos. */
+  registrarServicioSinConexion();
   /* El respaldo local vive en IndexedDB (ver volcarEstado en 10_nucleo.js);
      localStorage quedó de reserva. cargar() es síncrono y solo alcanza a leer
      la reserva, así que aquí —ya en terreno async, antes de que nada toque el
@@ -17330,13 +17362,20 @@ function imprimirBitacora(){
       new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),3000))
     ]);
     if(!r.ok){
-      // Sin sesión válida (401) o el servidor respondió con error → login
+      /* El servidor RESPONDIO y rechazo la sesion: no es falta de red, y la
+         sesion local guardada ya no vale. Se borra para que nadie entre sin
+         conexion con una identidad que el servidor acaba de repudiar. */
+      olvidarSesionLocal();
       window.location.href='/login.html';
       return;
     }
     MODO_WEB=true;
+    SIN_CONEXION=false;
     const u=await r.json();
     USUARIO_WEB=u;                    // quien entró por la pantalla de acceso
+    /* Se recuerda para poder seguir trabajando si mañana no hay línea. Solo
+       se guarda tras una validación REAL del servidor. */
+    guardarSesionLocal(u);
     console.log('[CDIM] Modo web · usuario:',u.nombre,'·',u.rol);
     /* Se pinta ya: si la primera subida tardara en llegar, el indicador no
        aparecería hasta entonces y el arranque sería justo el momento con
@@ -17363,9 +17402,13 @@ function imprimirBitacora(){
     }
     await continuarArranque();
   }catch(e){
-    // Ya no existe un modo local de acceso: sin servidor no hay forma segura
-    // de saber quién está entrando. login.html ya sabe mostrar el aviso de
-    // "no se pudo conectar" en este caso.
+    /* El servidor NO respondio: sin red, Render caido o agotado el plazo. Si
+       este equipo ya tenia una sesion validada hace menos de 12 horas, se
+       sigue trabajando con ella; los cambios se encolan y suben al volver la
+       linea. Si no la tiene, no hay forma segura de saber quien entra y se va
+       a la pantalla de acceso, que ya sabe avisar de que no se pudo conectar. */
+    const local=sesionLocalVigente();
+    if(local){ await arrancarSinConexion(local); return; }
     window.location.href='/login.html';
     return;
   }
@@ -17378,6 +17421,94 @@ async function continuarArranque(){
   guardar();
   actualizarPieNav();
   vInicio();   // ya no existe mostrarCandado(): el candado local desapareció
+}
+
+/* =============== TRABAJAR SIN CONEXIÓN ===============
+   Hasta ahora, cualquier fallo al contactar el servidor mandaba a la pantalla
+   de acceso. Con la línea caída eso dejaba el laboratorio parado: ni recibir
+   un paciente, ni capturar un resultado, ni consultar un expediente — aunque
+   los datos estuvieran ahí mismo, en el respaldo local de este equipo.
+
+   Ahora se distingue una cosa de la otra, y la distinción es la clave:
+
+     · El servidor RESPONDE y dice que no (401, sesión vencida) → a la
+       pantalla de acceso, como siempre. Aquí no hay nada que discutir.
+     · El servidor NO RESPONDE (sin red, Render caído, timeout) → si en este
+       equipo ya había una sesión que el servidor valido hace poco, se sigue
+       trabajando con esa identidad. Los cambios se encolan en IndexedDB y
+       suben solos cuando vuelva la línea, que es lo que ya hacía guardar().
+
+   Sobre la seguridad de esa segunda rama, para que sea una decisión y no un
+   descuido: los datos del laboratorio YA están en el disco de este equipo
+   —el respaldo local existe desde antes que esto—, así que dejar entrar sin
+   servidor no expone nada que no estuviera expuesto. Lo que sí se acota es el
+   tiempo: la sesión local caduca a las 12 horas. Un equipo abandonado no
+   queda abierto para siempre, y quien no haya entrado nunca en él no puede
+   entrar sin servidor. */
+const SESION_LOCAL='LIS_CDIM_sesion';
+const SESION_LOCAL_HORAS=12;
+
+function guardarSesionLocal(u){
+  try{ localStorage.setItem(SESION_LOCAL, JSON.stringify({u, ts:Date.now()})); }catch(e){}
+}
+function sesionLocalVigente(){
+  try{
+    const d=JSON.parse(localStorage.getItem(SESION_LOCAL)||'null');
+    if(!d||!d.u||!d.ts)return null;
+    if(Date.now()-d.ts > SESION_LOCAL_HORAS*3600000)return null;
+    return d.u;
+  }catch(e){ return null; }
+}
+function olvidarSesionLocal(){ try{ localStorage.removeItem(SESION_LOCAL); }catch(e){} }
+
+/* Arranque sin servidor. MODO_WEB se deja en true a propósito: es lo que hace
+   que guardar() encole los cambios y que el barrido de cada 30 s los intente
+   subir. Trabajar sin conexión no es "modo local": es el mismo modo de
+   siempre con la red caída. */
+async function arrancarSinConexion(u){
+  MODO_WEB=true;
+  USUARIO_WEB=u;
+  _syncFallido=true;               // el indicador arranca avisando, no en verde
+  SIN_CONEXION=true;
+  console.log('[CDIM] Sin conexión · sesión local de',u.nombre);
+  const bc=document.getElementById('btn-cambiar'); if(bc)bc.style.display='';
+  const bl=document.getElementById('btn-logout');  if(bl)bl.style.display='';
+  pintarIndicadorSync();
+  programarSyncPeriodico();        // reintenta solo; al volver la red, sube
+  actualizarPieNav();
+  vInicio();
+}
+
+/* El service worker guarda la aplicación en el navegador para que haya algo
+   que abrir cuando no hay red. Los DOCUMENTOS van a la red primero (ver
+   public/sw.js), así que estando en línea siempre se ve la versión
+   desplegada: cachear el programa no puede convertirse en servir uno viejo,
+   que es exactamente el fallo que tenía el del portal del paciente. */
+function registrarServicioSinConexion(){
+  if(!('serviceWorker' in navigator))return;
+  navigator.serviceWorker.register('/sw.js').then(reg=>{
+    /* Si mientras alguien trabaja se despliega una versión nueva, se avisa en
+       vez de cambiarla por debajo: recargar en medio de una captura de
+       resultados perdería lo que se está escribiendo. */
+    reg.addEventListener('updatefound',()=>{
+      const nuevo=reg.installing;
+      if(!nuevo)return;
+      nuevo.addEventListener('statechange',()=>{
+        if(nuevo.state==='installed'&&navigator.serviceWorker.controller)
+          mostrarAvisoVersion();
+      });
+    });
+  }).catch(()=>{});
+}
+function mostrarAvisoVersion(){
+  if(document.getElementById('aviso-version'))return;
+  const d=document.createElement('div');
+  d.id='aviso-version'; d.className='aviso-version';
+  d.innerHTML='<b>Hay una versión nueva del sistema.</b> '+
+    '<span>Se aplica al recargar. Termina lo que estés capturando primero.</span>'+
+    '<button class="btn btn-p btn-min" onclick="location.reload()">Recargar ahora</button>'+
+    '<button class="btn btn-g btn-min" onclick="this.parentNode.remove()">Después</button>';
+  document.body.appendChild(d);
 }
 </script>
 </body>
