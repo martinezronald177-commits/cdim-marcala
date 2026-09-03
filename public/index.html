@@ -1060,6 +1060,30 @@ td input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:
   .hojas{justify-content:center}
   .hojas-info{width:100%;text-align:center}
 }
+
+/* ---------- Editor de tramos por edad y sexo ---------- */
+.tramos-edit{display:flex;flex-direction:column;gap:5px;max-height:190px;overflow-y:auto;margin-bottom:6px}
+/* desde – hasta · unidad · sexo · mín · máx · etiqueta · ✕. La etiqueta es la
+   columna elástica: es la única que lleva texto libre. */
+.tramo-fila{display:grid;grid-template-columns:4.2em auto 4.2em 5.4em 6.2em 4.2em 4.2em minmax(6em,1fr) auto;gap:4px;align-items:center}
+.tramo-fila .tr_e{text-align:left}
+.tramo-fila input,.tramo-fila select{padding:6px 6px;font-size:12px;min-width:0;width:100%;box-sizing:border-box}
+.tramo-fila input{text-align:center}
+.tramo-fila .btn{padding:4px 7px}
+.tramo-sep{color:var(--gris);font-size:12px}
+.tramos-pie{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.tramos-pie .ayuda{margin:0}
+.pp_fuente{font-size:11.5px;padding:6px 8px}
+/* En pantalla angosta la fila se parte en tres renglones: edad · sexo y
+   valores · etiqueta con su ✕. Nueve columnas en 375px no caben. */
+@media (max-width:760px){
+  .tramo-fila{grid-template-columns:1fr auto 1fr 5.4em;grid-auto-rows:auto}
+  .tramo-fila .tr_s{grid-column:1/3}
+  .tramo-fila .tr_min{grid-column:3/4}
+  .tramo-fila .tr_max{grid-column:4/5}
+  .tramo-fila .tr_e{grid-column:1/4}
+  .tramo-fila .btn{grid-column:4/5}
+}
 </style>
 </head>
 <body>
@@ -3471,6 +3495,84 @@ function unirTel(idLada,idNum){
   const num=(n?n.value:'').trim();
   return num?((l?l.value:'+504')+' '+num):'';
 }
+/* ── Tramos por edad y sexo ──
+   En pantalla la edad se escribe en años o en meses -nadie piensa "180
+   meses"-, pero se GUARDA siempre en meses, que es lo que entiende
+   rangoActivo(). La unidad con la que se muestra un tramo existente se elige
+   sola: años si sus límites son múltiplos de 12, meses si no. */
+function unidadTramo(r){
+  const v=[r.edadMin,r.edadMax].filter(x=>x!==''&&x!==undefined&&x!==null).map(Number);
+  if(!v.length)return 'a';
+  return v.every(x=>x%12===0)?'a':'m';
+}
+function edadEnCampo(m,u){
+  if(m===''||m===undefined||m===null)return '';
+  return u==='a'?String(Number(m)/12):String(Number(m));
+}
+function filaTramo(r={},bloq){
+  const ro=bloq?'readonly':'', dis=bloq?'disabled':'';
+  const u=unidadTramo(r);
+  return `<div class="tramo-fila">
+    <input class="tr_d" inputmode="decimal" placeholder="desde" value="${esc(edadEnCampo(r.edadMin,u))}" title="Edad desde (incluida)" ${ro}>
+    <span class="tramo-sep">–</span>
+    <input class="tr_h" inputmode="decimal" placeholder="hasta" value="${esc(edadEnCampo(r.edadMax,u))}" title="Edad hasta (no incluida)" ${ro}>
+    <select class="tr_u" title="Unidad de la edad" ${dis}>
+      <option value="a" ${u==='a'?'selected':''}>años</option>
+      <option value="m" ${u==='m'?'selected':''}>meses</option>
+    </select>
+    <select class="tr_s" title="Sexo al que aplica" ${dis}>
+      <option value="" ${!r.sexo?'selected':''}>Todos</option>
+      <option value="F" ${r.sexo==='F'?'selected':''}>♀ Fem.</option>
+      <option value="M" ${r.sexo==='M'?'selected':''}>♂ Masc.</option>
+    </select>
+    <input class="tr_min" inputmode="decimal" placeholder="mín" value="${esc(r.min??'')}" title="Valor mínimo de referencia" ${ro}>
+    <input class="tr_max" inputmode="decimal" placeholder="máx" value="${esc(r.max??'')}" title="Valor máximo de referencia" ${ro}>
+    ${/* La etiqueta es lo que imprime el informe junto al intervalo
+         ("adulto · deseable", "menor de 19 años · aceptable (NHLBI)"): los
+         tramos de fábrica la traen y perderla degradaría el informe. texto
+         viaja oculto: no se edita aquí, pero tampoco puede perderse. */''
+     }<input class="tr_e" placeholder="etiqueta (opcional)" value="${esc(r.etiqueta||'')}" title="Texto que acompaña al intervalo en el informe, p. ej. «adulto · deseable»" ${ro}>
+    <input type="hidden" class="tr_t" value="${esc(r.texto||'')}">
+    <button type="button" class="btn btn-r btn-min" title="Quitar este tramo" onclick="quitarTramo(this)" ${dis}>✕</button>
+  </div>`;
+}
+function agregarTramo(btn){
+  const cont=btn.closest('.pt-tramos').querySelector('.tramos-edit');
+  cont.insertAdjacentHTML('beforeend',filaTramo({},false));
+  const f=cont.lastElementChild.querySelector('.tr_d'); if(f)f.focus();
+}
+function quitarTramo(btn){ const fila=btn.closest('.tramo-fila'); if(fila)fila.remove(); }
+
+/* Lee los tramos de un bloque de parámetro y devuelve lo que guarda la
+   plantilla. Pura a propósito -recibe el bloque, no busca en el documento-
+   para poder probarla sin navegador.
+   Una fila sin mínimo ni máximo no dice nada: se descarta en silencio. */
+function recogerTramos(f){
+  const v=el=>((el&&el.value)||'').trim();
+  const num=s=>s===''?'':String(Number(s));
+  return [...f.querySelectorAll('.tramo-fila')].map(fila=>{
+    const u=v(fila.querySelector('.tr_u'))||'a';
+    const factor=u==='a'?12:1;
+    const aMeses=s=>s===''?'':String(Math.round(Number(s)*factor));
+    const d=v(fila.querySelector('.tr_d')), h=v(fila.querySelector('.tr_h'));
+    const r={edadMin:aMeses(d), edadMax:aMeses(h),
+            sexo:v(fila.querySelector('.tr_s')),
+            min:num(v(fila.querySelector('.tr_min'))), max:num(v(fila.querySelector('.tr_max')))};
+    /* etiqueta y texto solo se escriben si existen: los tramos de fábrica los
+       traen y se conservan tal cual; uno nuevo sin etiqueta no arrastra un
+       campo vacío. */
+    const e=v(fila.querySelector('.tr_e')), tx=v(fila.querySelector('.tr_t'));
+    if(e)r.etiqueta=e;
+    if(tx)r.texto=tx;
+    return r;
+  }).filter(r=>r.min!==''||r.max!==''||r.texto);
+}
+/* Un tramo cuya edad "hasta" no supera a "desde" no cubre a nadie: es un
+   error de tecleo y hay que decirlo, no guardarlo. */
+function tramoInvalido(rs){
+  return (rs||[]).find(r=>r.edadMin!==''&&r.edadMax!==''&&Number(r.edadMax)<=Number(r.edadMin))||null;
+}
+
 function filaParam(p={},i,bloq){
   const ro=bloq?`readonly title="${TITULO_EXAM_BLOQUEADO}"`:'';
   const dis=bloq?`disabled title="${TITULO_EXAM_BLOQUEADO}"`:'';
@@ -3509,14 +3611,14 @@ function filaParam(p={},i,bloq){
       </div>
       <div class="pt-grupo pt-tramos">
         <span class="pt-et">Intervalos por edad y sexo</span>
-        ${(p.rangos||[]).length?`<div class="tramos-lista">
-          ${p.rangos.map(r=>`<div class="tramo">
-            <b>${esc(etiquetaEdad(r)||'general')}</b>${r.sexo?` <span class="chip chip-az" style="font-size:9px">${r.sexo==='F'?'♀':'♂'}</span>`:''}
-            <span>${esc((r.min??'')!==''&&(r.max??'')!==''?r.min+' – '+r.max:(r.max??'')!==''?'< '+r.max:(r.min??'')!==''?'> '+r.min:'—')}</span>
-          </div>`).join('')}
+        ${/* Editables. Antes solo se mostraban y el guardado los borraba: ver
+              recogerTramos() y el comentario de guardarExamen(). */''
+         }<div class="tramos-edit">${(p.rangos||[]).map(r=>filaTramo(r,bloq)).join('')}</div>
+        <div class="tramos-pie">
+          <button type="button" class="btn btn-g btn-min" onclick="agregarTramo(this)" ${dis}>+ Añadir tramo</button>
+          <span class="ayuda">Vacío = sin límite. Si no hay tramos se usan los valores generales de la izquierda.</span>
         </div>
-        <div class="ayuda">${p.fuente?'Fuente: '+esc(p.fuente):''}</div>`
-        :'<div class="ayuda">Sin tramos por edad. Se aplican los valores generales de la izquierda.</div>'}
+        <input class="pp_fuente" value="${esc(p.fuente||'')}" placeholder="Fuente de los intervalos (opcional: inserto, guía, bibliografía)" ${ro}>
       </div>
       <div class="pt-grupo pt-criticos">
         <span class="pt-et">Límites críticos</span>
@@ -3705,12 +3807,22 @@ function guardarExamen(idPrev){
     refMin:f.querySelector('.pp_rmi').value.trim(),refMax:f.querySelector('.pp_rma').value.trim(),
     refMinF:f.querySelector('.pp_rmif').value.trim(),refMaxF:f.querySelector('.pp_rmaf').value.trim(),
     critMin:f.querySelector('.pp_cmi').value.trim(),critMax:f.querySelector('.pp_cma').value.trim(),
+    /* rangos y fuente NO estaban aquí: cada parámetro se reconstruye desde el
+       formulario, y lo que no se lista se pierde. Guardar la plantilla por
+       cualquier motivo borraba en silencio los intervalos por edad. */
+    rangos:recogerTramos(f),
+    fuente:((f.querySelector('.pp_fuente')||{value:''}).value||'').trim(),
     refTexto:f.querySelector('.pp_t').value.trim(),
     grupo:(f.querySelector('.pp_g')||{value:''}).value.trim(),
     opciones:((f.querySelector('.pp_o')||{value:''}).value||'').split('\n').map(x=>x.trim()).filter(Boolean),
     multi:!!(f.querySelector('.pp_m')||{}).checked,
     formula:((f.querySelector('.pp_f')||{value:''}).value||'').trim()
   })).filter(p=>p.nombre);
+  const malo=params.map(p=>({p,r:tramoInvalido(p.rangos)})).find(x=>x.r);
+  if(malo){
+    toast('En "'+malo.p.nombre+'" hay un tramo cuya edad "hasta" no supera a "desde": no cubre a nadie. Corrígelo antes de guardar.');
+    return;
+  }
   const datos={id,nombre:g('e_nombre'),area:g('e_area')||'General',precio:Number(g('e_precio'))||0,tubo:g('e_tubo'),
     metodo:g('e_metodo'),entrega:g('e_entrega'),leyenda:document.getElementById('e_leyenda').value.trim(),tipoLista:g('e_lista'),params};
   const r=srvGuardarExamen(idPrev, datos, {bloqueado:_examBloqueado});
