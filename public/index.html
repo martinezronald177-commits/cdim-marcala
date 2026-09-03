@@ -1344,7 +1344,7 @@ function migrarEstado(s){
     s.config=Object.assign({
       profesional:'Dr. Ronald Martínez',
       profesionalTitulo:'Microbiólogo y Químico Clínico',
-      sedes:s.config.direccion||'',web:'',correo:'',redes:'CDI Marcala',
+      web:'',correo:'',redes:'CDI Marcala',
       servicios:'Laboratorio Clínico · Bioquímica Clínica · Hematología · Inmunología · Serología · Hormonas · Uroanálisis · Coproanálisis · Microbiología',
       prefijoId:'CDIM',sello:'',firma:'',sucursal:'1',moneda:'L',
       rtn:'12011997009532',razonSocial:'Inversiones Martínez Márquez',
@@ -1365,6 +1365,15 @@ function migrarEstado(s){
     if(!s.config.facSerie)s.config.facSerie='000-001-01-';
     if(!s.config.facDesde)s.config.facDesde=1;
     if(!s.config.facHasta)s.config.facHasta=100;
+    /* "sedes" nunca guardo sedes: era la linea de direccion del pie de la
+       cotizacion, y un campo con ese nombre invita a escribir locales que no
+       existen. Se renombra conservando lo que hubiera escrito; si estaba
+       vacio, se hereda la direccion, que es lo que hacia la version anterior. */
+    if(s.config.dirPie===undefined)
+      s.config.dirPie=s.config.sedes||s.config.direccion||'';
+    delete s.config.sedes;
+    /* Solo cuando NUNCA se migro: un dirPie vaciado a proposito tiene que
+       poder quedarse vacio. Vacio, el pie imprime la direccion principal. */
     if(!s.config.facLimite)s.config.facLimite='2027-04-28';
     if(s.config.sobreAncho===250&&s.config.sobreAlto===350){s.config.sobreAncho=216;s.config.sobreAlto=279;}
     (s.cotizaciones||[]).forEach(c=>{if(/ronald.*mart[ií]nez/i.test(c.elaboradoPor||''))c.elaboradoPor=s.config.elaborador;});
@@ -1812,7 +1821,7 @@ function estadoInicial(){
       anclaSGC:'Resultados garantizados por nuestro SGC',
       profesional:'Dr. Ronald Martínez',
       profesionalTitulo:'Microbiólogo y Químico Clínico',
-      sedes:'Col. Melgar Castro, calle hacia el 21 de Octubre, Marcala, La Paz, Honduras',
+      dirPie:'Col. Melgar Castro, calle hacia el 21 de Octubre, Marcala, La Paz, Honduras',
       web:'',
       correo:'lab_cdim@proton.me',
       redes:'CDI Marcala',
@@ -12406,7 +12415,9 @@ function imprimirCotizacion(n,opciones){
   <div class="pie-inst">
     <div class="pie-serv">${esc(cf.servicios||'')}</div>
     <div class="pie-dir">
-      <div><b>${esc(cf.nombre)}</b><br>${esc(cf.sedes||cf.direccion)}</div>
+      ${/* La direccion corta del pie. Si no se puso ninguna, se usa la
+           direccion principal: mas vale repetirla que dejar el pie mudo. */''
+       }<div><b>${esc(cf.nombre)}</b><br>${esc(cf.dirPie||cf.direccion)}</div>
       <div><b>Contacto</b><br>WhatsApp ${esc(cf.whatsapp)}${cf.correo?'<br>'+esc(cf.correo):''}</div>
       <div><b>Horario</b><br>${esc(cf.horario)}</div>
     </div>
@@ -15478,7 +15489,8 @@ function vConfig(){
       <div class="campo"><label>Profesional responsable (cabecera del informe)</label><input id="cf_prof" value="${esc(c.profesional||'')}"></div>
       <div class="campo"><label>Especialidad del profesional</label><input id="cf_proft" value="${esc(c.profesionalTitulo||'')}"></div>
       <div class="campo" style="grid-column:1/-1"><label>Franja de servicios (pie del informe)</label><input id="cf_serv" value="${esc(c.servicios||'')}"></div>
-      <div class="campo" style="grid-column:1/-1"><label>Sedes / dirección ampliada del pie</label><input id="cf_sedes" value="${esc(c.sedes||'')}"></div>
+      <div class="campo" style="grid-column:1/-1"><label>Dirección corta para el pie de la cotización</label><input id="cf_dirpie" value="${esc(c.dirPie||'')}" placeholder="${esc(c.direccion||'')}">
+        <div class="ayuda">Va al pie de la cotización, debajo del nombre del laboratorio. Suele ser una versión más corta de la dirección de arriba; si se deja vacía se imprime esa misma.</div></div>
       <div class="campo"><label>Sitio web</label><input id="cf_web" value="${esc(c.web||'')}" placeholder="www.cdimarcala.com"></div>
       <div class="campo"><label>Correo electrónico</label><input id="cf_correo" value="${esc(c.correo||'')}"></div>
       <div class="campo"><label>Redes sociales</label><input id="cf_redes" value="${esc(c.redes||'')}"></div>
@@ -15788,7 +15800,7 @@ function guardarConfig(){
   Object.assign(S.config,{nombre:g('cf_nombre'),lema:g('cf_lema'),direccion:g('cf_dir'),whatsapp:unirTel('cf_wla','cf_wa'),telefono2:unirTel('cf_t2la','cf_tel2'),
     ladaDefecto:document.getElementById('cf_lada').value,elaborador:g('cf_elab'),horario:g('cf_hor'),portalPaciente:g('cf_portal'),
     regente:g('cf_reg'),colegiacion:g('cf_col'),anclaSGC:g('cf_sgc'),
-    profesional:g('cf_prof'),profesionalTitulo:g('cf_proft'),servicios:g('cf_serv'),sedes:g('cf_sedes'),
+    profesional:g('cf_prof'),profesionalTitulo:g('cf_proft'),servicios:g('cf_serv'),dirPie:g('cf_dirpie'),
     web:g('cf_web'),correo:g('cf_correo'),redes:g('cf_redes'),prefijoId:g('cf_pref')||'CDIM',
     sucursal:g('cf_suc')||'1',
     rtn:g('cf_rtn'),razonSocial:g('cf_razon'),codigoDocCot:g('cf_codcot'),revisionDoc:g('cf_rev'),
