@@ -2537,8 +2537,8 @@ function render(v,arg){
   else if(v==='examenes')vExamenes();
   else if(v==='perfiles')vPerfiles();
   else if(v==='medicos')vMedicos();
-  else if(v==='cotizaciones')vCotizaciones();
-  else if(v==='ordenes')vOrdenes(arg);
+  else if(v==='cotizaciones'){_hojaCot=1;vCotizaciones();}
+  else if(v==='ordenes'){_hojaOrd=1;vOrdenes(arg);}
   else if(v==='agenda')vAgenda(arg);
   else if(v==='resultados')vResultados();
   else if(v==='etiquetas')vEtiquetas();
@@ -4198,33 +4198,36 @@ function botonesExtraCot(){
   ${filtrandoOtroDia?`<button class="btn btn-g btn-min" onclick="verTodoHistorialCotizaciones()">Ver todo el historial</button>`:''}
   <span class="ord-conteo">${n} cotización(es)</span>`;
 }
-/* Patrón "Ver más", igual que _topeOrd en Órdenes (23_ordenes.js).
-   Pacientes ya no lo usa: pasó a hojas (trozoHoja/barraHojas, en
-   10b_formato_compartido.js). Esta lista puede pasar a hojas igual, con dos
-   líneas, el día que se decida.
-   Aquí: cotizacionesFiltradas() se deja SIN
-   recortar (botonesExtraCot() necesita el total real para el contador
-   "N cotización(es)"); solo se recorta lo que se dibuja. tablaCotizaciones()
-   no se toca: sigue siendo un renderizador puro. */
-let _topeCot=150;
+/* Por hojas, con el mismo paginador que Pacientes y Órdenes
+   (trozoHoja/barraHojas, en 10b_formato_compartido.js): las tres listas se
+   navegan igual.
+   cotizacionesFiltradas() se deja SIN recortar —botonesExtraCot() necesita el
+   total real para el contador "N cotización(es)"—; solo se recorta lo que se
+   dibuja. tablaCotizaciones() no se toca: sigue siendo un renderizador puro. */
+let _hojaCot=1;
+const POR_HOJA_COT=15;
 function contenidoListaCotizaciones(){
-  const todos=cotizacionesFiltradas();
-  const lista=todos.slice(0,_topeCot);
-  const resto=todos.length-lista.length;
-  return `${resto>0?`<div class="aviso" style="margin-bottom:8px">Mostrando ${lista.length} de ${todos.length} cotizaciones.
-    <button class="btn btn-g btn-min" onclick="verMasCotizaciones()">Ver 150 más</button>
-    <span style="color:var(--gris)">· usa la fecha o el buscador para llegar directo a una</span></div>`:''}${tablaCotizaciones(lista)}`;
+  const t=trozoHoja(cotizacionesFiltradas(), _hojaCot, POR_HOJA_COT);
+  _hojaCot=t.hoja;                 // por si la hoja se quedó fuera de rango
+  const barra=barraHojas(t,'irHojaCot','cotización(es)');
+  return `${barra}${tablaCotizaciones(t.items)}${t.hojas>1?barra:''}`;
 }
-function verMasCotizaciones(){_topeCot+=150;const l=document.getElementById('lista_cot');if(l)l.innerHTML=contenidoListaCotizaciones();}
+function irHojaCot(n){
+  _hojaCot=n;
+  const l=document.getElementById('lista_cot');
+  if(!l)return;
+  l.innerHTML=contenidoListaCotizaciones();
+  if(l.scrollIntoView)l.scrollIntoView({block:'start',behavior:'auto'});
+}
 function filtrarVistaCotizaciones(){
   _cotQ=document.getElementById('cot_q')?.value||'';
   _cotFecha=document.getElementById('cot_fecha')?.value||'';
-  _topeCot=150;
+  _hojaCot=1;
   const l=document.getElementById('lista_cot');if(l)l.innerHTML=contenidoListaCotizaciones();
   const eb=document.getElementById('cot_extra_btns');if(eb)eb.innerHTML=botonesExtraCot();
 }
-function irCotizacionesHoy(){_cotFecha=hoy();_cotQ='';_topeCot=150;vCotizaciones();}
-function verTodoHistorialCotizaciones(){_cotFecha='';_cotQ='';_topeCot=150;vCotizaciones();}
+function irCotizacionesHoy(){_cotFecha=hoy();_cotQ='';_hojaCot=1;vCotizaciones();}
+function verTodoHistorialCotizaciones(){_cotFecha='';_cotQ='';_hojaCot=1;vCotizaciones();}
 /* Estado de una cotizacion. No hay campo que lo guarde: se deduce de si ya
    se convirtio en orden, si espera aprobacion del portal, y de su validez en
    dias. Lo usan la tabla de la vista y la hoja de resumen del consolidado
@@ -5820,28 +5823,32 @@ function botonesExtraOrdenes(){
   <span class="ord-conteo">${n} orden(es)</span>`;
 }
 /* Entrada desde el aviso "N orden(es) pendientes de cobro" del tablero. */
-function verOrdenesPorCobrar(){_ordPorCobrar=true;_ordFecha='';_ordQ='';_topeOrd=150;irA('ordenes');}
-function quitarFiltroPorCobrar(){_ordPorCobrar=false;_ordFecha=hoy();_ordQ='';_topeOrd=150;vOrdenes();}
-/* Patrón "Ver más". Pacientes ya no lo usa: pasó a hojas (trozoHoja y
-   barraHojas, en 10b_formato_compartido.js), y esta lista puede pasar igual
-   con dos líneas el día que se decida. Con el
-   filtro por día, la lista casi siempre es chica, pero "Ver todo el
-   historial" o una búsqueda amplia pueden traer años de órdenes de una vez.
-   ordenesFiltradas() se deja SIN recortar (botonesExtraOrdenes() necesita el
-   total real para el contador "N orden(es)"); solo se recorta lo que se
-   dibuja, en contenidoListaOrdenes(). tablaOrdenes() no se toca: sigue siendo
-   un renderizador puro reutilizado también por el resumen de "Inicio"
-   (12_sesion.js, últimas 8 órdenes), que no debe llevar este aviso. */
-let _topeOrd=150;
+function verOrdenesPorCobrar(){_ordPorCobrar=true;_ordFecha='';_ordQ='';_hojaOrd=1;irA('ordenes');}
+function quitarFiltroPorCobrar(){_ordPorCobrar=false;_ordFecha=hoy();_ordQ='';_hojaOrd=1;vOrdenes();}
+/* Por hojas, con el mismo paginador que Pacientes y Cotizaciones
+   (trozoHoja/barraHojas, en 10b_formato_compartido.js). Con el filtro por día
+   la lista casi siempre es chica, pero "Ver todo el historial" o una búsqueda
+   amplia pueden traer años de órdenes de una vez.
+   ordenesFiltradas() se deja SIN recortar —botonesExtraOrdenes() necesita el
+   total real para el contador "N orden(es)"—; solo se recorta lo que se
+   dibuja, aquí. tablaOrdenes() no se toca: sigue siendo un renderizador puro,
+   y lo reutiliza el resumen de "Inicio" (12_sesion.js, últimas 8 órdenes),
+   que no debe llevar barra de hojas. */
+let _hojaOrd=1;
+const POR_HOJA_ORD=15;
 function contenidoListaOrdenes(){
-  const todos=ordenesFiltradas();
-  const lista=todos.slice(0,_topeOrd);
-  const resto=todos.length-lista.length;
-  return `${resto>0?`<div class="aviso" style="margin-bottom:8px">Mostrando ${lista.length} de ${todos.length} órdenes.
-    <button class="btn btn-g btn-min" onclick="verMasOrdenes()">Ver 150 más</button>
-    <span style="color:var(--gris)">· usa la fecha o el buscador para llegar directo a una</span></div>`:''}${tablaOrdenes(lista)}`;
+  const t=trozoHoja(ordenesFiltradas(), _hojaOrd, POR_HOJA_ORD);
+  _hojaOrd=t.hoja;                 // por si la hoja se quedó fuera de rango
+  const barra=barraHojas(t,'irHojaOrd','orden(es)');
+  return `${barra}${tablaOrdenes(t.items)}${t.hojas>1?barra:''}`;
 }
-function verMasOrdenes(){_topeOrd+=150;const l=document.getElementById('lista_ord');if(l)l.innerHTML=contenidoListaOrdenes();}
+function irHojaOrd(n){
+  _hojaOrd=n;
+  const l=document.getElementById('lista_ord');
+  if(!l)return;
+  l.innerHTML=contenidoListaOrdenes();
+  if(l.scrollIntoView)l.scrollIntoView({block:'start',behavior:'auto'});
+}
 function filtrarVistaOrdenes(porFecha){
   _ordQ=document.getElementById('ord_q')?.value||'';
   _ordFecha=document.getElementById('ord_fecha')?.value||'';
@@ -5849,12 +5856,12 @@ function filtrarVistaOrdenes(porFecha){
   // que justamente ignora la fecha. Buscar por nombre o número sí se combina
   // con el modo, para ubicar rápido a un cliente dentro de los que deben.
   if(porFecha)_ordPorCobrar=false;
-  _topeOrd=150;
+  _hojaOrd=1;
   const l=document.getElementById('lista_ord');if(l)l.innerHTML=contenidoListaOrdenes();
   const eb=document.getElementById('ord_extra_btns');if(eb)eb.innerHTML=botonesExtraOrdenes();
 }
-function irOrdenesHoy(){_ordFecha=hoy();_ordQ='';_ordPorCobrar=false;_topeOrd=150;vOrdenes();}
-function verTodoHistorialOrdenes(){_ordFecha='';_ordQ='';_ordPorCobrar=false;_topeOrd=150;vOrdenes();}
+function irOrdenesHoy(){_ordFecha=hoy();_ordQ='';_ordPorCobrar=false;_hojaOrd=1;vOrdenes();}
+function verTodoHistorialOrdenes(){_ordFecha='';_ordQ='';_ordPorCobrar=false;_hojaOrd=1;vOrdenes();}
 function vOrdenes(abrir){
   vista.innerHTML=`
   <div class="cabecera"><h2>Órdenes de Trabajo</h2><button class="btn btn-p" onclick="modalOrdenDirecta()">+ Orden directa</button></div>
