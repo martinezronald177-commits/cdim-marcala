@@ -18264,8 +18264,19 @@ function imprimirBitacora(){
   try{
     const guardadoIDB=await leerDeIDB();
     if(guardadoIDB){
-      const s=migrarEstado(JSON.parse(guardadoIDB));
+      const crudo=JSON.parse(guardadoIDB);
+      const antesMig=JSON.stringify({meta:crudo.meta||{},config:crudo.config||{}});
+      const s=migrarEstado(crudo);
       S=s; invalidarIndices();
+      /* El estado del servidor se baja solo si trae algo más nuevo; cuando no,
+         se sigue con esta copia y nadie volvía a mirar si la migración cambió
+         algo. Resultado: una migración aplicada sobre el respaldo local no se
+         subía nunca — solo viajaba de rebote, cuando alguien guardaba otra cosa.
+         Aquí se marca igual que en el camino del servidor. */
+      if(JSON.stringify({meta:S.meta||{},config:S.config||{}})!==antesMig){
+        console.log('[CDIM] Migraciones aplicadas al respaldo local');
+        _syncPendiente=true;
+      }
     }
   }catch(e){ /* respaldo ilegible: se sigue con lo que trajo cargar() */ }
   // Intentar conectar con el servidor (timeout 3 s)
