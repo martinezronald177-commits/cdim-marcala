@@ -1088,6 +1088,7 @@ th{word-break:normal;overflow-wrap:normal;hyphens:none}
     <button data-v="examenes" aria-label="Exámenes / Plantillas"><svg class="ico" aria-hidden="true"><use href="#i-examenes"/></svg>Exámenes / Plantillas</button>
     <button data-v="perfiles" aria-label="Combos / Perfiles"><svg class="ico" aria-hidden="true"><use href="#i-perfiles"/></svg>Combos / Perfiles</button>
     <button data-v="cotizaciones" aria-label="Cotizaciones"><svg class="ico" aria-hidden="true"><use href="#i-cotizaciones"/></svg>Cotizaciones</button>
+    <button data-v="agenda" aria-label="Agenda de tomas de muestra"><svg class="ico" aria-hidden="true"><use href="#i-calendario"/></svg>Agenda</button>
     <button data-v="ordenes" aria-label="Órdenes de Trabajo"><svg class="ico" aria-hidden="true"><use href="#i-ordenes"/></svg>Órdenes de Trabajo</button>
     <button data-v="resultados" aria-label="Resultados validados"><svg class="ico" aria-hidden="true"><use href="#i-resultados"/></svg>Resultados</button>
     <button data-v="etiquetas" aria-label="Etiquetas 57×32"><svg class="ico" aria-hidden="true"><use href="#i-etiquetas"/></svg>Etiquetas 57×32</button>
@@ -1355,6 +1356,9 @@ function migrarEstado(s){
     if(!s.config.sello)s.config.sello=SELLO_CDIM;
     if(!s.config.logo)s.config.logo=LOGO_CDIM;
     // Sello reprocesado a 508 dpi desde el original de alta calidad
+    /* La agenda es de sep. 2026: un estado guardado antes no la trae. */
+    if(!s.citas)s.citas=[];
+    if(s.seq.cita===undefined)s.seq.cita=1;
     if(!s.recibos)s.recibos=[];
     if(!s.facturas)s.facturas=[];
     if(s.seq.fac===undefined)s.seq.fac=s.config.facDesde||1;
@@ -1808,10 +1812,11 @@ function estadoInicial(){
         diasEntrega:1,avisoEntrega:true,avisoStock:true,recordarRespaldo:7,
         notificacionObligatoria:NOTIF_OBLIGATORIA_DEFAULT}
     },
-    seq:{pac:1,cot:1,ot:1,mov:1,rec:1,fac:1,perfil:1,medico:1},
+    seq:{pac:1,cot:1,ot:1,mov:1,rec:1,fac:1,perfil:1,medico:1,cita:1},
     pacientes:[],
     examenes:semillaExamenes(),
     cotizaciones:[],
+    citas:[],
     ordenes:[],
     caja:{abierta:false,fecha:'',hora:'',responsable:'',fondo:0,conteo:{}},
     cortes:[],
@@ -2393,6 +2398,7 @@ function render(v,arg){
   else if(v==='medicos')vMedicos();
   else if(v==='cotizaciones')vCotizaciones();
   else if(v==='ordenes')vOrdenes(arg);
+  else if(v==='agenda')vAgenda(arg);
   else if(v==='resultados')vResultados();
   else if(v==='etiquetas')vEtiquetas();
   else if(v==='recibos')vRecibos();
@@ -2497,6 +2503,13 @@ function vInicio(){
     if(!o.pagada)porCobrar.push(o);
     if(o.fecha>=d30)o.examenes.forEach(e=>conteo[e.nombre]=(conteo[e.nombre]||0)+1);
   });
+  /* Las citas del dia son lo primero que hay que mirar al abrir: son las
+     personas que van a llegar. Y una cita a la que se le paso la hora sin
+     que nadie la reciba es alguien esperando o alguien que no vino; en
+     ambos casos hay que hacer algo. */
+  const citasHoy=(typeof citasDelDia==='function'?citasDelDia(hoyF):[])
+    .filter(c=>c.estado==='Programada');
+  const citasTarde=citasHoy.filter(c=>citaVencida(c,hoyF));
   const necesitaResp=cfg.recordarRespaldo>0&&(!S.meta.ultimoRespaldo||
     (new Date(hoyF)-new Date(S.meta.ultimoRespaldo))/86400000>=cfg.recordarRespaldo);
   // Ingresos de los últimos 7 días, también en una pasada
@@ -2532,7 +2545,8 @@ function vInicio(){
         validar dejaba el tablero diciendo "Sin alertas pendientes. Todas las
         órdenes están al día", que era sencillamente falso. */''
    }${(criticos.length||deltas.length||vencidas.length||hoyEntrega.length
-      ||parciales.length||sinValidar.length||porCobrar.length||necesitaResp)?`
+      ||parciales.length||sinValidar.length||porCobrar.length||necesitaResp
+      ||citasHoy.length)?`
   <div class="tarjeta">
     <h3 style="color:var(--azul);margin-bottom:10px">Centro de alertas</h3>
     ${criticos.slice(0,15).map(c=>`<div class="alerta-critica">⚠ CRÍTICO · ${c.o.numero} · ${esc(c.o.pacienteNombre)} — ${esc(c.a)}
@@ -2546,6 +2560,11 @@ function vInicio(){
     ${hoyEntrega.slice(0,10).map(o=>`<div class="aviso"><svg class="ico-en" aria-hidden="true"><use href="#i-calendario"/></svg> ENTREGA HOY · ${o.numero} · ${esc(o.pacienteNombre)} — prometida para hoy, aún pendiente de enviar
       <button class="btn btn-g btn-min" style="float:right" onclick="modalResultados('${o.numero}')">Ver</button></div>`).join('')}
     ${hoyEntrega.length>10?`<div style="font-size:11.5px;color:var(--gris);margin:4px 0 8px">y ${hoyEntrega.length-10} entrega(s) más que vencen hoy.</div>`:''}
+    ${citasTarde.slice(0,10).map(c=>`<div class="aviso" style="border-left-color:var(--rojo)"><svg class="ico-en" aria-hidden="true"><use href="#i-calendario"/></svg> CITA SIN RECIBIR · ${esc(c.hora)} · ${esc(c.nombre)} — pasó la hora y no se ha recibido
+      <button class="btn btn-v btn-min" style="float:right" onclick="recibirCitaUI('${c.id}')">Recibir</button></div>`).join('')}
+    ${citasHoy.filter(c=>!citaVencida(c,hoyF)).slice(0,10).map(c=>`<div class="aviso"><svg class="ico-en" aria-hidden="true"><use href="#i-calendario"/></svg> CITA HOY · ${esc(c.hora)} · ${esc(c.nombre)}${citaRequiereAyuno(c)?' — en ayunas':''}
+      <button class="btn btn-g btn-min" style="float:right" onclick="irA('agenda')">Ver agenda</button></div>`).join('')}
+    ${citasHoy.length>20?`<div style="font-size:11.5px;color:var(--gris);margin:4px 0 8px">y ${citasHoy.length-20} cita(s) más hoy.</div>`:''}
     ${parciales.slice(0,10).map(o=>`<div class="aviso" style="border-left-color:var(--ambar)">◐ VALIDADA A MEDIAS · ${o.numero} · ${esc(o.pacienteNombre)} — ${o.examenes.filter(e=>e.validado).length} de ${o.examenes.length} exámenes validados
       <button class="btn btn-g btn-min" style="float:right" onclick="modalResultados('${o.numero}')">Ver</button></div>`).join('')}
     ${parciales.length>10?`<div style="font-size:11.5px;color:var(--gris);margin:4px 0 8px">y ${parciales.length-10} orden(es) más a medio validar.</div>`:''}
@@ -4119,6 +4138,7 @@ function abrirMenuCot(ev,n){
   const c=S.cotizaciones.find(x=>x.numero===n);
   if(!c)return;
   const t=calcCot(c);
+  const citaViva=citaActivaDeCotizacion(n);
   abrirModal(`
   <h3>${esc(c.numero)}</h3>
   <p style="font-size:12.5px;color:var(--gris);margin-bottom:12px">
@@ -4160,8 +4180,15 @@ function abrirMenuCot(ev,n){
   ${(!c.ot&&c.estadoCot!=='Pendiente')?`<div class="acc-grupo"><b>Convertir</b>
     <div class="acc-botones">
       <button class="btn btn-v" onclick="cerrarModal();cotAOrden('${n}')">→ Crear orden de trabajo</button>
+      <button class="btn btn-p" onclick="cerrarModal();modalAgendar('${n}')"><svg class="ico-en" aria-hidden="true"><use href="#i-calendario"/></svg> Agendar la toma</button>
     </div>
+    <p style="font-size:11.5px;color:var(--gris);margin-top:7px;line-height:1.5">
+      <b>Crear orden</b> es para el paciente que ya está aquí. <b>Agendar</b> es para el que
+      viene otro día u otra hora: al recibirlo, la orden se crea sola con estos mismos exámenes.</p>
   </div>`:''}
+  ${citaViva?`<div class="aviso" style="margin-top:12px"><svg class="ico-en" aria-hidden="true"><use href="#i-calendario"/></svg>
+    Agendada para el <b>${diaLargo(citaViva.fecha)}</b> a las <b class="nw">${esc(citaViva.hora)}</b>.
+    <button class="btn btn-g btn-min" style="float:right" onclick="cerrarModal();irA('agenda','${citaViva.fecha}')">Ver en la agenda</button></div>`:''}
   ${c.ot?`<div class="aviso" style="margin-top:12px">Ya generó la orden <b>${esc(c.ot)}</b>.</div>`:''}
 
   <div class="modal-pie">
@@ -8841,6 +8868,726 @@ function facturasDelMes(mes){ return docsDelMes(S.facturas,mes); }
 function totalesFacturasMes(lista){ return totalesDocsMes(lista,CONS_FACTURA); }
 function imprimirFacturasDelMes(mes){ return imprimirConsolidadoMes(CONS_FACTURA,mes); }
 function modalFacturasMes(mes){ return modalConsolidadoMes(CONS_FACTURA,mes); }
+/* =============== AGENDA · pantalla ===============
+   El caso real que le dio origen, tal cual pasa en el mostrador:
+     · se cotiza hoy y el paciente quiere venir mañana;
+     · se cotiza a las 6 de la mañana y vuelve a las 10.
+
+   Por eso el formulario no pide escribir una fecha: ofrece HOY, MAÑANA y
+   PASADO MAÑANA de un toque, y las horas a las que este laboratorio de verdad
+   toma muestras. Escribir "2026-09-04" a mano con un paciente enfrente es más
+   lento y se equivoca uno más.
+
+   Y por eso recibir al paciente es UN botón: la orden de trabajo se crea desde
+   la cotización que ya estaba hecha (srvRecibirCita → srvCrearOrdenDesdeCotizacion),
+   sin volver a elegir exámenes ni precios. */
+
+let AGENDA_DIA='';
+
+function masDias(f,n){
+  const [a,m,d]=String(f).split('-').map(Number);
+  /* En UTC a propósito: sumar días sobre la hora local salta o repite un día
+     cuando cambia el horario de verano en la máquina. */
+  const t=new Date(Date.UTC(a,m-1,d));
+  t.setUTCDate(t.getUTCDate()+n);
+  return t.toISOString().slice(0,10);
+}
+
+const DIAS_SEM=['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+const MESES_AG=['enero','febrero','marzo','abril','mayo','junio','julio','agosto',
+  'septiembre','octubre','noviembre','diciembre'];
+
+function diaLargo(f){
+  const [a,m,d]=String(f).split('-').map(Number);
+  const t=new Date(Date.UTC(a,m-1,d));
+  return DIAS_SEM[t.getUTCDay()]+' '+d+' de '+MESES_AG[m-1];
+}
+
+/* "hoy", "mañana" y "ayer" se leen mejor que la fecha, y son el 90% de lo que
+   se mira en una agenda. */
+function diaRelativo(f){
+  if(f===hoy())return 'hoy';
+  if(f===masDias(hoy(),1))return 'mañana';
+  if(f===masDias(hoy(),-1))return 'ayer';
+  return '';
+}
+
+/* ---------- Vista ---------- */
+function vAgenda(fecha){
+  const f=AGENDA_DIA=fecha||AGENDA_DIA||hoy();
+  const delDia=citasDelDia(f);
+  const prog=delDia.filter(c=>c.estado==='Programada');
+  const vencidas=prog.filter(c=>citaVencida(c));
+  const conAyuno=prog.filter(c=>citaRequiereAyuno(c));
+  const rel=diaRelativo(f);
+
+  vista.innerHTML=`
+  <div class="cabecera"><h2>Agenda</h2>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-v" onclick="modalAgendar()"><svg class="ico-en" aria-hidden="true"><use href="#i-calendario"/></svg> Agendar toma</button>
+    </div>
+  </div>
+
+  <div class="tarjeta" style="margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <button class="btn btn-g btn-min" title="Día anterior" onclick="vAgenda('${masDias(f,-1)}')">‹</button>
+      <div style="min-width:210px">
+        <div style="font-size:16px;font-weight:700;color:var(--azul);text-transform:capitalize">${diaLargo(f)}</div>
+        <div style="font-size:11.5px;color:var(--gris)" class="nw">${fmtFecha(f)}${rel?' · '+rel:''}</div>
+      </div>
+      <button class="btn btn-g btn-min" title="Día siguiente" onclick="vAgenda('${masDias(f,1)}')">›</button>
+      <button class="btn ${f===hoy()?'btn-p':'btn-g'} btn-min" onclick="vAgenda('${hoy()}')">Hoy</button>
+      <button class="btn ${f===masDias(hoy(),1)?'btn-p':'btn-g'} btn-min" onclick="vAgenda('${masDias(hoy(),1)}')">Mañana</button>
+      <input type="date" value="${f}" style="width:auto" onchange="vAgenda(this.value)">
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="n">${delDia.length}</div><div class="t">Citas del día</div></div>
+    <div class="kpi"><div class="n">${prog.length}</div><div class="t">Por atender</div></div>
+    <div class="kpi"><div class="n">${conAyuno.length}</div><div class="t">Requieren ayuno</div></div>
+    <div class="kpi" ${vencidas.length?'style="border-left-color:var(--rojo)"':''}><div class="n">${vencidas.length}</div><div class="t">Pasó la hora</div></div>
+  </div>
+
+  ${delDia.length?`<div class="tarjeta">
+    <table><thead><tr>
+      <th style="width:9%">Hora</th>
+      <th style="width:26%">Paciente</th>
+      <th class="col-sec" style="width:14%">Teléfono</th>
+      <th class="col-sec" style="width:22%">Qué se le toma</th>
+      <th style="width:13%">Estado</th>
+      <th style="width:16%"></th>
+    </tr></thead><tbody>
+    ${delDia.map(c=>filaCita(c)).join('')}
+    </tbody></table>
+  </div>`:`<div class="tarjeta" style="text-align:center;padding:34px 16px">
+    <div style="font-size:14px;color:var(--gris);margin-bottom:6px">No hay citas para ${rel||'ese día'}.</div>
+    <div style="font-size:12px;color:var(--gris)">Se agendan desde aquí o desde el menú <b>⋯</b> de una cotización.</div>
+  </div>`}
+
+  ${panelProximos(f)}`;
+}
+
+function filaCita(c){
+  const venc=citaVencida(c);
+  const ex=examenesDeCita(c);
+  const ayuno=citaRequiereAyuno(c);
+  const chip={'Programada':venc?'chip-rj':'chip-az','Atendida':'chip-vd',
+              'No asistió':'chip-am','Cancelada':'chip-medio'}[c.estado]||'chip-medio';
+  return `<tr${venc?' style="background:rgba(192,57,43,.05)"':''}>
+    <td><b class="nw">${esc(c.hora)}</b>${ayuno?'<div class="cel-sub nw">en ayunas</div>':''}</td>
+    <td><b>${esc(c.nombre)}</b>
+      ${c.cotizacion?`<div class="cel-sub"><span class="nw">${esc(c.cotizacion)}</span></div>`:''}
+      ${c.orden?`<div class="cel-sub">Orden <b class="nw">${esc(c.orden)}</b></div>`:''}</td>
+    <td class="col-sec nw">${esc(c.tel||'—')}</td>
+    <td class="col-sec" style="font-size:11.5px">${ex.length?esc(ex.slice(0,3).join(', '))+(ex.length>3?' y '+(ex.length-3)+' más':''):'—'}</td>
+    <td><span class="chip ${chip}">${esc(c.estado)}</span>
+      ${venc?'<div class="cel-sub" style="color:var(--rojo)">pasó la hora</div>':''}</td>
+    <td class="cel-acc">
+      ${c.estado==='Programada'
+        ?`<button class="btn btn-v btn-min" onclick="recibirCitaUI('${c.id}')">✓ Recibir</button>`
+        :(c.orden?`<button class="btn btn-p btn-min" onclick="irA('ordenes','${esc(c.orden)}')">Ver orden</button>`:'')}
+      <button class="btn btn-g btn-min" title="Más acciones" onclick="abrirMenuCita(event,'${c.id}')">⋯</button>
+    </td></tr>`;
+}
+
+/* Los próximos días de un vistazo: sirve para responder "¿y el jueves cómo
+   anda?" sin ir día por día. */
+function panelProximos(desde){
+  const dias=[];
+  for(let i=1;i<=7;i++){
+    const f=masDias(desde,i);
+    const n=citasDelDia(f).filter(c=>c.estado==='Programada').length;
+    dias.push({f,n});
+  }
+  if(!dias.some(d=>d.n))return '';
+  return `<div class="tarjeta" style="margin-top:16px">
+    <h3 style="color:var(--azul);margin-bottom:10px">Los siguientes días</h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      ${dias.filter(d=>d.n).map(d=>`<button class="btn btn-g btn-min" onclick="vAgenda('${d.f}')"
+        style="text-align:left"><b class="nw">${fmtFecha(d.f)}</b> · ${d.n} cita(s)</button>`).join('')}
+    </div></div>`;
+}
+
+/* ---------- Agendar ---------- */
+const HORAS_SUGERIDAS=['06:30','07:00','07:30','08:00','09:00','10:00','14:00'];
+
+function modalAgendar(cotNum){
+  const cot=cotNum?S.cotizaciones.find(x=>x.numero===cotNum):null;
+  if(cotNum&&!cot){toast('Esa cotización ya no existe');return;}
+  const ayuno=cot?itemsRequierenAyuno(cot.items):false;
+  /* Mañana a las 7 es lo más frecuente en un laboratorio: se cotiza por la
+     tarde y la toma es a primera hora del día siguiente, en ayunas. */
+  const fDef=masDias(hoy(),1), hDef=ayuno?'07:00':'08:00';
+
+  abrirModal(`
+  <h3>Agendar toma de muestra</h3>
+  ${cot?`<p style="font-size:12.5px;color:var(--gris);margin-bottom:12px">
+    <b class="nw">${esc(cot.numero)}</b> · ${esc(cot.nombre)} · ${cot.items.length} examen(es) · ${L(calcCot(cot).total)}</p>`:''}
+
+  <div class="campo"><label>¿Qué día?</label>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:7px">
+      <button type="button" class="btn btn-g btn-min" onclick="ponerDiaCita('${hoy()}')">Hoy</button>
+      <button type="button" class="btn btn-p btn-min" onclick="ponerDiaCita('${masDias(hoy(),1)}')">Mañana</button>
+      <button type="button" class="btn btn-g btn-min" onclick="ponerDiaCita('${masDias(hoy(),2)}')">Pasado mañana</button>
+    </div>
+    <input type="date" id="ag_fecha" value="${fDef}" min="${hoy()}" onchange="pintarResumenCita()">
+    <div id="ag_diatxt" class="ayuda" style="margin-top:4px"></div>
+  </div>
+
+  <div class="campo"><label>¿A qué hora?</label>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:7px">
+      ${HORAS_SUGERIDAS.map(h=>`<button type="button" class="btn ${h===hDef?'btn-p':'btn-g'} btn-min nw"
+        onclick="ponerHoraCita('${h}')">${h}</button>`).join('')}
+    </div>
+    <input type="time" id="ag_hora" value="${hDef}" onchange="pintarResumenCita()">
+  </div>
+
+  ${cot?`<input type="hidden" id="ag_cot" value="${esc(cot.numero)}">
+    <input type="hidden" id="ag_nombre" value="${esc(cot.nombre)}">
+    <input type="hidden" id="ag_tel" value="${esc(cot.tel||'')}">`
+   :`<div class="campo"><label>Paciente</label>
+      <input id="ag_nombre" list="dl_ag_pac" placeholder="Nombre completo"
+        oninput="autocompletarPacienteCita()">
+      <datalist id="dl_ag_pac">${S.pacientes.map(p=>`<option value="${esc(p.nombre)}">`).join('')}</datalist>
+    </div>
+    <div class="campo"><label>Teléfono</label>
+      <input id="ag_tel" placeholder="${esc(S.config.ladaDefecto||'+504')} 0000-0000"></div>
+    <div class="campo"><label>Qué se le va a tomar</label>
+      <input id="ag_examenes" placeholder="Hemograma, glucosa…">
+      <div class="ayuda">Si ya hay una cotización, agenda desde ella: así al recibir al paciente la orden se crea sola con sus exámenes y precios.</div>
+    </div>
+    <div class="campo"><label><input type="checkbox" id="ag_ayuno" onchange="pintarResumenCita()"> Requiere ayuno</label></div>`}
+
+  <div class="campo"><label>Nota (opcional)</label>
+    <input id="ag_nota" placeholder="Viene con su mamá · trae orden del Dr. …"></div>
+
+  <div id="ag_resumen"></div>
+
+  <div class="modal-pie">
+    <button class="btn btn-g" onclick="cerrarModal()">Cancelar</button>
+    <button class="btn btn-v" onclick="guardarCitaUI()">Agendar</button>
+  </div>`);
+  if(cot&&ayuno){
+    const ch=document.createElement('input');
+    ch.type='hidden'; ch.id='ag_ayuno_fijo'; ch.value='1';
+    document.getElementById('modal').appendChild(ch);
+  }
+  pintarResumenCita();
+}
+
+function ponerDiaCita(f){
+  const e=document.getElementById('ag_fecha');
+  if(e){e.value=f;pintarResumenCita();}
+}
+function ponerHoraCita(h){
+  const e=document.getElementById('ag_hora');
+  if(e){e.value=h;pintarResumenCita();}
+}
+
+/* Si el nombre escrito coincide con un paciente registrado, se aprovecha su
+   teléfono y su código: agendar no debería obligar a teclear lo que ya está. */
+function autocompletarPacienteCita(){
+  const n=(document.getElementById('ag_nombre')||{}).value||'';
+  const p=S.pacientes.find(x=>x.nombre===n);
+  if(!p)return;
+  const t=document.getElementById('ag_tel');
+  if(t&&!t.value)t.value=p.tel||'';
+}
+
+/* El resumen dice, en una frase, lo que se le va a decir al paciente. Es la
+   última oportunidad de notar que la fecha quedó mal. */
+function pintarResumenCita(){
+  const cont=document.getElementById('ag_resumen');
+  if(!cont)return;
+  const f=(document.getElementById('ag_fecha')||{}).value||'';
+  const h=(document.getElementById('ag_hora')||{}).value||'';
+  if(!f||!h){cont.innerHTML='';return;}
+  const fijo=!!document.getElementById('ag_ayuno_fijo');
+  const marcado=(document.getElementById('ag_ayuno')||{}).checked;
+  const ayuno=fijo||marcado;
+  const rel=diaRelativo(f);
+  const aviso=avisoAyunoTarde(h,ayuno);
+  const dt=document.getElementById('ag_diatxt');
+  if(dt)dt.textContent=diaLargo(f)+(rel?' ('+rel+')':'');
+  cont.innerHTML=`<div class="aviso" style="margin-top:4px">
+    <b>${diaLargo(f)}</b> a las <b class="nw">${esc(h)}</b>${rel?' · '+rel:''}
+    ${ayuno?'<br><b>En ayunas.</b> El paciente no debe comer nada desde 8 horas antes; puede tomar agua.':''}
+    </div>
+    ${aviso?`<div class="aviso" style="border-left-color:var(--ambar)">${esc(aviso)}</div>`:''}`;
+}
+
+function guardarCitaUI(){
+  const g=id=>(document.getElementById(id)||{}).value||'';
+  const cot=g('ag_cot');
+  const r=srvAgendar({
+    fecha:g('ag_fecha'), hora:g('ag_hora'),
+    nombre:g('ag_nombre'), tel:g('ag_tel'),
+    cotizacion:cot||'',
+    examenesTexto:g('ag_examenes'),
+    ayuno:document.getElementById('ag_ayuno_fijo')?true
+         :((document.getElementById('ag_ayuno')||{}).checked||undefined),
+    nota:g('ag_nota')
+  });
+  if(!r.ok){
+    if(r.codigo==='YA_AGENDADA'){
+      cerrarModal(); toast(r.motivo); modalReagendar(r.cita.id); return;
+    }
+    toast(r.motivo); return;
+  }
+  cerrarModal();
+  toast('✓ Agendado · '+r.cita.nombre+' el '+fmtFecha(r.cita.fecha)+' a las '+r.cita.hora);
+  if(r.aviso)toast(r.aviso);
+  AGENDA_DIA=r.cita.fecha;
+  irA('agenda');
+}
+
+/* ---------- Acciones sobre una cita ---------- */
+function abrirMenuCita(ev,id){
+  ev.stopPropagation();
+  const c=citaPorId(id);
+  if(!c)return;
+  const ex=examenesDeCita(c);
+  abrirModal(`
+  <h3 class="nw">${esc(c.id)}</h3>
+  <p style="font-size:12.5px;color:var(--gris);margin-bottom:12px">
+    <b>${esc(c.nombre)}</b> · ${diaLargo(c.fecha)} a las ${esc(c.hora)}
+    ${citaRequiereAyuno(c)?' · en ayunas':''}
+    ${c.cotizacion?'<br>Cotización <b class="nw">'+esc(c.cotizacion)+'</b>':''}
+    ${ex.length?'<br>'+esc(ex.join(', ')):''}
+    ${c.nota?'<br>Nota: '+esc(c.nota):''}</p>
+
+  ${c.estado==='Programada'?`<div class="acc-grupo"><b>Cuando llegue</b>
+    <div class="acc-botones">
+      <button class="btn btn-v" onclick="cerrarModal();recibirCitaUI('${c.id}')">✓ Recibir y crear la orden</button>
+    </div>
+  </div>
+
+  <div class="acc-grupo"><b>Avisar al paciente</b>
+    <div class="acc-botones">
+      <button class="btn btn-g" ${c.tel?'':'disabled title="Esta cita no tiene teléfono"'} onclick="cerrarModal();recordatorioCita('${c.id}')">✆ Recordatorio por WhatsApp</button>
+    </div>
+  </div>
+
+  <div class="acc-grupo"><b>Cambios</b>
+    <div class="acc-botones">
+      <button class="btn btn-p" onclick="cerrarModal();modalReagendar('${c.id}')">🗓 Reagendar</button>
+      <button class="btn btn-g" onclick="cerrarModal();noAsistioUI('${c.id}')">No asistió</button>
+      <button class="btn btn-r" onclick="cerrarModal();cancelarCitaUI('${c.id}')">✕ Cancelar la cita</button>
+    </div>
+  </div>`:`<div class="aviso">Esta cita está <b>${esc(c.estado.toLowerCase())}</b>${c.orden?' · orden <b class="nw">'+esc(c.orden)+'</b>':''}.</div>
+  ${c.orden?`<div class="acc-grupo"><div class="acc-botones">
+      <button class="btn btn-p" onclick="cerrarModal();irA('ordenes','${esc(c.orden)}')">Ver la orden</button>
+    </div></div>`:''}
+  ${c.estado!=='Atendida'?`<div class="acc-grupo"><b>¿Vino después?</b>
+    <div class="acc-botones">
+      <button class="btn btn-g" onclick="cerrarModal();modalReagendar('${c.id}')">🗓 Reagendar</button>
+    </div>
+    <p style="font-size:11.5px;color:var(--gris);margin-top:7px;line-height:1.5">
+      Reagendar la vuelve a poner en la agenda sin borrar lo que ya pasó.</p>
+  </div>`:''}`}
+
+  ${(c.movimientos||[]).length?`<div class="acc-grupo"><b>Historial</b>
+    ${c.movimientos.map(m=>`<div style="font-size:11.5px;color:var(--gris);line-height:1.6">
+      ${esc(m.de)} → ${esc(m.a)}${m.motivo?' · '+esc(m.motivo):''} <span style="opacity:.7">(${esc(m.quien)})</span></div>`).join('')}
+  </div>`:''}
+
+  <div class="modal-pie"><button class="btn btn-g" onclick="cerrarModal()">Cerrar</button></div>`,true);
+}
+
+function recibirCitaUI(id,pacCodigo){
+  const r=srvRecibirCita(id,pacCodigo);
+  if(!r.ok){
+    if(r.codigo==='FALTA_PACIENTE'){ modalPacienteParaCita(id); return; }
+    toast(r.motivo); return;
+  }
+  cerrarModal();
+  if(r.orden){
+    toast(r.yaExistia?'La orden '+r.orden.numero+' ya existía; la cita queda cerrada'
+                     :'✓ Recibido · orden '+r.orden.numero+' creada');
+    irA('ordenes',r.orden.numero);
+  }else{
+    toast('✓ Recibido · crea la orden de trabajo cuando corresponda');
+    vAgenda();
+  }
+}
+
+/* La cita se pudo agendar por teléfono, con el paciente aún sin registrar. Se
+   resuelve aquí, en el momento de recibirlo, que es cuando tiene su DNI a la
+   mano — no antes. */
+function modalPacienteParaCita(id){
+  const c=citaPorId(id);
+  if(!c)return;
+  abrirModal(`<h3>¿Quién es el paciente?</h3>
+  <p style="font-size:12.5px;color:var(--gris);margin-bottom:12px">
+    La orden de trabajo se emite a nombre de un paciente registrado.
+    La cita quedó a nombre de <b>${esc(c.nombre)}</b>.</p>
+  ${S.pacientes.length?`<div class="campo"><label>Paciente</label>
+    <select id="cit_pac">${S.pacientes.map(p=>`<option value="${p.codigo}">${p.codigo} · ${esc(p.nombre)}</option>`).join('')}</select></div>`
+   :`<div class="aviso">Todavía no hay pacientes registrados. Regístralo en <b>Pacientes</b> y vuelve.</div>`}
+  <div class="modal-pie">
+    <button class="btn btn-g" onclick="cerrarModal()">Cancelar</button>
+    ${S.pacientes.length?`<button class="btn btn-v" onclick="recibirCitaUI('${id}',document.getElementById('cit_pac').value)">Recibir</button>`
+     :`<button class="btn btn-p" onclick="cerrarModal();irA('pacientes')">Ir a Pacientes</button>`}
+  </div>`);
+}
+
+function modalReagendar(id){
+  const c=citaPorId(id);
+  if(!c)return;
+  abrirModal(`<h3>Reagendar</h3>
+  <p style="font-size:12.5px;color:var(--gris);margin-bottom:12px">
+    <b>${esc(c.nombre)}</b> · ahora está para el ${diaLargo(c.fecha)} a las ${esc(c.hora)}</p>
+  <div class="campo"><label>Nuevo día</label>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:7px">
+      <button type="button" class="btn btn-g btn-min" onclick="document.getElementById('rg_fecha').value='${hoy()}'">Hoy</button>
+      <button type="button" class="btn btn-g btn-min" onclick="document.getElementById('rg_fecha').value='${masDias(hoy(),1)}'">Mañana</button>
+      <button type="button" class="btn btn-g btn-min" onclick="document.getElementById('rg_fecha').value='${masDias(hoy(),2)}'">Pasado mañana</button>
+    </div>
+    <input type="date" id="rg_fecha" value="${c.fecha}" min="${hoy()}"></div>
+  <div class="campo"><label>Nueva hora</label>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:7px">
+      ${HORAS_SUGERIDAS.map(h=>`<button type="button" class="btn btn-g btn-min nw"
+        onclick="document.getElementById('rg_hora').value='${h}'">${h}</button>`).join('')}
+    </div>
+    <input type="time" id="rg_hora" value="${esc(c.hora)}"></div>
+  <div class="campo"><label>Motivo (opcional)</label>
+    <input id="rg_motivo" placeholder="El paciente pidió cambiarla"></div>
+  <div class="modal-pie">
+    <button class="btn btn-g" onclick="cerrarModal()">Cancelar</button>
+    <button class="btn btn-v" onclick="confirmarReagendar('${id}')">Mover la cita</button>
+  </div>`);
+}
+
+function confirmarReagendar(id){
+  const g=i=>(document.getElementById(i)||{}).value||'';
+  const r=srvReagendar(id,g('rg_fecha'),g('rg_hora'),g('rg_motivo'));
+  if(!r.ok){toast(r.motivo);return;}
+  cerrarModal();
+  toast('✓ Movida al '+fmtFecha(r.cita.fecha)+' a las '+r.cita.hora);
+  if(r.aviso)toast(r.aviso);
+  AGENDA_DIA=r.cita.fecha;
+  vAgenda(r.cita.fecha);
+}
+
+function noAsistioUI(id){
+  const c=citaPorId(id);
+  if(!c)return;
+  abrirModal(`<h3>No asistió</h3>
+  <p style="font-size:13px;margin-bottom:12px">
+    <b>${esc(c.nombre)}</b> · ${diaLargo(c.fecha)} a las ${esc(c.hora)}</p>
+  <div class="campo"><label>Nota (opcional)</label>
+    <input id="na_nota" placeholder="No contestó el teléfono"></div>
+  <div class="modal-pie">
+    <button class="btn btn-g" onclick="cerrarModal()">Cancelar</button>
+    <button class="btn btn-p" onclick="confirmarNoAsistio('${id}')">Marcar que no asistió</button>
+  </div>`);
+}
+function confirmarNoAsistio(id){
+  const r=srvMarcarNoAsistio(id,(document.getElementById('na_nota')||{}).value||'');
+  if(!r.ok){toast(r.motivo);return;}
+  cerrarModal(); toast('Marcada · '+r.cita.nombre+' no asistió'); vAgenda();
+}
+
+function cancelarCitaUI(id){
+  const c=citaPorId(id);
+  if(!c)return;
+  abrirModal(`<h3>Cancelar la cita</h3>
+  <p style="font-size:13px;margin-bottom:12px">
+    <b>${esc(c.nombre)}</b> · ${diaLargo(c.fecha)} a las ${esc(c.hora)}</p>
+  <div class="campo"><label>Motivo</label>
+    <input id="cc_motivo" placeholder="El paciente la canceló"></div>
+  ${c.cotizacion?`<div class="ayuda">La cotización <b class="nw">${esc(c.cotizacion)}</b> no se toca: sigue vigente y se puede agendar otra vez.</div>`:''}
+  <div class="modal-pie">
+    <button class="btn btn-g" onclick="cerrarModal()">Volver</button>
+    <button class="btn btn-r" onclick="confirmarCancelarCita('${id}')">✕ Cancelar la cita</button>
+  </div>`);
+}
+function confirmarCancelarCita(id){
+  const r=srvCancelarCita(id,(document.getElementById('cc_motivo')||{}).value||'');
+  if(!r.ok){toast(r.motivo);return;}
+  cerrarModal(); toast('Cita cancelada'); vAgenda();
+}
+
+/* El recordatorio se manda por WhatsApp porque es como se habla con los
+   pacientes aquí. Lleva el ayuno explícito: es el motivo número uno por el que
+   una toma se echa a perder y hay que repetirla. */
+function recordatorioCita(id){
+  const c=citaPorId(id);
+  if(!c)return;
+  if(!c.tel){toast('Esa cita no tiene teléfono');return;}
+  const cf=S.config||{};
+  const ex=examenesDeCita(c);
+  const l=[];
+  l.push('Buen día, '+c.nombre+'.');
+  l.push('Le recordamos su cita en '+(cf.nombre||'CDI Marcala')+':');
+  l.push('🗓 '+diaLargo(c.fecha)+' a las '+c.hora);
+  if(ex.length)l.push('🧪 '+ex.join(', '));
+  if(citaRequiereAyuno(c))
+    l.push('⚠ Debe venir EN AYUNAS: sin comer nada desde 8 horas antes. Puede tomar agua.');
+  if(cf.direccion)l.push('📍 '+cf.direccion);
+  l.push('Si no puede venir, avísenos para reprogramarla. ¡Gracias!');
+  abrirEnlace('https://wa.me/'+telWhatsApp(c.tel)+'?text='+encodeURIComponent(l.join('\n')));
+  _bitacora('Agenda','Recordatorio enviado · cita '+c.id);
+}
+/* =============== AGENDA · acceso a datos ===============
+   Hasta ahora el sistema solo sabía hacer una cosa con una cotización:
+   convertirla en orden AHORA MISMO. Pero en el mostrador pasa casi siempre lo
+   contrario — se cotiza hoy y la toma es mañana, o se cotiza a las 6 de la
+   mañana y el paciente vuelve a las 10. Sin dónde anotarlo, eso vivía en la
+   memoria de quien atendió o en un papel.
+
+   Una cita es exactamente eso: la promesa de una toma de muestra en un día y
+   una hora. No duplica la cotización ni la orden; las une en el tiempo.
+
+   Aquí solo vive el acceso a los datos. Las reglas están en
+   26c_srv_agenda.js y la pantalla en 26_agenda.js, igual que en Pacientes. */
+
+const ESTADOS_CITA = ['Programada','Atendida','No asistió','Cancelada'];
+
+/* S.citas puede no existir en un estado guardado antes de esta versión.
+   Se crea al vuelo en vez de exigir que la migración haya corrido: así una
+   copia vieja restaurada no rompe la pantalla. */
+function citas(){ if(!S.citas)S.citas=[]; return S.citas; }
+
+function citaPorId(id){ return citas().find(c=>c.id===id)||null; }
+
+/* Ordenadas por hora: la agenda del día se lee de arriba abajo como se vive. */
+function citasDelDia(f){
+  return citas().filter(c=>c.fecha===f)
+    .sort((a,b)=>String(a.hora||'').localeCompare(String(b.hora||'')));
+}
+
+function citasEntre(desde,hasta){
+  return citas().filter(c=>c.fecha>=desde&&c.fecha<=hasta)
+    .sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+}
+
+/* Una cotización solo puede tener UNA cita viva. Si ya la tiene, lo correcto
+   es reagendar esa, no crear una segunda: dos citas para la misma cotización
+   significan que alguien va a esperar a un paciente que no va a venir. */
+function citaActivaDeCotizacion(num){
+  return citas().find(c=>c.cotizacion===num&&c.estado==='Programada')||null;
+}
+
+function citasPendientes(){ return citas().filter(c=>c.estado==='Programada'); }
+
+function nuevoIdCita(){
+  if(!S.seq)S.seq={};
+  if(!S.seq.cita)S.seq.cita=1;
+  const n=S.seq.cita++;
+  return 'CITA-'+hoy().slice(0,4)+'-'+String(n).padStart(5,'0');
+}
+
+/* Se le pasó la hora y nadie la recibió. Se compara con la fecha y hora de
+   Honduras (ver ahoraHN en 10_nucleo.js), nunca con la del reloj del equipo:
+   una laptop con la zona mal puesta daría avisos falsos todo el día. */
+function citaVencida(c,fechaRef,horaRef){
+  if(!c||c.estado!=='Programada')return false;
+  const f=fechaRef||hoy(), h=horaRef||ahoraHora();
+  if(c.fecha<f)return true;
+  return c.fecha===f && String(c.hora||'00:00') < String(h).slice(0,5);
+}
+
+/* El ayuno decide a qué hora se puede citar, así que se sabe desde la propia
+   agenda y no hay que abrir la cotización para averiguarlo. La lista de
+   exámenes que lo exigen es la misma que usan las órdenes
+   (BQ_CON_AYUNO, en 23b_evaluacion_compartida.js): una sola fuente. */
+function itemsRequierenAyuno(items){
+  return (items||[]).some(i=>BQ_CON_AYUNO.includes(i.id));
+}
+
+function citaRequiereAyuno(c){
+  if(!c)return false;
+  if(c.ayuno!==undefined)return !!c.ayuno;      // marcado a mano, manda
+  const cot=c.cotizacion?S.cotizaciones.find(x=>x.numero===c.cotizacion):null;
+  return cot?itemsRequierenAyuno(cot.items):false;
+}
+
+/* Qué se le va a tomar. Sale de la cotización; si no hay, de lo que se
+   escribió a mano al agendar. */
+function examenesDeCita(c){
+  if(!c)return [];
+  const cot=c.cotizacion?S.cotizaciones.find(x=>x.numero===c.cotizacion):null;
+  if(cot)return (cot.items||[]).map(i=>i.nombre);
+  return c.examenesTexto?[c.examenesTexto]:[];
+}
+/* =============== AGENDA · reglas ===============
+   Devuelven {ok, motivo, codigo} y no tocan la pantalla, igual que el resto de
+   los servicios del sistema. Quien las llama decide si eso se cuenta con un
+   toast, un modal o nada.
+
+   La regla de fondo: una cita es una promesa hecha a un paciente. Todo lo que
+   la rompe —agendarla en un día que ya pasó, agendar dos veces la misma
+   cotización, recibirla cuando ya se convirtió en orden por otro camino—
+   termina con alguien esperando en el mostrador. Por eso se valida aquí y no
+   en el formulario: el formulario se puede saltar. */
+
+const HORA_VALIDA=/^([01][0-9]|2[0-3]):[0-5][0-9]$/;
+const FECHA_VALIDA=/^\d{4}-\d{2}-\d{2}$/;
+
+/* Los exámenes en ayunas se toman temprano. No se bloquea —el laboratorio
+   sabrá por qué lo hace, y a veces el ayuno es vespertino a propósito— pero se
+   avisa, porque citar una glucosa a las 3 de la tarde casi siempre es un
+   descuido y se descubre con el paciente ya sentado. */
+const HORA_LIMITE_AYUNO='10:00';
+
+function avisoAyunoTarde(hora,ayuno){
+  if(!ayuno||!hora)return '';
+  if(String(hora)<=HORA_LIMITE_AYUNO)return '';
+  return 'Esta toma requiere ayuno y está citada para las '+hora+
+    '. Confirma que el paciente pueda mantener el ayuno hasta esa hora.';
+}
+
+function srvAgendar(d){
+  d=d||{};
+  const fecha=String(d.fecha||'').trim(), hora=String(d.hora||'').trim();
+  const nombre=String(d.nombre||'').trim();
+
+  if(!FECHA_VALIDA.test(fecha))return {ok:false,motivo:'Falta el día de la toma',codigo:'FECHA'};
+  if(!HORA_VALIDA.test(hora))  return {ok:false,motivo:'Falta la hora de la toma',codigo:'HORA'};
+  if(!nombre)                  return {ok:false,motivo:'Falta el nombre del paciente',codigo:'NOMBRE'};
+  /* Solo se rechaza el DÍA pasado. Una hora ya pasada del mismo día se acepta
+     a propósito: el paciente que llegó a las 7 se registra a las 7:05, y
+     pelearse con el formulario en ese momento no ayuda a nadie. */
+  if(fecha<hoy())              return {ok:false,motivo:'Ese día ya pasó',codigo:'PASADO'};
+
+  let cot=null;
+  if(d.cotizacion){
+    cot=S.cotizaciones.find(x=>x.numero===d.cotizacion);
+    if(!cot)  return {ok:false,motivo:'La cotización '+d.cotizacion+' ya no existe',codigo:'SIN_COT'};
+    if(cot.ot)return {ok:false,motivo:'La cotización '+d.cotizacion+' ya generó la orden '+cot.ot,
+                      codigo:'YA_ORDEN'};
+    const viva=citaActivaDeCotizacion(d.cotizacion);
+    if(viva)  return {ok:false,codigo:'YA_AGENDADA',cita:viva,
+                      motivo:'Esa cotización ya está agendada para el '+fmtFecha(viva.fecha)+
+                             ' a las '+viva.hora+'. Reagéndala en vez de crear otra.'};
+  }
+
+  const c={
+    id:nuevoIdCita(), fecha, hora, nombre,
+    tel:String(d.tel||'').trim(),
+    pacCodigo:d.pacCodigo||(cot?cot.pacCodigo:'')||'',
+    cotizacion:d.cotizacion||'',
+    examenesTexto:String(d.examenesTexto||'').trim(),
+    ayuno:d.ayuno!==undefined?!!d.ayuno:(cot?itemsRequierenAyuno(cot.items):false),
+    nota:String(d.nota||'').trim(),
+    estado:'Programada',
+    orden:'',
+    creadaEn:hoy()+' '+ahoraHora(),
+    creadaPor:usuarioActivo().nombre
+  };
+  citas().push(c);
+  _bitacora('Agenda','Cita '+c.id+' · '+c.nombre+' · '+fmtFecha(fecha)+' '+hora+
+    (c.cotizacion?' · desde '+c.cotizacion:''));
+  guardar();
+  return {ok:true, cita:c, aviso:avisoAyunoTarde(hora,c.ayuno)};
+}
+
+/* Reagendar vale para una cita viva y también para una que no se cumplió: el
+   paciente que no vino el martes vuelve a pedir hora, y el que canceló cambia
+   de opinión. Obligar a crear una cita nueva para eso perdería el rastro de la
+   primera y haría teclear otra vez lo mismo. Lo único que no se mueve es una
+   cita ya atendida: esa terminó en una orden de trabajo y no hay nada que
+   prometer. */
+function srvReagendar(id,fecha,hora,motivo){
+  const c=citaPorId(id);
+  if(!c)return {ok:false,motivo:'La cita ya no existe',codigo:'SIN_CITA'};
+  if(c.estado==='Atendida')
+    return {ok:false,motivo:'Esa cita ya se atendió'+(c.orden?' · orden '+c.orden:'')+
+      '; no hay nada que mover',codigo:'ESTADO'};
+  fecha=String(fecha||'').trim(); hora=String(hora||'').trim();
+  if(!FECHA_VALIDA.test(fecha))return {ok:false,motivo:'Falta el día',codigo:'FECHA'};
+  if(!HORA_VALIDA.test(hora))  return {ok:false,motivo:'Falta la hora',codigo:'HORA'};
+  if(fecha<hoy())              return {ok:false,motivo:'Ese día ya pasó',codigo:'PASADO'};
+  if(fecha===c.fecha&&hora===c.hora)
+    return {ok:false,motivo:'Es el mismo día y la misma hora',codigo:'IGUAL'};
+
+  const antes=fmtFecha(c.fecha)+' '+c.hora;
+  const revive=c.estado!=='Programada';
+  /* Se guarda de dónde vino, y también de qué estado se la revivió. Cuando un
+     paciente reclama "pero si me habían dicho el jueves", el historial
+     responde sin depender de la memoria de nadie. */
+  if(!c.movimientos)c.movimientos=[];
+  c.movimientos.push({de:antes+(revive?' ('+c.estado+')':''), a:fmtFecha(fecha)+' '+hora,
+                      motivo:String(motivo||'').trim(),
+                      cuando:hoy()+' '+ahoraHora(), quien:usuarioActivo().nombre});
+  c.fecha=fecha; c.hora=hora;
+  if(revive){ c.estado='Programada'; c.motivoCancel=''; c.cerradaEn=''; c.cerradaPor=''; }
+  _bitacora('Agenda','Cita '+c.id+(revive?' reactivada y movida':' movida')+' de '+antes+
+    ' a '+fmtFecha(fecha)+' '+hora+(motivo?' · '+motivo:''));
+  guardar();
+  return {ok:true, cita:c, aviso:avisoAyunoTarde(hora,citaRequiereAyuno(c))};
+}
+
+function srvMarcarNoAsistio(id,nota){
+  const c=citaPorId(id);
+  if(!c)return {ok:false,motivo:'La cita ya no existe',codigo:'SIN_CITA'};
+  if(c.estado!=='Programada')
+    return {ok:false,motivo:'Esa cita ya está '+c.estado.toLowerCase(),codigo:'ESTADO'};
+  c.estado='No asistió';
+  c.cerradaEn=hoy()+' '+ahoraHora(); c.cerradaPor=usuarioActivo().nombre;
+  if(nota)c.nota=(c.nota?c.nota+' · ':'')+String(nota).trim();
+  _bitacora('Agenda','Cita '+c.id+' · '+c.nombre+' no asistió');
+  guardar();
+  return {ok:true, cita:c};
+}
+
+function srvCancelarCita(id,motivo){
+  const c=citaPorId(id);
+  if(!c)return {ok:false,motivo:'La cita ya no existe',codigo:'SIN_CITA'};
+  if(c.estado==='Atendida')
+    return {ok:false,motivo:'Esa cita ya se atendió; no se puede cancelar',codigo:'ESTADO'};
+  if(c.estado==='Cancelada')return {ok:false,motivo:'Ya estaba cancelada',codigo:'ESTADO'};
+  c.estado='Cancelada';
+  c.motivoCancel=String(motivo||'').trim();
+  c.cerradaEn=hoy()+' '+ahoraHora(); c.cerradaPor=usuarioActivo().nombre;
+  _bitacora('Agenda','Cita '+c.id+' cancelada'+(motivo?' · '+motivo:''));
+  guardar();
+  return {ok:true, cita:c};
+}
+
+/* Llegó el paciente. Si la cita venía de una cotización, aquí es donde se
+   convierte en orden de trabajo — reutilizando srvCrearOrdenDesdeCotizacion,
+   que es el único camino que sabe copiar exámenes, precios y descuentos. La
+   agenda no duplica esa lógica; solo elige el momento. */
+function srvRecibirCita(id,pacCodigo){
+  const c=citaPorId(id);
+  if(!c)return {ok:false,motivo:'La cita ya no existe',codigo:'SIN_CITA'};
+  if(c.estado==='Atendida')
+    return {ok:false,motivo:'Esa cita ya se recibió'+(c.orden?' · orden '+c.orden:''),codigo:'ESTADO'};
+  /* Una cita marcada "no asistió" o cancelada SÍ se puede recibir: el paciente
+     llegó media hora tarde, o cambió de opinión y se apareció. Mandarlo a
+     reagendar primero sería puro trámite con la persona ya en el mostrador, y
+     el estado anterior no se pierde — queda en la bitácora. */
+
+  const previo=c.estado;
+  const cerrar=(orden)=>{
+    c.estado='Atendida'; c.orden=orden||'';
+    c.recibidaEn=hoy()+' '+ahoraHora(); c.recibidaPor=usuarioActivo().nombre;
+    _bitacora('Agenda','Cita '+c.id+' recibida'+(orden?' → orden '+orden:'')+
+      (previo!=='Programada'?' (estaba como '+previo+')':''));
+    guardar();
+  };
+
+  if(!c.cotizacion){ cerrar(''); return {ok:true, cita:c, orden:null}; }
+
+  const cot=S.cotizaciones.find(x=>x.numero===c.cotizacion);
+  if(!cot)return {ok:false,motivo:'La cotización '+c.cotizacion+' ya no existe',codigo:'SIN_COT'};
+  /* Alguien pudo convertirla desde Cotizaciones sin pasar por la agenda. No es
+     un error: se cierra la cita apuntando a esa orden y en paz. */
+  if(cot.ot){ cerrar(cot.ot); return {ok:true, cita:c, orden:{numero:cot.ot}, yaExistia:true}; }
+
+  const cod=pacCodigo||c.pacCodigo||cot.pacCodigo;
+  if(!cod)return {ok:false,codigo:'FALTA_PACIENTE',
+    motivo:'La orden necesita un paciente registrado. Elige cuál o créalo en Pacientes.'};
+
+  const r=srvCrearOrdenDesdeCotizacion(c.cotizacion, cod);
+  if(!r.ok)return r;
+  if(!c.pacCodigo)c.pacCodigo=cod;
+  cerrar(r.orden.numero);
+  return {ok:true, cita:c, orden:r.orden};
+}
 /* =============== CONTROL DE CALIDAD INTERNO =============== */
 /* Cada material control tiene su media y desviación estándar (del inserto o
    establecidas por el laboratorio con ≥20 corridas). Cada valor se grafica en
