@@ -2538,6 +2538,11 @@ function vInicio(){
   const citasHoy=(typeof citasDelDia==='function'?citasDelDia(hoyF):[])
     .filter(c=>c.estado==='Programada');
   const citasTarde=citasHoy.filter(c=>citaVencida(c,hoyF));
+  /* Y las de MANANA. Avisar solo de las de hoy llega tarde para lo unico que
+     se puede hacer por adelantado: recordarle el ayuno al paciente. */
+  const citasManana=(typeof citasDelDia==='function'
+    ?citasDelDia(typeof masDias==='function'?masDias(hoyF,1):''):[])
+    .filter(c=>c.estado==='Programada');
   const necesitaResp=cfg.recordarRespaldo>0&&(!S.meta.ultimoRespaldo||
     (new Date(hoyF)-new Date(S.meta.ultimoRespaldo))/86400000>=cfg.recordarRespaldo);
   // Ingresos de los últimos 7 días, también en una pasada
@@ -2574,7 +2579,7 @@ function vInicio(){
         órdenes están al día", que era sencillamente falso. */''
    }${(criticos.length||deltas.length||vencidas.length||hoyEntrega.length
       ||parciales.length||sinValidar.length||porCobrar.length||necesitaResp
-      ||citasHoy.length)?`
+      ||citasHoy.length||citasManana.length)?`
   <div class="tarjeta">
     <h3 style="color:var(--azul);margin-bottom:10px">Centro de alertas</h3>
     ${criticos.slice(0,15).map(c=>`<div class="alerta-critica">⚠ CRÍTICO · ${c.o.numero} · ${esc(c.o.pacienteNombre)} — ${esc(c.a)}
@@ -2593,6 +2598,9 @@ function vInicio(){
     ${citasHoy.filter(c=>!citaVencida(c,hoyF)).slice(0,10).map(c=>`<div class="aviso"><svg class="ico-en" aria-hidden="true"><use href="#i-calendario"/></svg> CITA HOY · ${esc(c.hora)} · ${esc(c.nombre)}${citaRequiereAyuno(c)?' — en ayunas':''}
       <button class="btn btn-g btn-min" style="float:right" onclick="irA('agenda')">Ver agenda</button></div>`).join('')}
     ${citasHoy.length>20?`<div style="font-size:11.5px;color:var(--gris);margin:4px 0 8px">y ${citasHoy.length-20} cita(s) más hoy.</div>`:''}
+    ${citasManana.slice(0,10).map(c=>`<div class="aviso" style="border-left-color:var(--azul)"><svg class="ico-en" aria-hidden="true"><use href="#i-calendario"/></svg> CITA MAÑANA · ${esc(c.hora)} · ${esc(c.nombre)}${citaRequiereAyuno(c)?' — <b>en ayunas</b>, conviene recordárselo hoy':''}
+      <button class="btn btn-g btn-min" style="float:right" onclick="irA('agenda','${esc(c.fecha)}')">Ver agenda</button></div>`).join('')}
+    ${citasManana.length>10?`<div style="font-size:11.5px;color:var(--gris);margin:4px 0 8px">y ${citasManana.length-10} cita(s) más mañana.</div>`:''}
     ${parciales.slice(0,10).map(o=>`<div class="aviso" style="border-left-color:var(--ambar)">◐ VALIDADA A MEDIAS · ${o.numero} · ${esc(o.pacienteNombre)} — ${o.examenes.filter(e=>e.validado).length} de ${o.examenes.length} exámenes validados
       <button class="btn btn-g btn-min" style="float:right" onclick="modalResultados('${o.numero}')">Ver</button></div>`).join('')}
     ${parciales.length>10?`<div style="font-size:11.5px;color:var(--gris);margin:4px 0 8px">y ${parciales.length-10} orden(es) más a medio validar.</div>`:''}
@@ -4116,14 +4124,14 @@ function tablaCotizaciones(cs){
       const estadoChip=`<span class="chip ${est.chip}">${esc(est.etiqueta)}</span>`;
       return `<tr>
         <td><b class="num-largo">${esc(c.numero)}</b>
-          <div class="solo-movil" style="margin-top:4px">${estadoChip}</div></td>
+          <div class="solo-movil" style="margin-top:4px">${estadoChip}${chipCitaCot(c.numero)}</div></td>
         <td class="col-sec"><span class="chip ${esWeb?'chip-az':'chip-do'}">${esWeb?'<svg class="ico-en" aria-hidden="true"><use href="#i-web"/></svg> Web':'Interno'}</span></td>
         <td class="col-sec nw" style="font-size:11.5px">${fmtFecha(c.fecha)}</td>
         <td><b>${esc(c.nombre)}</b>${c.tel?'<div class="cel-sub">'+esc(c.tel)+'</div>':''}</td>
         <td class="col-sec" style="font-size:11px;font-family:ui-monospace,monospace">${esc(c.idNumero||c.identificacion||'—')}</td>
         <td class="col-sec" style="text-align:center">${c.items.length}</td>
         <td><b>${L(t.total)}</b></td>
-        <td>${estadoChip}<div style="margin-top:4px">${chipImpreso(c,'cotizacion')}</div></td>
+        <td>${estadoChip}${chipCitaCot(c.numero)}<div style="margin-top:4px">${chipImpreso(c,'cotizacion')}</div></td>
         <td class="cel-acc">
           ${c.estadoCot==='Pendiente'
             ?`<button class="btn btn-v btn-min" onclick="aprobarCotWeb('${esc(c.numero)}')">✓ Aprobar</button>`
@@ -8944,6 +8952,11 @@ function diaRelativo(f){
 function vAgenda(fecha){
   const f=AGENDA_DIA=fecha||AGENDA_DIA||hoy();
   const delDia=citasDelDia(f);
+  /* Una cita cancelada NO es una cita del dia: nadie va a venir. Se sigue
+     viendo en la lista -es el rastro de que existio y de que se cancelo-
+     pero no cuenta. Contarla decia "2 citas" cuando habia una. */
+  const canceladas=delDia.filter(c=>c.estado==='Cancelada');
+  const cuentan=delDia.filter(c=>c.estado!=='Cancelada');
   const prog=delDia.filter(c=>c.estado==='Programada');
   const vencidas=prog.filter(c=>citaVencida(c));
   const conAyuno=prog.filter(c=>citaRequiereAyuno(c));
@@ -8971,7 +8984,7 @@ function vAgenda(fecha){
   </div>
 
   <div class="kpis">
-    <div class="kpi"><div class="n">${delDia.length}</div><div class="t">Citas del día</div></div>
+    <div class="kpi"><div class="n">${cuentan.length}</div><div class="t">Citas del día</div>${canceladas.length?`<div class="cel-sub">${canceladas.length} cancelada(s), aparte</div>`:''}</div>
     <div class="kpi"><div class="n">${prog.length}</div><div class="t">Por atender</div></div>
     <div class="kpi"><div class="n">${conAyuno.length}</div><div class="t">Requieren ayuno</div></div>
     <div class="kpi" ${vencidas.length?'style="border-left-color:var(--rojo)"':''}><div class="n">${vencidas.length}</div><div class="t">Pasó la hora</div></div>
@@ -9002,8 +9015,11 @@ function filaCita(c){
   const ayuno=citaRequiereAyuno(c);
   const chip={'Programada':venc?'chip-rj':'chip-az','Atendida':'chip-vd',
               'No asistió':'chip-am','Cancelada':'chip-medio'}[c.estado]||'chip-medio';
-  return `<tr${venc?' style="background:rgba(192,57,43,.05)"':''}>
-    <td><b class="nw">${esc(c.hora)}</b>${ayuno?'<div class="cel-sub nw">en ayunas</div>':''}</td>
+  /* La cancelada se apaga y se tacha la hora: de un vistazo se ve que ese
+     hueco esta libre, sin tener que leer el estado columna por columna. */
+  const anulada=c.estado==='Cancelada';
+  return `<tr${anulada?' style="opacity:.55"':(venc?' style="background:rgba(192,57,43,.05)"':'')}>
+    <td><b class="nw"${anulada?' style="text-decoration:line-through"':''}>${esc(c.hora)}</b>${ayuno&&!anulada?'<div class="cel-sub nw">en ayunas</div>':''}</td>
     <td><b>${esc(c.nombre)}</b>
       ${c.cotizacion?`<div class="cel-sub"><span class="nw">${esc(c.cotizacion)}</span></div>`:''}
       ${c.orden?`<div class="cel-sub">Orden <b class="nw">${esc(c.orden)}</b></div>`:''}</td>
@@ -9357,6 +9373,20 @@ function recordatorioCita(id){
   l.push('Si no puede venir, avísenos para reprogramarla. ¡Gracias!');
   abrirEnlace('https://wa.me/'+telWhatsApp(c.tel)+'?text='+encodeURIComponent(l.join('\n')));
   _bitacora('Agenda','Recordatorio enviado · cita '+c.id);
+}
+
+/* El distintivo que se pinta en la lista de Cotizaciones. Vive aqui, y no en
+   22_cotizaciones.js, porque quien sabe de citas es la agenda: si manana cambia
+   como se representa una cita, se cambia en un solo sitio. */
+function chipCitaCot(numero){
+  const c=citaActivaDeCotizacion(numero);
+  if(!c)return '';
+  const rel=diaRelativo(c.fecha);
+  const cuando=rel?rel.charAt(0).toUpperCase()+rel.slice(1):fmtFecha(c.fecha).slice(0,5);
+  return `<div style="margin-top:4px"><span class="chip ${citaVencida(c)?'chip-rj':'chip-az'}" `+
+    `title="Toma de muestra agendada para el ${fmtFecha(c.fecha)} a las ${esc(c.hora)}">`+
+    `<svg class="ico-en" aria-hidden="true"><use href="#i-calendario"/></svg> `+
+    `<span class="nw">${cuando} ${esc(c.hora)}</span></span></div>`;
 }
 /* =============== AGENDA · acceso a datos ===============
    Hasta ahora el sistema solo sabía hacer una cosa con una cotización:
