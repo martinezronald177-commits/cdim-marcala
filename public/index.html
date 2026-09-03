@@ -975,6 +975,18 @@ input:focus,select:focus,textarea:focus{border-color:var(--azul);
     animation-iteration-count:1 !important;transition-duration:.001ms !important}
   .acceso:hover,.btn:active{transform:none}
 }
+
+/* ---------- Los encabezados de tabla no se parten a media palabra ---------- */
+/* "UNIDAD" salia como "UNIDA / D" en la captura de resultados: la columna
+   mide 7% y dos reglas de arriba -td,th{overflow-wrap:anywhere}- autorizan a
+   cortar por cualquier letra. Esas reglas existen para que un dato largo no
+   reviente el ancho de la tabla, y para las CELDAS estan bien: ahi va texto
+   que escribe quien usa el sistema y puede venir de cualquier largo.
+
+   Pero un encabezado no es un dato: es una etiqueta corta que escribimos
+   nosotros. Partirla por la mitad no arregla nada y se lee como un defecto.
+   Con table-layout:auto la columna simplemente se ensancha lo justo. */
+th{word-break:normal;overflow-wrap:normal;hyphens:none}
 </style>
 </head>
 <body>
