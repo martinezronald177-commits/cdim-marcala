@@ -1084,6 +1084,11 @@ td input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:
   .tramo-fila .tr_e{grid-column:1/4}
   .tramo-fila .btn{grid-column:4/5}
 }
+
+/* ---------- Motivo de corrección de un informe ---------- */
+.opcion-motivo{display:flex;align-items:center;gap:8px;padding:6px 4px;font-size:13px;
+  font-weight:500;letter-spacing:0;text-transform:none;color:var(--tinta);cursor:pointer}
+.opcion-motivo input{width:auto;margin:0}
 </style>
 </head>
 <body>
@@ -6319,16 +6324,11 @@ function habilitarEdicionResultado(n,ei){
      Se dice con esas palabras y se pide el motivo aquí, que es el único
      momento en que hay algo que contestar. */
   if(informeYaEmitido(o)){
-    const entregado=o.estado==='Entregada';
-    const m=prompt(base+
-      'El informe de esta orden YA FUE EMITIDO'+
-      (entregado?(o.fechaEntrega?' y ENTREGADO el '+fmtFecha(o.fechaEntrega):' y ENTREGADO'):'')+'.\n\n'+
-      'Si cambias un valor se emitirá una VERSIÓN CORREGIDA que sustituye a la anterior, '+
-      'marcada como tal en el informe impreso'+
-      (entregado?', y habrá que hacérsela llegar a quien recibió la otra':'')+'.\n\n'+
-      'Motivo de la corrección (se imprime en el informe corregido):');
-    if(m===null)return;
-    _motivoCorreccion.set(claveExamen(n,ei), String(m||'').trim());
+    /* Un prompt() de texto libre acababa con motivos como "0": lo que uno
+       teclea para quitarse un diálogo de encima. El motivo lo lee el médico
+       que recibió la versión anterior, así que se elige de una lista. */
+    modalMotivoCorreccion(n,ei,o);
+    return;
   }else{
     if(!confirm(base+
       'Vas a habilitar la edición de su resultado. En cuanto cambies un valor, esa validación quedará '+
@@ -6336,6 +6336,48 @@ function habilitarEdicionResultado(n,ei){
       '¿Deseas continuar?'))return;
   }
   _examenesDesbloqueados.add(claveExamen(n,ei));
+  refrescarResultados(n);
+}
+/* Los motivos con los que un laboratorio corrige un informe ya emitido. La
+   lista es corta a propósito: el médico que lee "informe corregido" quiere
+   saber si fue un error de tecleo o una muestra equivocada, no un ensayo. */
+const MOTIVOS_CORRECCION=[
+  'Error de transcripción del resultado',
+  'Error de cálculo o de unidades',
+  'Repetición analítica: el valor confirmado es distinto',
+  'Muestra equivocada o mal identificada',
+  'Interferencia en la muestra (hemólisis, lipemia, ictericia)',
+  'Error en la plantilla o en los valores de referencia',
+];
+function modalMotivoCorreccion(n,ei,o){
+  const e=o.examenes[ei];
+  const entregado=o.estado==='Entregada';
+  const veces=(o.impresiones||[]).length;
+  abrirModal(`<h3>Corregir un informe ya emitido</h3>
+  <div class="aviso" style="border-left-color:var(--ambar)">
+    El informe de la orden <b class="nw">${esc(n)}</b> ya salió del laboratorio:
+    ${veces?'impreso o en PDF '+(veces===1?'una vez':veces+' veces'):''}${veces&&entregado?' y ':''}${entregado?'entregado'+(o.fechaEntrega?' el '+fmtFecha(o.fechaEntrega):''):''}.
+    Si cambias <b>${esc(e.nombre)}</b> se emitirá una <b>versión corregida</b> que sustituye a la anterior,
+    identificada como tal en el informe${entregado?', y habrá que hacérsela llegar a quien recibió la otra':''}.
+  </div>
+  <div class="campo"><label>Motivo de la corrección (se imprime en el informe)</label>
+    ${MOTIVOS_CORRECCION.map((m,i)=>`<label class="opcion-motivo"><input type="radio" name="mc_m" value="${esc(m)}" ${i===0?'checked':''}> ${esc(m)}</label>`).join('')}
+    <label class="opcion-motivo"><input type="radio" name="mc_m" value="__otro"> Otro:</label>
+    <input id="mc_otro" placeholder="Escribe el motivo" oninput="const r=document.querySelector('input[name=mc_m][value=__otro]');if(r)r.checked=true">
+  </div>
+  <div class="modal-pie">
+    <button class="btn btn-g" onclick="cerrarModal();refrescarResultados('${esc(n)}')">Cancelar</button>
+    <button class="btn btn-p" onclick="confirmarMotivoCorreccion('${esc(n)}',${ei})">Continuar y habilitar edición</button>
+  </div>`);
+}
+function confirmarMotivoCorreccion(n,ei){
+  const sel=document.querySelector('input[name=mc_m]:checked');
+  let m=sel?sel.value:'';
+  if(m==='__otro')m=((document.getElementById('mc_otro')||{}).value||'').trim();
+  if(!m||/^[\s0.-]*$/.test(m)){ toast('Indica un motivo real: se imprime en el informe corregido.'); return; }
+  _motivoCorreccion.set(claveExamen(n,ei), m);
+  _examenesDesbloqueados.add(claveExamen(n,ei));
+  cerrarModal();
   refrescarResultados(n);
 }
 function modalResultados(n,desde,sinScroll,areaActiva){
@@ -7465,8 +7507,19 @@ function srvValidarExamen(n, ei, opts={}){
      2. Cuando la orden vuelve a quedar firmada entera se cierra, se calcula
         qué cambió respecto de lo guardado, y SOLO ENTONCES sube el número de
         versión: mientras está a medias no hay ningún informe que emitir. */
+/* "Emitido" es que el informe SALIÓ del laboratorio: se imprimió o se generó
+   en PDF (registrarImpresion lo anota en o.impresiones; el envío por WhatsApp
+   manda ese mismo PDF) o se marcó Entregada. Validar no es emitir: entre la
+   firma y la impresión el informe sigue dentro, y corregirlo ahí es editar
+   antes de emitir, no sustituir una copia que alguien ya tiene. Con la
+   definición anterior (validada = emitida) una corrección hecha un minuto
+   después de firmar, antes de imprimir nada, salía al paciente con el
+   recuadro de "informe corregido" — que es lo que la norma reserva para los
+   informes ya entregados (ISO 15189 §7.4.1.7). */
 function informeYaEmitido(o){
-  return o.estado==='Validada'||o.estado==='Entregada'||!!o.fechaValidacion;
+  if(!o)return false;
+  if(o.estado==='Entregada')return true;
+  return ((o.impresiones||[]).length>0);
 }
 function versionInforme(o){ return Math.max(1, Number(o&&o.versionInforme)||1); }
 function esInformeCorregido(o){ return versionInforme(o)>1; }
@@ -14128,13 +14181,16 @@ const cssInforme=`
  /* Informe parcial: SÍ está validado (lo que se muestra es firme), a
     diferencia de "preliminar" — por eso lleva un tono informativo (azul),
     no la advertencia ámbar de "no validado". */
- /* El informe corregido no es un aviso "blando" como el parcial: sustituye a
-    uno que ya salio del laboratorio, asi que se marca en rojo y a toda
-    anchura, para que nadie confunda cual de las dos copias manda. */
- .marca-corregido{border:2px solid #b3261e;background:#fdeceb;color:#8c1d18;font-weight:800;
-   text-align:center;padding:5px 8px;border-radius:6px;margin-top:6px;font-size:8.8pt;
+ /* El informe corregido sustituye a uno que ya salio del laboratorio, asi que
+    tiene que decirlo con claridad: version, a cual sustituye, que cambio y
+    por que (ISO 15189 §7.4.1.7). Pero "con claridad" no es "en rojo": un
+    fondo rojo lo convertia en un documento que el laboratorio no queria
+    entregar, y el informe corregido es precisamente el que HAY que entregar.
+    Va sobrio, a toda anchura y en la tipografia del documento. */
+ .marca-corregido{border:1.5px solid #333;background:#f6f6f6;color:#1a1a1a;font-weight:800;
+   text-align:center;padding:5px 8px;border-radius:4px;margin-top:6px;font-size:8.8pt;
    letter-spacing:.3px;line-height:1.5}
- .marca-corregido .det{display:block;font-weight:600;font-size:8pt;letter-spacing:0;margin-top:2px}
+ .marca-corregido .det{display:block;font-weight:600;font-size:8pt;letter-spacing:0;margin-top:2px;color:#333}
  .marca-parcial{border:2px dashed #285068;color:#285068;font-weight:800;text-align:center;padding:4px;border-radius:6px;margin-top:6px;font-size:8.6pt;letter-spacing:.4px}
  .nota-crit{background:#fbe9e9;border:1.2px solid #cc0000;color:#cc0000;font-weight:700;border-radius:6px;padding:5px 9px;margin-top:6px;font-size:8.4pt}
  /* Firma */
