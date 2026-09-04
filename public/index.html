@@ -1109,6 +1109,16 @@ td input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:
 .suc-fila{display:grid;grid-template-columns:4.5em 1fr auto;gap:6px;align-items:center;margin-bottom:6px}
 .suc-fila .suc-num{text-align:center}
 .suc-fila input{min-width:0}
+
+/* ---- Ficha del paciente (modalFicha, 20_pacientes.js) ---- */
+.ficha-cab{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px}
+.ficha-sup{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--gris);margin-bottom:2px}
+.ficha-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.ficha-rejilla{display:grid;grid-template-columns:1fr 1fr;gap:10px 18px;background:#f6f9fb;border:1px solid var(--linea);border-radius:10px;padding:12px 14px}
+.ficha-dato{min-width:0}
+.ficha-k{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--gris)}
+.ficha-v{font-size:13.5px;font-weight:600;line-height:1.35;overflow-wrap:anywhere}
+@media(max-width:600px){ .ficha-rejilla{grid-template-columns:1fr;gap:8px} }
 </style>
 </head>
 <body>
@@ -2966,6 +2976,7 @@ function filasPacientes(filtro=''){
       <td>${p.idNumero?`<span class="chip chip-az">${p.idTipo||'DNI'}</span> <span class="nw">${p.idNumero}</span>`:'—'}</td>
       <td style="font-size:12px">${edadDetallada(p.fnac)}${p.fnacAproximada?' <span style="color:var(--gris)" title="Fecha de nacimiento calculada a partir de la edad, no un dato exacto">(aprox.)</span>':''}</td><td>${sexoTexto(p.sexo)}</td><td>${p.tel||'—'}</td>
       <td style="text-align:right;white-space:nowrap">
+        <button class="btn btn-g btn-min" title="Ficha del paciente: datos de identificación, sin resultados" onclick="modalFicha('${p.codigo}')">Ficha</button>
         <button class="btn btn-d btn-min" onclick="modalHistorial('${p.codigo}')">☰ Historial</button>
         <button class="btn btn-g btn-min" onclick="modalPaciente('${p.codigo}')">Editar</button>
         ${/* Unir fichas es destructivo y clinico: mismo alcance que firmar. */''
@@ -3318,6 +3329,96 @@ function confirmarFusionPaciente(codOrigen, codDestino){
   cerrarModal(); vPacientes();
   toast('Fichas unidas ✓ · '+r.movido.ordenes+' orden(es) y '+r.movido.cotizaciones+
         ' cotización(es) pasaron a '+r.codDestino);
+}
+
+
+/* =============== FICHA DEL PACIENTE ===============
+   Vista de SOLO LECTURA con los datos de identificación del paciente, como
+   la carátula de un expediente: nombre completo, edad, identificación, fecha
+   de nacimiento, sexo, contacto, médico que refiere, responsable si es
+   menor, y un resumen del expediente. No lleva resultados: para eso están
+   el Historial y los informes. Se puede imprimir con el membrete. */
+function datosFicha(p){
+  const ords=ordenesDe(p.codigo);
+  const ultima=ords.length?ords.map(o=>o.fecha||'').sort().pop():'';
+  return {ords, ultima, menor:!!(p.fnac&&esMenor(p.fnac)),
+    nombre:nombreCompleto(p),
+    edad:p.fnac?edadDetallada(p.fnac)+(p.fnacAproximada?' (aproximada)':''):'—',
+    fnac:p.fnac?fmtFecha(p.fnac)+(p.fnacAproximada?' (calculada a partir de la edad)':''):'—',
+    id:p.idNumero?(p.idTipo||'DNI')+' '+p.idNumero:'—',
+    sexo:sexoTexto(p.sexo)};
+}
+function _datoFicha(k,v){ return `<div class="ficha-dato"><div class="ficha-k">${k}</div><div class="ficha-v">${v||'—'}</div></div>`; }
+function modalFicha(cod){
+  const p=S.pacientes.find(x=>x.codigo===cod);
+  if(!p){toast('Paciente no encontrado');return;}
+  const d=datosFicha(p);
+  abrirModal(`
+  <div class="ficha-cab">
+    <div>
+      <div class="ficha-sup">Ficha del paciente · ${esc(p.codigo)}</div>
+      <h3 style="margin:0">${esc(d.nombre)}</h3>
+      <div class="ficha-chips">
+        ${d.menor?'<span class="chip chip-am">Menor de edad</span>':''}
+        <span class="chip chip-az">${esc(d.sexo)}</span>
+        <span class="chip chip-az">${esc(d.edad)}</span>
+      </div>
+    </div>
+  </div>
+  <div class="ficha-rejilla">
+    ${_datoFicha('Nombre completo',esc(d.nombre))}
+    ${_datoFicha('Edad',esc(d.edad))}
+    ${_datoFicha('Identificación',esc(d.id))}
+    ${_datoFicha('Fecha de nacimiento',esc(d.fnac))}
+    ${_datoFicha('Sexo',esc(d.sexo))}
+    ${_datoFicha('Teléfono',esc(p.tel||''))}
+    ${_datoFicha('Correo electrónico',esc(p.correo||''))}
+    ${_datoFicha('Procedencia / Dirección',esc(p.dir||''))}
+    ${_datoFicha('Médico que refiere',esc(p.medico||''))}
+    ${_datoFicha('Expediente',d.ords.length+' orden(es)'+(d.ultima?' · última visita '+fmtFecha(d.ultima):''))}
+  </div>
+  ${p.obs?`<div class="obs-seccion"><label>Observaciones</label><div style="font-size:12.5px;white-space:pre-wrap">${esc(p.obs)}</div></div>`:''}
+  ${(d.menor||p.respNombre)?`<div class="obs-seccion" style="border-left-color:var(--ambar);background:var(--ambar-suave)">
+    <label style="color:var(--ambar)">Responsable / tutor del menor</label>
+    ${p.respNombre?`<div class="ficha-rejilla" style="margin-top:6px;background:#fff">
+      ${_datoFicha('Nombre',esc(p.respNombre))}${_datoFicha('Parentesco',esc(p.respParentesco||''))}
+      ${_datoFicha('Identificación',esc(p.respId||''))}${_datoFicha('Teléfono',esc(p.respTel||''))}</div>`
+      :'<div style="font-size:12.5px;color:var(--ambar);font-weight:700">Sin responsable registrado</div>'}
+  </div>`:''}
+  <div class="modal-pie">
+    <button class="btn btn-g" onclick="cerrarModal()">Cerrar</button>
+    <button class="btn btn-g" onclick="modalHistorial('${cod}')">☰ Historial</button>
+    <button class="btn btn-g" onclick="modalPaciente('${cod}')">Editar</button>
+    <button class="btn btn-p" onclick="previsualizar(()=>imprimirFicha('${cod}'),'Ficha del paciente','Imprimir ficha')"><svg class="ico-en" aria-hidden="true"><use href="#i-ver"/></svg> Ver e imprimir</button>
+  </div>`);
+}
+/* La ficha impresa: membrete, datos de identificación y las últimas órdenes
+   (número, fecha, exámenes y estado). Sin valores de resultados a propósito:
+   es un documento de identificación, no un informe. */
+function imprimirFicha(cod){
+  const p=S.pacientes.find(x=>x.codigo===cod);
+  if(!p){toast('Paciente no encontrado');return;}
+  const d=datosFicha(p);
+  const ords=d.ords.slice().sort((a,b)=>String(b.fecha).localeCompare(String(a.fecha))).slice(0,12);
+  const html=`${membrete()}
+  <h2>FICHA DEL PACIENTE</h2>
+  <div class="datos">
+    <div><b>Expediente:</b> ${esc(p.codigo)}</div><div><b>Emitida:</b> ${fmtFecha(hoy())}</div>
+    <div><b>Nombre completo:</b> ${esc(d.nombre)}</div><div><b>Identificación:</b> ${esc(d.id)}</div>
+    <div><b>Fecha de nacimiento:</b> ${esc(d.fnac)}</div><div><b>Edad:</b> ${esc(d.edad)}</div>
+    <div><b>Sexo:</b> ${esc(d.sexo)}</div><div><b>Teléfono:</b> ${esc(p.tel||'—')}</div>
+    <div><b>Correo:</b> ${esc(p.correo||'—')}</div><div><b>Procedencia:</b> ${esc(p.dir||'—')}</div>
+    <div><b>Médico que refiere:</b> ${esc(p.medico||'—')}</div><div><b>Órdenes en el expediente:</b> ${d.ords.length}${d.ultima?' · última '+fmtFecha(d.ultima):''}</div>
+  </div>
+  ${p.obs?`<div class="sec">Observaciones</div><div style="font-size:10.8px;white-space:pre-wrap;margin-bottom:8px">${esc(p.obs)}</div>`:''}
+  ${(d.menor||p.respNombre)?`<div class="sec">Responsable / tutor del menor</div><div class="datos">
+    <div><b>Nombre:</b> ${esc(p.respNombre||'— sin responsable registrado —')}</div><div><b>Parentesco:</b> ${esc(p.respParentesco||'—')}</div>
+    <div><b>Identificación:</b> ${esc(p.respId||'—')}</div><div><b>Teléfono:</b> ${esc(p.respTel||'—')}</div></div>`:''}
+  ${ords.length?`<div class="sec">Últimas órdenes</div><table><thead><tr><th>Orden</th><th>Fecha</th><th>Exámenes</th><th>Estado</th></tr></thead><tbody>
+    ${ords.map(o=>`<tr><td class="nw">${esc(o.numero)}</td><td class="nw">${fmtFecha(o.fecha)}</td><td>${(o.examenes||[]).map(e=>esc(e.nombre)).join(' · ')}</td><td>${esc(o.estado)}</td></tr>`).join('')}
+  </tbody></table>`:''}
+  <div class="pie">${esc(S.config.anclaSGC)} · ${esc(S.config.nombre)} · Documento de identificación del paciente: no contiene resultados.</div>`;
+  ventanaImpresion(html,cssDoc,nombreArchivo('Ficha',p.codigo,d.nombre,hoy()));
 }
 /* =============== PACIENTES: REPOSITORIO =============== */
 /* Acceso a datos puro sobre S.pacientes. Sin DOM, sin confirm(), sin reglas
