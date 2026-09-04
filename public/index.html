@@ -16264,11 +16264,24 @@ function guardarConfig(){
     obsFrecuentes:document.getElementById('cf_obsfrec').value.split('\n').map(x=>x.trim()).filter(Boolean)});
   guardar();toast('Configuración guardada ✓');
 }
-function exportarRespaldo(){
+async function exportarRespaldo(){
+  /* En modo web el estado de este equipo lleva solo las últimas entradas de
+     la bitácora (el servidor la recorta al bajar el estado): el respaldo pide
+     la completa. Si no se puede, se exporta igual y se avisa. */
+  let copia=S, nota='';
+  if(typeof MODO_WEB!=='undefined'&&MODO_WEB){
+    try{
+      const r=await apiFetch('/api/bitacora');
+      if(!r.ok)throw new Error(String(r.status));
+      const d=await r.json();
+      copia={...S,bitacora:Array.isArray(d.entradas)?d.entradas:S.bitacora};
+      delete copia._bitacoraTotal;
+    }catch(e){ nota=' (sin el historial completo de la bitácora: no se pudo bajar del servidor)'; }
+  }
   const a=document.createElement('a');
-  a.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(S,null,1));
+  a.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(copia,null,1));
   a.download='Respaldo_LIS_CDIM_'+hoy()+'.json';a.click();
-  S.meta.ultimoRespaldo=hoy();guardar();toast('Respaldo exportado ✓');
+  S.meta.ultimoRespaldo=hoy();guardar();toast('Respaldo exportado ✓'+nota);
 }
 function importarRespaldo(inp){
   const f=inp.files[0];if(!f)return;
@@ -17667,6 +17680,11 @@ const COLECCIONES_SYNC={
    S.usuarios: los usuarios de verdad viven en el servidor (/api/usuarios). */
 const SINGLETONES_SYNC=['config','caja','meta','usuarios'];
 let _huellas=null;      // Map "coleccion clave" -> JSON del registro
+/* Claves de las entradas de bitácora que alguien borró a propósito desde la
+   pantalla, pendientes de avisar al servidor. La bitácora no se borra por
+   diferencia (ver calcularDelta), así que sin esta lista el borrado se
+   quedaba en este equipo y la entrada volvía con la siguiente descarga. */
+let _bitBorradas=[];
 let _huellaSingle={};   // singleton -> su JSON
 
 function _arregloSync(estado,col){
@@ -17708,11 +17726,13 @@ function calcularDelta(){
   for(const k of _huellas.keys()){
     if(vistos.has(k))continue;
     const i=k.indexOf(' '), col=k.slice(0,i), clave=k.slice(i+1);
-    // La bitácora no se borra nunca; si una entrada no aparece es que se
-    // recortó localmente, no que haya que quitarla del servidor.
+    // La bitácora no se borra por diferencia: el servidor la manda recortada
+    // a las últimas entradas, así que "no aparece aquí" no significa nada.
+    // Solo se quita lo que borrarBitacora() anotó, y eso va aparte.
     if(!COLECCIONES_SYNC[col]||!COLECCIONES_SYNC[col].clave)continue;
     (borrados[col]||(borrados[col]=[])).push(clave);
   }
+  if(_bitBorradas.length)borrados.bitacora=_bitBorradas.slice();
   for(const s of SINGLETONES_SYNC){
     const j=JSON.stringify(S[s]||null);
     if(_huellaSingle[s]!==j)singletones[s]=S[s];
@@ -17753,7 +17773,7 @@ async function subirEstado(){
         body:gzD||cuerpo});
       if(rd.ok){
         const d=await rd.json();
-        _lastTs=d.ts; _syncPendiente=false;
+        _lastTs=d.ts; _syncPendiente=false; _bitBorradas=[];
         marcarEstadoSincronizado();
         actualizarIndicadorSync(true);
         /* El servidor tenía cambios de otro equipo. Lo de aquí ya quedó
@@ -17769,7 +17789,10 @@ async function subirEstado(){
       }
       // 404 (servidor viejo) o 409 (servidor sin estado): se sube completo.
     }
-    const texto=JSON.stringify({estado:S,ts:_lastTs});
+    /* bitacoraBorrada viaja aparte porque el servidor MEZCLA la bitácora del
+       estado completo con la suya (este equipo solo tiene las últimas
+       entradas): lo que falte aquí no se borra allá salvo que se diga. */
+    const texto=JSON.stringify({estado:S,ts:_lastTs,bitacoraBorrada:_bitBorradas});
     const gz=await comprimirSiSePuede(texto);
     const r=await apiFetch('/api/estado',{
       method:'POST',
@@ -17800,7 +17823,7 @@ async function subirEstado(){
     if(r.ok){
       const d=await r.json();
       _lastTs=d.ts;
-      _syncPendiente=false;
+      _syncPendiente=false; _bitBorradas=[];
       marcarEstadoSincronizado();
       actualizarIndicadorSync(true);
     }else{
@@ -18605,19 +18628,43 @@ async function cambiarUsuario(){
      una entrada de sistema nueva contando qué se borró y quién lo hizo, para
      que la bitácora nunca pueda vaciarse sin dejar rastro de que se vació. */
 const TIPOS_BIT=['Actividad de rutina','Control de calidad','Mantenimiento de equipo','Recepción de reactivos','Incidencia / No conformidad','Acción correctiva','Capacitación','Apertura de caja','Cierre de caja','Observación','Otro'];
+/* En modo web, S.bitacora son solo las últimas entradas (el servidor la
+   recorta al bajar el estado). El historial completo se pide aparte y vive
+   aquí, NO en S: es para mirar e imprimir, y desde él no se borra nada. */
+let _bitacoraCompleta=null;
+function avisoBitacoraRecortada(){
+  if(typeof MODO_WEB==='undefined'||!MODO_WEB)return '';
+  if(_bitacoraCompleta)return `<div class="aviso">Historial completo: ${_bitacoraCompleta.length} entradas, tal como están guardadas en el servidor. Desde aquí no se borra nada.
+    <button class="btn btn-g btn-min" onclick="vBitacora()">Volver a las recientes</button></div>`;
+  const total=Number(S._bitacoraTotal)||0;
+  if(total<=S.bitacora.length)return '';
+  return `<div class="aviso" id="bit_recorte">Aquí se ven las últimas ${S.bitacora.length} entradas; el servidor guarda ${total}.
+    <button class="btn btn-g btn-min" onclick="cargarBitacoraCompleta()">Ver el historial completo</button></div>`;
+}
+async function cargarBitacoraCompleta(){
+  const q=document.getElementById('q_bit'), filtro=(q&&q.value)||'';
+  try{
+    const r=await apiFetch('/api/bitacora');
+    if(!r.ok)throw new Error(String(r.status));
+    const d=await r.json();
+    _bitacoraCompleta=Array.isArray(d.entradas)?d.entradas:[];
+    vBitacora(filtro,true);
+  }catch(e){ toast('No se pudo bajar el historial completo. Revise la conexión.'); }
+}
 function filasBitacora(filtro=''){
   const f=normTxt(filtro);
-  const lista=S.bitacora.map((b,i)=>({...b,_i:i})).filter(b=>normTxt(b.tipo+' '+b.descripcion+' '+b.responsable+' '+b.fecha).includes(f)).reverse();
+  const lista=(_bitacoraCompleta||S.bitacora).map((b,i)=>({...b,_i:i})).filter(b=>normTxt(b.tipo+' '+b.descripcion+' '+b.responsable+' '+b.fecha).includes(f)).reverse();
   return `${lista.length?`<table class="tabla-bit"><thead><tr><th style="width:90px">Fecha</th><th style="width:55px">Hora</th><th>Tipo</th><th>Descripción</th><th>Responsable</th><th></th></tr></thead><tbody>
     ${lista.map(b=>`<tr>
       <td class="nw">${fmtFecha(b.fecha)}<div class="solo-movil cel-sub">${esc(b.hora||'')}</div></td><td>${b.hora}</td>
       <td><span class="chip ${/Incidencia|correctiva/.test(b.tipo)?'chip-rj':/caja/.test(b.tipo)?'chip-do':'chip-az'}">${esc(b.tipo)}</span></td>
       <td style="font-size:12.5px">${esc(b.descripcion)}</td><td style="font-size:12px">${esc(b.responsable)}</td>
-      <td>${b.manual?`<button class="btn btn-r btn-min" onclick="borrarBitacora(${b._i})">✕</button>`
+      <td>${b.manual?(_bitacoraCompleta?'':`<button class="btn btn-r btn-min" onclick="borrarBitacora(${b._i})">✕</button>`)
         :`<span class="chip chip-vd" style="font-size:9.5px" title="Entrada generada por el sistema: no se puede eliminar"><svg class="ico-en" aria-hidden="true"><use href="#i-bloqueado"/></svg> sistema</span>`}</td></tr>`).join('')}
   </tbody></table>`:`<div class="vacio">${filtro?'Ninguna entrada coincide con “'+esc(filtro)+'”.':'Sin entradas en la bitácora.'}</div>`}`;
 }
-function vBitacora(filtro=''){
+function vBitacora(filtro='',historial=false){
+  if(!historial)_bitacoraCompleta=null;
   vista.innerHTML=`
   <div class="cabecera"><h2>Bitácora de Trabajo</h2>
     <div style="display:flex;gap:10px">
@@ -18628,6 +18675,7 @@ function vBitacora(filtro=''){
     </div>
   </div>
   <div class="aviso">Registro cronológico para el SGC: actividades, mantenimientos, incidencias y controles. Las aperturas y cierres de caja se anotan automáticamente.</div>
+  ${avisoBitacoraRecortada()}
   <div class="tarjeta" id="lista_bit">${filasBitacora(filtro)}</div>`;
   const q=document.getElementById('q_bit');if(q&&filtro)q.focus();
 }
@@ -18656,6 +18704,7 @@ function borrarBitacora(i){
   if(!b.manual){toast('Esta entrada la generó el sistema (validación, anulación, no conformidad…) y es parte del registro de auditoría: no se puede eliminar.');return;}
   if(!esAdmin()){toast('Solo un Administrador puede eliminar entradas de la bitácora');return;}
   if(!confirm('¿Eliminar esta entrada de la bitácora?\n\nQuedará registrado que se eliminó.'))return;
+  _bitBorradas.push(_claveSync('bitacora',b));   // para que el borrado llegue al servidor
   S.bitacora.splice(i,1);
   // La eliminación en sí queda como entrada de SISTEMA (sin manual:true) — por
   // eso esta entrada nunca podrá borrarse a su vez, y la bitácora no puede
@@ -18665,10 +18714,13 @@ function borrarBitacora(i){
   guardar(true);vBitacora();
 }
 function imprimirBitacora(){
-  const lista=S.bitacora.slice().sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+  const lista=(_bitacoraCompleta||S.bitacora).slice().sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora));
+  const total=Number(S._bitacoraTotal)||0;
+  const recortada=!_bitacoraCompleta&&typeof MODO_WEB!=='undefined'&&MODO_WEB&&total>S.bitacora.length;
   const html=`${membrete()}
   <h2>BITÁCORA DE TRABAJO</h2>
-  <div class="datos"><div><b>Entradas:</b> ${lista.length}</div><div><b>Emitido:</b> ${fmtFecha(hoy())}</div></div>
+  <div class="datos"><div><b>Entradas:</b> ${lista.length}</div><div><b>Emitido:</b> ${fmtFecha(hoy())}</div>
+    ${recortada?`<div><b>Alcance:</b> las últimas ${lista.length} de ${total} entradas. El historial completo se imprime desde «Ver el historial completo».</div>`:''}</div>
   <table><thead><tr><th>Fecha</th><th>Hora</th><th>Tipo</th><th>Descripción</th><th>Responsable</th></tr></thead><tbody>
   ${lista.map(b=>`<tr><td class="nw">${fmtFecha(b.fecha)}<div class="solo-movil cel-sub">${esc(b.hora||'')}</div></td><td>${b.hora}</td><td>${esc(b.tipo)}</td><td>${esc(b.descripcion)}</td><td>${esc(b.responsable)}</td></tr>`).join('')}
   </tbody></table>

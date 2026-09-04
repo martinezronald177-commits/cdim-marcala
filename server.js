@@ -910,10 +910,25 @@ app.delete('/api/auth/sesiones/:id', auth, (req, res) => {
 // ════════════════════════════════════════════════════════════
 
 // Leer el estado del LIS
+/* La bitácora es lo único del estado que crece sin tope —una entrada por
+   validación, por apertura de caja, por no conformidad, para siempre— y este
+   endpoint se llama al abrir y cada vez que otro equipo guarda algo. Así que
+   viaja recortada a las últimas BITACORA_RECIENTE entradas, con el total en
+   _bitacoraTotal para que la pantalla lo diga. El historial entero se pide
+   con ?completa=1 o por GET /api/bitacora. */
+const BITACORA_RECIENTE = Math.max(50, Number(process.env.BITACORA_RECIENTE) || 400);
 app.get('/api/estado', auth, (req, res) => {
   const estado = leerDB('estado');
   if(!estado) return res.json(null);
-  res.json(estado);
+  const bit = Array.isArray(estado.bitacora) ? estado.bitacora : [];
+  if(req.query.completa === '1' || bit.length <= BITACORA_RECIENTE) return res.json(estado);
+  res.json({...estado, bitacora: bit.slice(-BITACORA_RECIENTE), _bitacoraTotal: bit.length});
+});
+// El historial completo de la bitácora, para verlo, imprimirlo o respaldarlo.
+app.get('/api/bitacora', auth, (req, res) => {
+  const estado = leerDB('estado');
+  const bit = (estado && Array.isArray(estado.bitacora)) ? estado.bitacora : [];
+  res.json({total: bit.length, entradas: bit});
 });
 
 // Guardar el estado del LIS (envía el JSON completo)
@@ -924,6 +939,12 @@ app.post('/api/estado', auth, (req, res) => {
   const actual = leerDB('estado');
   if(actual && actual._ts && ts && ts < actual._ts)
     return res.status(409).json({error:'Conflicto: hay una versión más nueva en el servidor', estado:actual});
+  /* La bitácora que trae el cliente son solo las últimas entradas (GET
+     /api/estado la recorta): un estado completo NUNCA la sustituye, se mezcla
+     con la que ya hay. Lo único que sale es lo que el cliente borró a
+     propósito (bitacoraBorrada: claves de contenido), y solo si es manual. */
+  if(actual) estado.bitacora = mezclarBitacora(actual.bitacora, estado.bitacora, req.body.bitacoraBorrada);
+  delete estado._bitacoraTotal;
   estado._ts  = Date.now();
   estado._por = req.user.nombre;
   escribirDB('estado', estado);
@@ -993,6 +1014,21 @@ const SINGLETONES = ['config','caja','meta','usuarios'];
 function claveBitacora(b){
   return [b.fecha,b.hora,b.responsable,b.tipo,b.descripcion].join('');
 }
+/* Unión por contenido: primero lo del servidor en su orden, luego lo nuevo
+   del cliente. Las entradas de sistema (sin manual:true) no se quitan nunca:
+   son el registro de auditoría. */
+function mezclarBitacora(vieja, nueva, borradas){
+  const fuera = new Set((Array.isArray(borradas) ? borradas : []).map(String));
+  const salida = [], vistas = new Set();
+  for(const b of [...(Array.isArray(vieja) ? vieja : []), ...(Array.isArray(nueva) ? nueva : [])]){
+    if(!b || typeof b !== 'object') continue;
+    const k = claveBitacora(b);
+    if(vistas.has(k)) continue;
+    if(fuera.has(k) && b.manual) continue;
+    vistas.add(k); salida.push(b);
+  }
+  return salida;
+}
 function claveDe(col, reg){
   return COLECCIONES[col].clave ? reg[COLECCIONES[col].clave] : claveBitacora(reg);
 }
@@ -1038,7 +1074,9 @@ app.post('/api/estado/delta', auth, (req, res) => {
     const fuera = new Set(borrados[col].map(String));
     if(!fuera.size) continue;
     const lista = arregloDe(estado, col);
-    const quedan = lista.filter(r => !fuera.has(String(claveDe(col,r))));
+    // De la bitácora solo se quita una entrada MANUAL: las de sistema son el
+    // registro de auditoría y no salen ni aunque un cliente lo pida.
+    const quedan = lista.filter(r => !fuera.has(String(claveDe(col,r))) || (col==='bitacora' && !r.manual));
     quitados += lista.length - quedan.length;
     lista.length = 0; quedan.forEach(r => lista.push(r));
   }
