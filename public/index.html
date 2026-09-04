@@ -8450,7 +8450,7 @@ async function anularRecibo(num){
 /* ---- Impresión del recibo de venta (media carta) ---- */
 const cssReciboVenta=`
  @page{size:8.5in 11in;margin:8mm 9mm}
- body{font-family:ui-monospace,'SFMono-Regular','DejaVu Sans Mono','Liberation Mono',Menlo,Consolas,'Courier New',monospace;color:#000;font-size:9pt;margin:0}
+ body{font-family:'Inconsolata',ui-monospace,'SFMono-Regular','DejaVu Sans Mono','Liberation Mono',Menlo,Consolas,'Courier New',monospace;color:#000;font-size:9pt;margin:0}
  /* Cada ejemplar ocupa una hoja carta completa */
  .rv{width:100%;position:relative;page-break-after:always;
    display:flex;flex-direction:column;min-height:256mm;max-height:263mm;overflow:hidden}
@@ -12763,7 +12763,7 @@ function membrete(){
 }
 const cssDoc=`
  @page{size:8.5in 11in;margin:14mm}
- body{font-family:ui-monospace,'SFMono-Regular','DejaVu Sans Mono','Liberation Mono',Menlo,Consolas,'Courier New',monospace;color:#1c2b36;font-size:11.5px}
+ body{font-family:'Inconsolata',ui-monospace,'SFMono-Regular','DejaVu Sans Mono','Liberation Mono',Menlo,Consolas,'Courier New',monospace;color:#1c2b36;font-size:11.5px}
  .memb{display:flex;gap:12px;align-items:center;border-bottom:3px solid #b8974a;padding-bottom:8px;margin-bottom:10px}
  .logo-m{height:52px}
  .memb-n{font-size:16px;font-weight:800;color:#285068}
@@ -12792,7 +12792,7 @@ const cssCotizacion=`
  @page{size:8.5in 11in;margin:8mm 9mm}
  /* Todo el informe en tipografía monoespaciada: las columnas de valores
     quedan alineadas y el conjunto se lee como documento técnico. */
- body{font-family:ui-monospace,'SFMono-Regular','DejaVu Sans Mono',Menlo,Consolas,'Courier New',monospace;
+ body{font-family:'Inconsolata',ui-monospace,'SFMono-Regular','DejaVu Sans Mono',Menlo,Consolas,'Courier New',monospace;
    color:#1c2b36;font-size:8.8pt;margin:0}
  /* El recorte (max-height + overflow:hidden) queda SOLO para impresión, como
     última red contra que una hoja se pase por un par de milímetros y arrastre
@@ -13997,7 +13997,7 @@ function imprimirResultados(n,forzarTodo){
 /* ---- Sobre vertical con datos del paciente ---- */
 const cssSobre=`
  @page{size:var(--anchoS) var(--altoS);margin:0}
- body{font-family:ui-monospace,'SFMono-Regular','DejaVu Sans Mono','Liberation Mono',Menlo,Consolas,'Courier New',monospace;color:#000;margin:0}
+ body{font-family:'Inconsolata',ui-monospace,'SFMono-Regular','DejaVu Sans Mono','Liberation Mono',Menlo,Consolas,'Courier New',monospace;color:#000;margin:0}
  .sobre{width:var(--anchoS);height:var(--altoS);box-sizing:border-box;padding:12mm 11mm;
    display:flex;flex-direction:column;position:relative;overflow:hidden}
  /* Marco decorativo sobrio */
@@ -14142,7 +14142,7 @@ function enLetras(num){
    sirve de respaldo de la transcripción al sistema. Nunca se da al paciente. */
 const cssHojaTrabajo=`
  @page{size:8.5in 11in;margin:8mm 9mm}
- body{font-family:ui-monospace,'SFMono-Regular','DejaVu Sans Mono','Liberation Mono',Menlo,Consolas,'Courier New',monospace;color:#000;font-size:8.8pt;margin:0}
+ body{font-family:'Inconsolata',ui-monospace,'SFMono-Regular','DejaVu Sans Mono','Liberation Mono',Menlo,Consolas,'Courier New',monospace;color:#000;font-size:8.8pt;margin:0}
  .ht{page-break-after:always;display:flex;flex-direction:column;min-height:256mm}
  .ht:last-child{page-break-after:auto}
  .ht-cab{display:flex;justify-content:space-between;align-items:center;gap:10px;border-bottom:2.4px solid #111;padding-bottom:5px}
@@ -14292,7 +14292,7 @@ function igualNombreHT(a,b){
    hojas de estilos parecidas a mano. Ver ARQUITECTURA.md, "Fase 8". */
 const cssInforme=`
  @page{size:8.5in 11in;margin:8mm 9mm}
- body{font-family:ui-monospace,'SFMono-Regular','DejaVu Sans Mono','Liberation Mono',Menlo,Consolas,'Courier New',monospace;color:#1c2b36;font-size:8.8pt;margin:0}
+ body{font-family:'Inconsolata',ui-monospace,'SFMono-Regular','DejaVu Sans Mono','Liberation Mono',Menlo,Consolas,'Courier New',monospace;color:#1c2b36;font-size:8.8pt;margin:0}
  /* Carta: 279.4mm de alto − 16mm de márgenes = 263.4mm útiles; 256mm deja holgura segura */
  /* Safari en iPhone deja menos área imprimible que Chrome de escritorio.
     228 mm cabe en todos: carta (279) menos márgenes (16) menos el encabezado
@@ -15596,7 +15596,7 @@ function cssInstructivo(){
  /* Carta explícita en pulgadas: algunos navegadores ignoran la palabra "letter"
     y caen en A4 según la configuración regional del sistema. */
  @page{size:8.5in 11in;margin:8mm 9mm}
- body{font-family:ui-monospace,'SFMono-Regular','DejaVu Sans Mono','Liberation Mono',Menlo,Consolas,'Courier New',monospace;color:#1c2b36;font-size:9pt;margin:0;
+ body{font-family:'Inconsolata',ui-monospace,'SFMono-Regular','DejaVu Sans Mono','Liberation Mono',Menlo,Consolas,'Courier New',monospace;color:#1c2b36;font-size:9pt;margin:0;
    width:8.5in;max-width:8.5in}
  @media print{ body{width:auto;max-width:none} }
  /* Misma caja que el informe de resultados: carta con el pie anclado abajo */
@@ -15848,7 +15848,7 @@ function modalVerInstructivo(id){
 /* =============== ETIQUETAS 57 × 32 mm (horizontal) =============== */
 const cssEtiqueta=`
  @page{size:57mm 32mm;margin:0}
- body{margin:0;font-family:ui-monospace,'SFMono-Regular','DejaVu Sans Mono','Liberation Mono',Menlo,Consolas,'Courier New',monospace;-webkit-font-smoothing:antialiased}
+ body{margin:0;font-family:'Inconsolata',ui-monospace,'SFMono-Regular','DejaVu Sans Mono','Liberation Mono',Menlo,Consolas,'Courier New',monospace;-webkit-font-smoothing:antialiased}
  .et{width:57mm;height:32mm;padding:1.5mm 2mm;box-sizing:border-box;page-break-after:always;overflow:hidden;display:flex;flex-direction:column}
  .et:last-child{page-break-after:auto}
  .et-cab{display:flex;justify-content:space-between;align-items:baseline;border-bottom:0.35mm solid #000;padding-bottom:0.4mm;flex:0 0 auto}
