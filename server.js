@@ -628,7 +628,7 @@ inicializarUsuarios();
 // RUTAS DE AUTENTICACIÓN
 // ════════════════════════════════════════════════════════════
 app.post('/api/auth/login', (req, res) => {
-  const {usuario, clave} = req.body;
+  const {usuario, clave} = req.body || {};
   if(!usuario || !clave) return res.status(400).json({error:'Datos incompletos'});
   if(!limitarLogin(usuario))
     return res.status(429).json({error:'Demasiados intentos con este usuario. Espera unos minutos.'});
@@ -801,7 +801,7 @@ app.get('/api/auth/me', auth, (req, res) => {
 });
 
 app.post('/api/auth/cambiar-clave', auth, (req, res) => {
-  const {claveActual, claveNueva} = req.body;
+  const {claveActual, claveNueva} = req.body || {};
   if(!claveNueva || claveNueva.length < 6)
     return res.status(400).json({error:'La clave nueva debe tener al menos 6 caracteres'});
   const usuarios = leerDB('usuarios') || [];
@@ -824,7 +824,7 @@ app.get('/api/usuarios', auth, soloAdmin, (req, res) => {
 });
 
 app.post('/api/usuarios', auth, soloAdmin, (req, res) => {
-  const {nombre, usuario, clave, rol} = req.body;
+  const {nombre, usuario, clave, rol} = req.body || {};
   if(!nombre || !usuario || !clave) return res.status(400).json({error:'Datos incompletos'});
   if(clave.length < 6) return res.status(400).json({error:'La clave debe tener al menos 6 caracteres'});
   const usuarios = leerDB('usuarios') || [];
@@ -834,7 +834,7 @@ app.post('/api/usuarios', auth, soloAdmin, (req, res) => {
     id     : 'usr-'+Date.now().toString(36),
     nombre, usuario,
     clave  : bcrypt.hashSync(clave, 10),
-    pin    : (req.body.pin && /^\d{4,8}$/.test(String(req.body.pin)))
+    pin    : ((req.body||{}).pin && /^\d{4,8}$/.test(String(req.body.pin)))
              ? bcrypt.hashSync(String(req.body.pin), 10) : null,
     rol    : ['Admin','Dr','Administrador','Técnico'].includes(rol) ? rol : 'Técnico',
     activo : true,
@@ -854,7 +854,7 @@ app.put('/api/usuarios/:id', auth, soloAdmin, (req, res) => {
   const usuarios = leerDB('usuarios') || [];
   const u = usuarios.find(x => x.id === req.params.id);
   if(!u) return res.status(404).json({error:'Usuario no encontrado'});
-  const {nombre, rol, activo, clave} = req.body;
+  const {nombre, rol, activo, clave} = req.body || {};
   // El laboratorio no puede quedarse sin nadie que administre el sistema
   const quitaAdmin = u.rol === 'Admin' && ((rol && rol !== 'Admin') || activo === false);
   if(quitaAdmin && usuarios.filter(x => x.rol === 'Admin' && x.activo !== false).length <= 1)
@@ -946,7 +946,7 @@ app.get('/api/bitacora', auth, (req, res) => {
 
 // Guardar el estado del LIS (envía el JSON completo)
 app.post('/api/estado', auth, (req, res) => {
-  const {estado, ts} = req.body;
+  const {estado, ts} = req.body || {};
   if(!estado) return res.status(400).json({error:'Estado vacío'});
   // Control de conflictos: solo se acepta si el timestamp es igual o mayor
   const actual = leerDB('estado');
@@ -1358,7 +1358,7 @@ function limitarCotizacion(ip){
 app.post('/api/cotizacion-publica', (req, res) => {
   if(!limitarCotizacion(ipDe(req)))
     return res.status(429).json({error:'Demasiadas solicitudes. Espera unos minutos e inténtalo de nuevo.'});
-  const cot = req.body;
+  const cot = req.body || {};
   if(!cot || !cot.numero || !cot.nombre)
     return res.status(400).json({error:'Datos incompletos'});
   /* WhatsApp obligatorio y consentimiento explícito (sep. 2026). La casilla
@@ -1780,7 +1780,7 @@ function respaldarAntesDeRestaurar(actual){
 
 // Restaurar desde un respaldo del servidor
 app.post('/api/respaldo/restaurar', auth, soloAdmin, (req, res) => {
-  const { archivo } = req.body;
+  const { archivo } = req.body || {};
   if(!archivo || !/^estado-\d{4}-\d{2}-\d{2}\.json(\.gz)?$/.test(archivo))
     return res.status(400).json({error:'Nombre de archivo no válido'});
   const f = path.join(BAK_DIR, archivo);
@@ -1813,7 +1813,7 @@ app.post('/api/respaldo/restaurar', auth, soloAdmin, (req, res) => {
    que descarga el botón de arriba, un .gz sin cifrar y el .json.gz cifrado. */
 app.post('/api/respaldo/restaurar-archivo', auth, soloAdmin,
   express.raw({type:'*/*', limit:'64mb'}), (req, res) => {
-  const crudo = req.body;
+  const crudo = req.body || {};
   if(!crudo || !crudo.length) return res.status(400).json({error:'Archivo vacío'});
   let estado;
   try{
@@ -1841,7 +1841,7 @@ app.post('/api/respaldo/restaurar-archivo', auth, soloAdmin,
 
 // Subir un respaldo desde la computadora y restaurarlo
 app.post('/api/respaldo/subir', auth, soloAdmin, (req, res) => {
-  const { estado } = req.body;
+  const { estado } = req.body || {};
   if(!estado || !estado.pacientes) return res.status(400).json({error:'El archivo no parece un respaldo válido'});
   try{
     respaldarAntesDeRestaurar(leerDB('estado'));
@@ -2044,7 +2044,10 @@ app.get(['/cotizar','/cotizacion'], (req,res)=>
 // ════════════════════════════════════════════════════════════
 // SPA: todas las rutas no conocidas devuelven el index
 // ════════════════════════════════════════════════════════════
-app.get('*', (req, res) => {
+/* '/{*resto}' y no '*': Express 5 usa path-to-regexp v8, donde el comodín
+   suelto ya no es una ruta válida (el servidor no arranca). Las llaves lo
+   hacen opcional, así que esta ruta cubre también la raíz, igual que antes. */
+app.get('/{*resto}', (req, res) => {
   if(req.path.startsWith('/api/')) return res.status(404).json({error:'Ruta no encontrada'});
   /* Una ruta con extensión de archivo que no existe es un 404, no la
      aplicación: visto en producción, /fonts/fonts/fuentes.css devolvía el
