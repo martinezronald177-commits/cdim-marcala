@@ -1876,6 +1876,11 @@ app.get(['/cotizar','/cotizacion'], (req,res)=>
 // ════════════════════════════════════════════════════════════
 app.get('*', (req, res) => {
   if(req.path.startsWith('/api/')) return res.status(404).json({error:'Ruta no encontrada'});
+  /* Una ruta con extensión de archivo que no existe es un 404, no la
+     aplicación: visto en producción, /fonts/fonts/fuentes.css devolvía el
+     index.html con 200 y text/html, y el navegador lo rechazaba como hoja de
+     estilos con un error rojo en consola. Las rutas SPA no llevan extensión. */
+  if(path.extname(req.path)) return res.status(404).type('text/plain').send('No existe: '+req.path);
   res.sendFile(path.join(PUB_DIR, 'index.html'));
 });
 
