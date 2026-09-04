@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LIS · CDI Marcala</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<!-- Fuentes propias (cdim-server/public/fonts/): ningun dominio ajeno antes
+     del primer pintado, y el service worker las guarda para sin conexion. -->
+<link href="./fonts/fuentes.css" rel="stylesheet">
 <!-- JsBarcode NO se carga aquí. Ninguna pantalla de la aplicación lo usa: los
      códigos de barras se dibujan dentro de las ventanas de impresión (recibos,
      facturas, hoja de trabajo), que cargan su propia copia. Cargarlo en la
@@ -2449,6 +2449,14 @@ function imagenLab(campo){
   if(!IMG_FABRICA[campo])return '';
   const origen=(typeof location!=='undefined'&&location&&location.origin&&location.origin!=='null')?location.origin:'';
   return origen+IMG_FABRICA[campo];
+}
+
+/* Las fuentes propias (/fonts/fuentes.css) para los documentos que se
+   escriben en un iframe o ventana con URL about:blank: ahi una ruta relativa
+   no resuelve, asi que se antepone el origen, igual que hace imagenLab(). */
+function urlFuentes(){
+  const origen=(typeof location!=='undefined'&&location&&location.origin&&location.origin!=='null')?location.origin:'';
+  return origen+'/fonts/fuentes.css';
 }
 /* =============== CATÁLOGO SEMILLA =============== */
 function semillaExamenes(){
@@ -8189,7 +8197,7 @@ function previsualizarBorradorRecibo(){
   window.__borradorRecibo=borrador;
   window.__itemsBorradorRecibo=itemsSnapshot;
   const srcdoc=('<!DOCTYPE html><html><head><meta charset="UTF-8">'+
-    '<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">'+
+    '<link href="'+urlFuentes()+'" rel="stylesheet">'+
     '<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>'+
     '<style>body{margin:0;background:#e8ecef}'+doc.css+
     '@media screen{.hoja,.pagina,.rv{background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.18);margin:8px auto;padding:10mm 9mm;width:216mm;box-sizing:border-box}}'+
@@ -8955,7 +8963,7 @@ function previsualizarBorradorFactura(){
   window.__borradorFactura=borrador;
   window.__itemsBorradorFactura=itemsSnapshot;
   const srcdoc=('<!DOCTYPE html><html><head><meta charset="UTF-8">'+
-    '<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">'+
+    '<link href="'+urlFuentes()+'" rel="stylesheet">'+
     '<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>'+
     '<style>body{margin:0;background:#e8ecef}'+doc.css+
     '@media screen{.hoja,.pagina,.rv{background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.18);margin:8px auto;padding:10mm 9mm;width:216mm;box-sizing:border-box}}'+
@@ -10993,7 +11001,7 @@ function modalPreviaPlantilla(id){
   const o=ordenDemo([id],demoSexo,demoValores);
   capturaImp={};imprimirResultados(o);const doc=capturaImp;capturaImp=null;
   const srcdoc=('<!DOCTYPE html><html><head><meta charset="UTF-8">'+
-    '<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">'+
+    '<link href="'+urlFuentes()+'" rel="stylesheet">'+
     '<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>'+
     '<style>body{margin:0;background:#e8ecef}'+doc.css+
     '@media screen{.hoja{background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.18);margin:8px auto;padding:10mm 9mm;width:216mm;box-sizing:border-box}}'+
@@ -12326,7 +12334,7 @@ function previsualizar(generador,titulo,etiquetaBoton,conFirma){
   // bloqueFirmaSello() en 50b_plantillas_comunes.js) -- en el resto de
   // documentos no hay dónde pegar la firma/sello, así que ni se ofrece.
   const srcdoc=('<!DOCTYPE html><html><head><meta charset="UTF-8">'+
-    '<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">'+
+    '<link href="'+urlFuentes()+'" rel="stylesheet">'+
     '<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>'+
     '<style>body{margin:0;background:#e8ecef}'+doc.css+
     '@media screen{.hoja,.pagina{background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.18);margin:8px auto;padding:10mm 9mm;width:216mm;box-sizing:border-box}'+
@@ -12583,7 +12591,7 @@ function ventanaImpresion(html,css,nombre,registro){
   doc.write('<!DOCTYPE html><html><head><meta charset="UTF-8">'+
     '<meta name="format-detection" content="telephone=no,date=no,address=no,email=no">'+
     '<title>'+esc(tituloDoc)+'</title>'+
-   '<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">'+
+   '<link href="'+urlFuentes()+'" rel="stylesheet">'+
    '<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"><\/script>'+
    '<style>'+css+'</style></head><body>'+html+'</body></html>');
   doc.close();

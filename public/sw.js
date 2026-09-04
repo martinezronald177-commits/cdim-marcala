@@ -25,11 +25,13 @@
    (ver herramientas/desplegar.js), así que el nombre de la caché cambia solo
    en cada despliegue y la anterior se borra sola. Dejarlo escrito a mano fue
    justo el error de la versión anterior. */
-const VERSION = "bfa7fad8fc";
+const VERSION = "862a9f779c";
 const CACHE = "cdim-" + VERSION;
 const BASE = ["./index.html","./paciente.html","./cotizacion.html",
               "./paciente_manifest.json","./icon-192.png","./icon-512.png",
-              "./img/logo.png","./img/sello.png"];
+              "./img/logo.png","./img/sello.png",
+              "./fonts/fuentes.css","./fonts/montserrat-latin.woff2","./fonts/ibm-plex-sans-latin.woff2",
+              "./fonts/ibm-plex-mono-400-latin.woff2","./fonts/ibm-plex-mono-500-latin.woff2","./fonts/ibm-plex-mono-600-latin.woff2"];
 
 /* ── Interruptor de emergencia ──
    Trabajar en línea es lo que importa; guardar el programa es el seguro. Si el
