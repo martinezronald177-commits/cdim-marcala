@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Mis resultados — CDI Marcala</title>
+<title>CDI Marcala · Portal del paciente</title>
+<meta name="description" content="Centro de Diagnóstico Integral Marcala: laboratorio clínico en Marcala, La Paz. Consulta tus resultados en línea, cotiza tus exámenes y descarga tu informe con código QR.">
 <link rel="manifest" href="paciente_manifest.json">
 <meta name="theme-color" content="#285068">
 <meta name="mobile-web-app-capable" content="yes">
@@ -11,61 +12,176 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="CDI Marcala">
 <link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="/img/logo.png" type="image/png">
 <link href="/fonts/fuentes.css" rel="stylesheet">
 <style>
+/* ═══════════════════════════════════════════════════════════════
+   Portal del paciente · CDI Marcala
+   Dos tipografías: Montserrat para títulos y cifras, IBM Plex Sans para
+   leer. Paleta tomada del logo: azul petróleo, verde, y un fondo casi
+   blanco con mucho aire. Nada decorativo que pese: los iconos son SVG en
+   línea, el logo es el mismo archivo que usan los informes.
+   ═══════════════════════════════════════════════════════════════ */
 *{box-sizing:border-box;margin:0;padding:0}
-:root{--azul:#285068;--azul-osc:#1a3446;--verde:#70A020;--dorado:#b8974a;
-  --bg:#eef2f5;--carta:#fff;--linea:#d8e2e8;--gris:#6b7f8c;--rojo:#c0392b;--r:12px}
-body{font-family:'Montserrat',sans-serif;background:var(--bg);color:#16242e;min-height:100vh;padding-bottom:40px}
-header{background:var(--azul);color:#fff;padding:16px 20px;display:flex;align-items:center;gap:14px;
-  box-shadow:0 2px 12px rgba(0,0,0,.22);position:sticky;top:0;z-index:20}
-header .ico{width:46px;height:46px;border-radius:50%;background:#fff;color:var(--azul);flex:0 0 auto;
-  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:11px;text-align:center;line-height:1.1}
-header h1{font-size:16px;font-weight:800;line-height:1.2}
-header p{font-size:11.5px;opacity:.85;margin-top:2px}
-.cont{max-width:820px;margin:0 auto;padding:20px 14px}
-.tarjeta{background:var(--carta);border-radius:var(--r);padding:20px;margin-bottom:14px;box-shadow:0 1px 6px rgba(0,0,0,.07)}
-.tarjeta h2{font-size:15px;font-weight:800;color:var(--azul);margin-bottom:14px;
-  padding-bottom:9px;border-bottom:2px solid var(--linea)}
-.campo{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
-.campo label{font-size:11px;font-weight:800;color:var(--gris);text-transform:uppercase;letter-spacing:.4px}
-.campo input{padding:12px 14px;border:1.5px solid var(--linea);border-radius:9px;font-family:inherit;
-  font-size:16px;outline:none;transition:.15s;background:#fff;width:100%}
-.campo input:focus{border-color:var(--azul);box-shadow:0 0 0 3px rgba(40,80,104,.12)}
-.campo .ayuda{font-size:11px;color:var(--gris)}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:9px;
-  border:none;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;transition:.15s;width:100%}
-.btn-p{background:var(--azul);color:#fff}.btn-p:hover{background:var(--azul-osc)}
-.btn-g{background:var(--linea);color:#16242e}.btn-g:hover{background:#c6d4dd}
-.btn-v{background:var(--verde);color:#fff}.btn-v:hover{background:#5a8a18}
+:root{--azul:#285068;--azul-osc:#1a3446;--azul-claro:#e8f0f5;--verde:#6a9a2f;--verde-osc:#54801f;
+  --dorado:#b8974a;--bg:#f4f7f9;--carta:#fff;--linea:#dde5eb;--gris:#5f7381;--tinta:#16242e;--rojo:#c0392b;
+  --r:14px;--sombra:0 1px 2px rgba(22,36,46,.05),0 8px 24px -12px rgba(22,36,46,.18)}
+html{scroll-behavior:smooth}
+body{font-family:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;background:var(--bg);color:var(--tinta);
+  min-height:100vh;-webkit-font-smoothing:antialiased;line-height:1.5}
+h1,h2,h3,.btn,.precio,.total,.codigo,.chip,.tab,.paso b,.dato b{font-family:'Montserrat',sans-serif}
+a{color:var(--azul)}
+img{max-width:100%;display:block}
+
+/* ── Cabecera ── */
+header{background:rgba(255,255,255,.92);backdrop-filter:saturate(1.4) blur(10px);-webkit-backdrop-filter:saturate(1.4) blur(10px);
+  border-bottom:1px solid var(--linea);position:sticky;top:0;z-index:20}
+.cab-int{max-width:1080px;margin:0 auto;padding:10px 20px;display:flex;align-items:center;gap:14px}
+.cab-int .marca{display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--tinta);min-width:0}
+.cab-int .marca img{width:48px;height:48px;flex:0 0 auto}
+.cab-int h1{font-size:16px;font-weight:800;line-height:1.15;color:var(--azul);letter-spacing:-.01em}
+.cab-int p{font-size:12px;color:var(--gris);margin-top:2px}
+.cab-int .wa{margin-left:auto;flex:0 0 auto}
+.btn-wa{display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:999px;background:#25d366;color:#fff;
+  font-family:'Montserrat',sans-serif;font-weight:700;font-size:13px;text-decoration:none;white-space:nowrap;transition:.15s;
+  box-shadow:0 4px 14px -6px rgba(37,211,102,.7)}
+.btn-wa:hover{background:#1ebe5a;transform:translateY(-1px)}
+.btn-wa svg{width:18px;height:18px}
+.btn-wa .t-corto{display:none}
+
+/* ── Portada ── */
+.portada{background:linear-gradient(135deg,var(--azul-osc) 0%,var(--azul) 55%,#2f6a86 100%);color:#fff;position:relative;overflow:hidden}
+.portada::before{content:"";position:absolute;inset:0;background:
+  radial-gradient(60% 80% at 85% 20%,rgba(106,154,47,.28) 0%,rgba(106,154,47,0) 60%),
+  radial-gradient(50% 60% at 10% 90%,rgba(255,255,255,.08) 0%,rgba(255,255,255,0) 60%)}
+.portada .sello-fondo{position:absolute;right:-90px;top:-70px;width:520px;height:520px;opacity:.06;pointer-events:none;
+  filter:grayscale(1) brightness(3)}
+.portada-int{max-width:1080px;margin:0 auto;padding:44px 20px 40px;display:grid;grid-template-columns:1.05fr .95fr;gap:36px;
+  align-items:center;position:relative}
+.portada .lema{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;opacity:.8;margin-bottom:12px;
+  display:flex;align-items:center;gap:10px}
+.portada .lema::before{content:"";width:26px;height:2px;background:var(--verde);border-radius:2px}
+.portada h2{font-family:'Montserrat',sans-serif;font-size:38px;font-weight:800;line-height:1.1;letter-spacing:-.02em;margin-bottom:14px}
+.portada h2 em{font-style:normal;color:#b9e07d}
+.portada .sub{font-size:16px;line-height:1.6;opacity:.9;max-width:46ch;margin-bottom:22px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips span{display:inline-flex;align-items:center;gap:7px;padding:7px 12px;border-radius:999px;font-size:12.5px;font-weight:600;
+  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);backdrop-filter:blur(4px)}
+.chips svg{width:15px;height:15px;color:#b9e07d}
+
+/* La tarjeta de acceso vive dentro de la portada */
+.acceso{background:var(--carta);color:var(--tinta);border-radius:18px;padding:26px 26px 22px;box-shadow:0 30px 60px -30px rgba(0,0,0,.55),0 2px 6px rgba(0,0,0,.08)}
+.acceso h3{font-size:19px;font-weight:800;color:var(--azul);letter-spacing:-.01em;margin-bottom:4px}
+.acceso .h-sub{font-size:13.5px;color:var(--gris);margin-bottom:18px;line-height:1.5}
+.acceso .cotizar-linea{margin-top:16px;padding-top:14px;border-top:1px dashed var(--linea);font-size:13.5px;color:var(--gris);
+  display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.candado{display:flex;gap:9px;align-items:flex-start;font-size:12.5px;color:var(--gris);line-height:1.5;margin-top:12px}
+.candado svg{width:16px;height:16px;flex:0 0 auto;color:var(--verde);margin-top:2px}
+
+/* ── Franja de confianza ── */
+.confianza{max-width:1080px;margin:-22px auto 0;padding:0 20px;position:relative;z-index:2}
+.confianza-int{background:var(--carta);border-radius:var(--r);box-shadow:var(--sombra);display:grid;grid-template-columns:repeat(4,1fr)}
+.dato{padding:18px 20px;display:flex;gap:12px;align-items:flex-start;border-right:1px solid var(--linea)}
+.dato:last-child{border-right:none}
+.dato .ic{width:38px;height:38px;border-radius:10px;background:var(--azul-claro);color:var(--azul);display:flex;align-items:center;
+  justify-content:center;flex:0 0 auto}
+.dato .ic svg{width:20px;height:20px}
+.dato b{display:block;font-size:13.5px;font-weight:800;color:var(--azul);line-height:1.25}
+.dato span{font-size:12.5px;color:var(--gris);line-height:1.45;display:block;margin-top:2px}
+
+/* ── Secciones promocionales ── */
+.seccion{max-width:1080px;margin:0 auto;padding:44px 20px 8px}
+.seccion .sup{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--verde);margin-bottom:8px}
+.seccion h2{font-size:26px;font-weight:800;color:var(--azul);letter-spacing:-.02em;line-height:1.15;margin-bottom:8px}
+.seccion .intro{font-size:15px;color:var(--gris);max-width:62ch;line-height:1.6;margin-bottom:24px}
+.areas{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.area{background:var(--carta);border:1px solid var(--linea);border-radius:var(--r);padding:18px 18px 16px;transition:.18s;
+  display:flex;flex-direction:column;gap:10px}
+.area:hover{transform:translateY(-2px);box-shadow:var(--sombra);border-color:#c9d8e2}
+.area .ic{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,var(--azul-claro),#f2f7e8);color:var(--azul)}
+.area .ic svg{width:22px;height:22px}
+.area b{font-family:'Montserrat',sans-serif;font-size:14px;font-weight:800;color:var(--tinta)}
+.area span{font-size:12.5px;color:var(--gris);line-height:1.5}
+
+.pasos{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;counter-reset:paso}
+.paso{background:var(--carta);border-radius:var(--r);padding:22px 20px 20px;box-shadow:var(--sombra);position:relative;overflow:hidden}
+.paso::before{counter-increment:paso;content:counter(paso,decimal-leading-zero);position:absolute;right:14px;top:6px;
+  font-family:'Montserrat',sans-serif;font-size:56px;font-weight:800;color:var(--azul-claro);line-height:1}
+.paso .ic{width:40px;height:40px;border-radius:12px;background:var(--verde);color:#fff;display:flex;align-items:center;
+  justify-content:center;margin-bottom:12px;box-shadow:0 8px 18px -8px rgba(106,154,47,.8)}
+.paso .ic svg{width:20px;height:20px}
+.paso b{display:block;font-size:15px;font-weight:800;color:var(--azul);margin-bottom:6px;position:relative}
+.paso p{font-size:13.5px;color:var(--gris);line-height:1.55;position:relative}
+
+.cta{max-width:1080px;margin:36px auto 0;padding:0 20px}
+.cta-int{background:linear-gradient(120deg,var(--verde) 0%,#7fb43a 100%);color:#fff;border-radius:18px;padding:28px 30px;display:flex;
+  align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap;box-shadow:0 24px 40px -24px rgba(84,128,31,.7)}
+.cta-int h2{font-size:22px;font-weight:800;letter-spacing:-.01em;margin-bottom:4px}
+.cta-int p{font-size:14px;opacity:.95;max-width:52ch}
+.cta-int .btn{width:auto;background:#fff;color:var(--verde-osc);padding:13px 22px;box-shadow:0 6px 16px -8px rgba(0,0,0,.4)}
+.cta-int .btn:hover{background:#f3f8ea}
+
+.contacto{max-width:1080px;margin:0 auto;padding:44px 20px 20px;display:grid;grid-template-columns:1.2fr 1fr;gap:18px}
+.contacto .tarjeta{margin:0}
+.contacto h3{font-family:'Montserrat',sans-serif;font-size:17px;font-weight:800;color:var(--azul);margin-bottom:12px}
+.filas{display:flex;flex-direction:column;gap:11px}
+.fila{display:flex;gap:12px;align-items:flex-start;font-size:14px;line-height:1.5}
+.fila svg{width:18px;height:18px;color:var(--verde);flex:0 0 auto;margin-top:3px}
+.fila a{font-weight:600;text-decoration:none}
+.fila a:hover{text-decoration:underline}
+.horario{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:14px}
+.horario b{font-family:'Montserrat',sans-serif;font-weight:700;color:var(--azul)}
+.horario .cerrado{color:var(--gris)}
+.prof{display:flex;gap:14px;align-items:center;margin-top:16px;padding-top:14px;border-top:1px solid var(--linea)}
+.prof img{width:54px;height:54px;border-radius:50%;object-fit:cover;flex:0 0 auto;border:2px solid var(--azul-claro)}
+.prof b{display:block;font-family:'Montserrat',sans-serif;font-size:14px;color:var(--azul)}
+.prof span{font-size:12.5px;color:var(--gris);line-height:1.45;display:block}
+
+/* ── Contenido de la aplicación (panel, cotización, envío) ── */
+.cont{max-width:1080px;margin:0 auto;padding:0 14px}
+.estrecho{max-width:820px;margin:20px auto 0}
+.tarjeta{background:var(--carta);border-radius:var(--r);padding:22px;margin-bottom:14px;box-shadow:var(--sombra)}
+.tarjeta h2{font-size:16px;font-weight:800;color:var(--azul);margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid var(--linea);
+  letter-spacing:-.01em}
+.campo{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.campo label{font-size:11px;font-weight:700;color:var(--gris);text-transform:uppercase;letter-spacing:.08em;font-family:'Montserrat',sans-serif}
+.campo input,.campo select{padding:13px 14px;border:1.5px solid var(--linea);border-radius:10px;font-family:inherit;
+  font-size:16px;outline:none;transition:.15s;background:#fff;width:100%;color:var(--tinta)}
+.campo input:focus,.campo select:focus{border-color:var(--azul);box-shadow:0 0 0 4px rgba(40,80,104,.12)}
+.campo .ayuda{font-size:12px;color:var(--gris)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:10px;
+  border:none;font-family:'Montserrat',sans-serif;font-size:15px;font-weight:700;cursor:pointer;transition:.15s;width:100%;text-decoration:none}
+.btn-p{background:var(--azul);color:#fff;box-shadow:0 8px 18px -10px rgba(40,80,104,.8)}.btn-p:hover{background:var(--azul-osc)}
+.btn-g{background:var(--azul-claro);color:var(--azul)}.btn-g:hover{background:#d8e5ee}
+.btn-v{background:var(--verde);color:#fff;box-shadow:0 8px 18px -10px rgba(106,154,47,.9)}.btn-v:hover{background:var(--verde-osc)}
 .btn:disabled{opacity:.55;cursor:not-allowed}
 .btn-min{width:auto;padding:9px 15px;font-size:13px}
-.error{margin-top:12px;padding:11px 14px;background:#fdecea;border-radius:9px;font-size:13.5px;
-  color:var(--rojo);display:none;line-height:1.5}
+.btn-enlace{background:none;border:none;color:var(--verde-osc);font-family:'Montserrat',sans-serif;font-weight:700;font-size:13.5px;
+  cursor:pointer;padding:6px 0;display:inline-flex;align-items:center;gap:6px}
+.btn-enlace:hover{text-decoration:underline}
+.error{margin-top:12px;padding:11px 14px;background:#fdecea;border-radius:10px;font-size:13.5px;color:var(--rojo);display:none;line-height:1.5}
 /* Pestañas */
-.tabs{display:flex;gap:0;background:var(--carta);border-radius:var(--r);overflow:hidden;
-  margin-bottom:14px;box-shadow:0 1px 6px rgba(0,0,0,.07)}
+.tabs{display:flex;gap:0;background:var(--carta);border-radius:var(--r);overflow:hidden;margin-bottom:14px;box-shadow:var(--sombra)}
 .tab{flex:1;padding:14px 8px;text-align:center;font-size:13.5px;font-weight:700;background:none;border:none;
-  font-family:inherit;color:var(--gris);cursor:pointer;transition:.15s;border-bottom:3px solid transparent}
-.tab.act{color:var(--azul);border-bottom-color:var(--azul);background:#f6f9fb}
+  color:var(--gris);cursor:pointer;transition:.15s;border-bottom:3px solid transparent}
+.tab.act{color:var(--azul);border-bottom-color:var(--verde);background:#f6f9fb}
 /* Orden */
-.orden{border:1.5px solid var(--linea);border-radius:10px;margin-bottom:12px;overflow:hidden}
-.orden-cab{background:#f6f9fb;padding:13px 16px;display:flex;justify-content:space-between;
-  align-items:center;gap:10px;cursor:pointer;flex-wrap:wrap}
+.orden{border:1.5px solid var(--linea);border-radius:12px;margin-bottom:12px;overflow:hidden}
+.orden-cab{background:#f6f9fb;padding:13px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;flex-wrap:wrap}
 .orden-cab b{font-size:14px;color:var(--azul)}
 .orden-cab .fecha{font-size:12px;color:var(--gris)}
 .orden-cuerpo{padding:0 16px;max-height:0;overflow:hidden;transition:max-height .3s ease,padding .3s}
 .orden.abierta .orden-cuerpo{max-height:4000px;padding:14px 16px}
-.chip{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:800}
+.chip{display:inline-block;padding:4px 11px;border-radius:20px;font-size:11px;font-weight:800}
 .chip-v{background:#e6f4d9;color:#3b6d11}
 .chip-a{background:#fdf2d9;color:#854f0b}
 .chip-az{background:#e2edf3;color:#1a3446}
-.area-tit{font-size:11.5px;font-weight:800;color:var(--azul);text-transform:uppercase;
-  letter-spacing:.5px;margin:14px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--linea)}
+.area-tit{font-size:11.5px;font-weight:800;color:var(--azul);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 6px;
+  padding-bottom:4px;border-bottom:1px solid var(--linea)}
 .area-tit:first-child{margin-top:0}
 table{width:100%;border-collapse:collapse;font-size:13px}
-th{text-align:left;font-size:10.5px;font-weight:800;color:var(--gris);text-transform:uppercase;
-  letter-spacing:.4px;padding:6px 4px;border-bottom:1px solid var(--linea)}
+th{text-align:left;font-size:10.5px;font-weight:800;color:var(--gris);text-transform:uppercase;letter-spacing:.4px;padding:6px 4px;border-bottom:1px solid var(--linea)}
 td{padding:8px 4px;border-bottom:1px solid #eef2f5;vertical-align:top;line-height:1.45}
 .val{font-weight:800;text-align:right;white-space:nowrap}
 .val.alto{color:var(--rojo)}.val.bajo{color:#1a5a9e}
@@ -73,115 +189,266 @@ td{padding:8px 4px;border-bottom:1px solid #eef2f5;vertical-align:top;line-heigh
 .ex-nom{font-weight:700;color:var(--azul);font-size:13px;margin:10px 0 4px}
 /* Cotización */
 .busca{position:relative;margin-bottom:12px}
-#buscaEx{width:100%;padding:12px 14px 12px 38px;border:1.5px solid var(--linea);border-radius:9px;
-  font-family:inherit;font-size:15px;outline:none}
-#buscaEx:focus{border-color:var(--azul);box-shadow:0 0 0 3px rgba(40,80,104,.12)}
-.busca .lupa{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--gris);pointer-events:none}
-.lista{display:flex;flex-direction:column;gap:4px;max-height:340px;overflow-y:auto}
-.ex-fila{display:flex;align-items:center;gap:11px;padding:11px 13px;border-radius:9px;
-  border:1.5px solid var(--linea);cursor:pointer;transition:.14s;background:#fff}
+#buscaEx,#buscaExDentro{width:100%;padding:12px 14px 12px 40px;border:1.5px solid var(--linea);border-radius:10px;font-family:inherit;font-size:15px;outline:none}
+#buscaEx:focus,#buscaExDentro:focus{border-color:var(--azul);box-shadow:0 0 0 4px rgba(40,80,104,.12)}
+.busca .lupa{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--gris);pointer-events:none;display:flex}
+.busca .lupa svg{width:17px;height:17px}
+.lista{display:flex;flex-direction:column;gap:5px;max-height:360px;overflow-y:auto;padding-right:2px}
+.ex-fila{display:flex;align-items:center;gap:11px;padding:11px 13px;border-radius:10px;border:1.5px solid var(--linea);cursor:pointer;transition:.14s;background:#fff}
 .ex-fila:hover{border-color:var(--azul);background:#f4f8fa}
 .ex-fila.sel{border-color:var(--verde);background:#f0f8e6}
-.chk{width:20px;height:20px;border:2px solid var(--linea);border-radius:5px;flex:0 0 auto;
-  display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;transition:.14s}
+.chk{width:20px;height:20px;border:2px solid var(--linea);border-radius:6px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;transition:.14s}
 .ex-fila.sel .chk{background:var(--verde);border-color:var(--verde)}
 .ex-info{flex:1;min-width:0}
 .ex-info b{font-size:13.5px;font-weight:600;line-height:1.3;display:block}
-.ex-info span{font-size:11px;color:var(--gris)}
+.ex-info span{font-size:11.5px;color:var(--gris)}
 .precio{font-size:14px;font-weight:800;color:var(--azul);white-space:nowrap}
-.area-h{font-size:10.5px;font-weight:800;color:var(--azul);text-transform:uppercase;letter-spacing:.5px;
-  padding:11px 0 4px;border-bottom:1.5px solid var(--linea);margin-bottom:4px}
-.res-item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;
-  border-bottom:1px solid var(--linea);font-size:13.5px}
+.area-h{font-size:10.5px;font-weight:800;color:var(--azul);text-transform:uppercase;letter-spacing:.5px;padding:11px 0 4px;border-bottom:1.5px solid var(--linea);margin-bottom:4px;font-family:'Montserrat',sans-serif}
+.res-item{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--linea);font-size:13.5px}
 .res-item:last-child{border-bottom:none}
-.total{display:flex;justify-content:space-between;font-weight:800;font-size:17px;color:var(--azul);
-  padding-top:13px;border-top:2px solid var(--azul);margin-top:10px}
+.total{display:flex;justify-content:space-between;font-weight:800;font-size:17px;color:var(--azul);padding-top:13px;border-top:2px solid var(--azul);margin-top:10px}
 .quitar{background:none;border:none;color:var(--rojo);font-size:17px;cursor:pointer;padding:0 5px;opacity:.7}
 .quitar:hover{opacity:1}
 .vacio{text-align:center;padding:34px 18px;color:var(--gris);font-size:14px;line-height:1.6}
-/* Tarjeta de cada informe: lo importante es el botón para abrirlo */
 .informe-tarj{border:1.5px solid var(--linea);border-radius:12px;padding:16px;margin-bottom:13px}
-.informe-cab{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;
-  margin-bottom:8px;flex-wrap:wrap}
+.informe-cab{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px;flex-wrap:wrap}
 .informe-cab b{font-size:15px;color:var(--azul)}
 .informe-cab .fecha{font-size:12.5px;color:var(--gris);margin-top:2px}
 .informe-exs{font-size:12.5px;color:var(--gris);line-height:1.55;margin-bottom:13px}
 .informe-btn{display:flex;width:100%;text-decoration:none;justify-content:center}
-.informe-nota{font-size:12.5px;color:var(--gris);line-height:1.55;background:#f6f9fb;
-  border-radius:8px;padding:10px 12px}
-.aviso{background:#fff8e6;border:1.5px solid #f0c060;border-radius:9px;padding:12px 15px;
-  font-size:13px;margin-bottom:14px;line-height:1.6}
+.informe-nota{font-size:12.5px;color:var(--gris);line-height:1.55;background:#f6f9fb;border-radius:8px;padding:10px 12px}
+.aviso{background:#fff8e6;border:1.5px solid #f0c060;border-radius:10px;padding:12px 15px;font-size:13px;margin-bottom:14px;line-height:1.6}
 .exito{text-align:center;padding:30px 18px}
 .exito .em{font-size:52px;margin-bottom:10px}
 .exito h2{color:var(--verde);font-size:19px;margin-bottom:8px;border:none;padding:0}
 .exito p{color:var(--gris);font-size:14px;line-height:1.7;margin-bottom:6px}
-.codigo{font-size:19px;font-weight:800;color:var(--azul);letter-spacing:1px;background:#eef4f8;
-  padding:9px 20px;border-radius:9px;display:inline-block;margin:12px 0;word-break:break-all}
+.codigo{font-size:19px;font-weight:800;color:var(--azul);letter-spacing:1px;background:#eef4f8;padding:9px 20px;border-radius:9px;display:inline-block;margin:12px 0;word-break:break-all}
 .oculto{display:none}
-footer{text-align:center;padding:22px 16px;font-size:11.5px;color:var(--gris);line-height:1.7}
-#banner{display:none;background:var(--azul);color:#fff;padding:12px 18px;align-items:center;
-  gap:14px;justify-content:space-between}
-@media(max-width:520px){
-  header{flex-direction:column;text-align:center;gap:8px}
+
+/* ── Pie ── */
+footer{margin-top:28px;border-top:1px solid var(--linea);background:var(--carta)}
+.pie-int{max-width:1080px;margin:0 auto;padding:22px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--gris);line-height:1.6}
+.pie-int img{width:34px;height:34px}
+.pie-int .fin{margin-left:auto;font-size:11.5px}
+#banner{display:none;background:var(--azul-osc);color:#fff;padding:11px 18px;align-items:center;gap:14px;justify-content:space-between}
+
+@media(max-width:900px){
+  .portada-int{grid-template-columns:1fr;gap:26px;padding:32px 18px 34px}
+  .portada h2{font-size:30px}
+  .confianza-int{grid-template-columns:1fr 1fr}
+  .dato:nth-child(2){border-right:none}
+  .dato:nth-child(-n+2){border-bottom:1px solid var(--linea)}
+  .areas{grid-template-columns:1fr 1fr}
+  .pasos{grid-template-columns:1fr}
+  .contacto{grid-template-columns:1fr}
+}
+@media(max-width:560px){
+  .cab-int{padding:9px 14px;gap:10px}
+  .cab-int h1{font-size:14px}
+  .cab-int p{display:none}
+  .btn-wa .t-largo{display:none}.btn-wa .t-corto{display:inline}
+  .portada h2{font-size:26px}
+  .portada .sub{font-size:15px}
+  .acceso{padding:20px 18px 18px;border-radius:14px}
+  .confianza{margin-top:-16px;padding:0 12px}
+  .confianza-int{grid-template-columns:1fr}
+  .dato{border-right:none;border-bottom:1px solid var(--linea);padding:14px 16px}
+  .dato:last-child{border-bottom:none}
+  .seccion{padding:34px 16px 4px}
+  .seccion h2{font-size:22px}
+  .areas{grid-template-columns:1fr 1fr;gap:10px}
+  .area{padding:14px}
+  .cta{padding:0 12px;margin-top:28px}.cta-int{padding:22px}
+  .contacto{padding:34px 12px 12px}
   .tab{font-size:12px;padding:12px 4px}
-  .cont{padding:14px 10px}
+  .cont{padding:0 10px}
   .tarjeta{padding:16px}
+  .pie-int .fin{margin-left:0}
 }
 </style>
 </head>
 <body>
 
 <div id="banner">
-  <b style="font-size:13px">📱 Instala CDI Marcala en tu celular</b>
+  <b style="font-size:13px;font-family:'Montserrat',sans-serif">Instala CDI Marcala en tu celular</b>
   <button onclick="instalar()" style="background:var(--dorado);color:#fff;border:none;padding:8px 15px;
-    border-radius:8px;font-family:inherit;font-weight:700;cursor:pointer;white-space:nowrap">Instalar</button>
+    border-radius:8px;font-family:'Montserrat',sans-serif;font-weight:700;cursor:pointer;white-space:nowrap">Instalar</button>
 </div>
 
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-wa" viewBox="0 0 24 24"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.6.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.8 12 12 0 0 0 4.6 4c1.7.7 2.3.8 3.2.7a2.7 2.7 0 0 0 1.8-1.3 2.2 2.2 0 0 0 .2-1.3c-.1-.1-.3-.2-.5-.3z"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-candado" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol>
+    <symbol id="i-qr" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3h-3zM20 14v0M17 20h4M20 17v4"/></g></symbol>
+    <symbol id="i-doc" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></g></symbol>
+    <symbol id="i-persona" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></g></symbol>
+    <symbol id="i-reloj" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></g></symbol>
+    <symbol id="i-escudo" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="m9 12 2 2 4-4"/></g></symbol>
+    <symbol id="i-gota" viewBox="0 0 24 24"><path d="M12 3s6 7 6 11a6 6 0 0 1-12 0c0-4 6-11 6-11z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-tubo" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 3h6M10 3v13a2 2 0 0 0 4 0V3"/><path d="M10 11h4"/></g></symbol>
+    <symbol id="i-micro" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h4l-1 3-3 8 1 2h2M7 21h10M9 17a6 6 0 0 0 9-5"/><path d="M12 17H7"/></g></symbol>
+    <symbol id="i-adn" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 3c0 6 10 6 10 12M17 3c0 6-10 6-10 12M7 21c0-2 1-3 2-4M17 21c0-2-1-3-2-4M8 7h8M8 17h8"/></g></symbol>
+    <symbol id="i-hormona" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="8" cy="8" r="3"/><circle cx="16" cy="16" r="3"/><path d="M10.5 10.5l3 3M5 16l2 2M17 5l2 2"/></g></symbol>
+    <symbol id="i-frasco" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/><path d="M7.5 15h9"/></g></symbol>
+    <symbol id="i-placa" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><path d="M9 9l1.5 1.5M14 13l1.5 1.5"/></g></symbol>
+    <symbol id="i-corazon" viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 21s7-6.5 7-12a7 7 0 0 0-14 0c0 5.5 7 12 7 12z"/><circle cx="12" cy="9" r="2.5"/></g></symbol>
+    <symbol id="i-tel" viewBox="0 0 24 24"><path d="M6 3h3l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v3a2 2 0 0 1-2 2A16 16 0 0 1 4 5a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
+    <symbol id="i-correo" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></g></symbol>
+    <symbol id="i-lupa" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.3-4.3"/></g></symbol>
+    <symbol id="i-lista" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></g></symbol>
+  </defs>
+</svg>
+
 <header>
-  <div class="ico">CDI<br>Marcala</div>
-  <div>
-    <h1>Centro de Diagnóstico Integral Marcala</h1>
-    <p>Servicio de Laboratorio Clínico · WhatsApp 9758-9992</p>
+  <div class="cab-int">
+    <a class="marca" href="/paciente">
+      <img src="/img/logo.png" alt="Centro de Diagnóstico Integral Marcala" width="48" height="48">
+      <div>
+        <h1>Centro de Diagnóstico Integral Marcala</h1>
+        <p>Laboratorio clínico · Marcala, La Paz</p>
+      </div>
+    </a>
+    <div class="wa">
+      <a class="btn-wa" href="https://wa.me/50497589992" target="_blank" rel="noopener">
+        <svg><use href="#i-wa"/></svg><span class="t-largo">WhatsApp 9758-9992</span><span class="t-corto">WhatsApp</span>
+      </a>
+    </div>
   </div>
 </header>
 
-<div class="cont">
+<!-- ══ INGRESO (portada + acceso + información del laboratorio) ══ -->
+<div id="secIngreso">
+  <section class="portada">
+    <img class="sello-fondo" src="/img/logo.png" alt="" aria-hidden="true">
+    <div class="portada-int">
+      <div>
+        <div class="lema">Portal del paciente</div>
+        <h2>Tus resultados, <em>claros y a tiempo.</em></h2>
+        <p class="sub">Laboratorio clínico en Marcala con atención directa de un Microbiólogo y Químico Clínico colegiado.
+          Consulta tus informes en línea, descárgalos en PDF y cotiza tus exámenes desde tu celular.</p>
+        <div class="chips">
+          <span><svg><use href="#i-check"/></svg>Informe con código QR verificable</span>
+          <span><svg><use href="#i-check"/></svg>Valores de referencia por edad y sexo</span>
+          <span><svg><use href="#i-check"/></svg>Aviso inmediato de valores críticos</span>
+        </div>
+      </div>
 
-  <!-- ══ INGRESO ══ -->
-  <div id="secIngreso">
-    <div class="tarjeta">
-      <h2>Consulta tus resultados</h2>
-      <div class="aviso">
-        Para proteger tu información necesitamos <b>dos datos</b>: tu número de identidad
-        y tu fecha de nacimiento. Así nadie más puede ver tus resultados.
+      <div class="acceso" id="acceso">
+        <h3>Consulta tus resultados</h3>
+        <p class="h-sub">Los mismos dos datos que diste cuando te tomaron la muestra.</p>
+        <div class="campo">
+          <label>Número de identidad</label>
+          <input type="text" id="inDni" inputmode="numeric" placeholder="1208-1990-00001" maxlength="15" oninput="fmtDni(this)" autocomplete="off">
+        </div>
+        <div class="campo">
+          <label>Fecha de nacimiento</label>
+          <input type="date" id="inFnac">
+        </div>
+        <div class="error" id="errIngreso"></div>
+        <button class="btn btn-p" id="btnEntrar" onclick="entrar()">Ver mis resultados</button>
+        <div class="candado"><svg><use href="#i-candado"/></svg>
+          <span>Para proteger tu información pedimos <b>dos datos</b>, así nadie más puede ver tus resultados.</span></div>
+        <div class="cotizar-linea">
+          <span>¿Todavía no has venido al laboratorio?</span>
+          <button class="btn-enlace" onclick="soloCotizar()">Cotiza tus exámenes <span aria-hidden="true">→</span></button>
+        </div>
       </div>
-      <div class="campo">
-        <label>Número de identidad</label>
-        <input type="text" id="inDni" inputmode="numeric" placeholder="1208-1990-00001" maxlength="15" oninput="fmtDni(this)">
-        <span class="ayuda">El mismo que diste cuando te tomaron la muestra</span>
-      </div>
-      <div class="campo">
-        <label>Fecha de nacimiento</label>
-        <input type="date" id="inFnac">
-      </div>
-      <div class="error" id="errIngreso"></div>
-      <button class="btn btn-p" id="btnEntrar" onclick="entrar()">Ver mis resultados</button>
     </div>
-    <div class="tarjeta">
-      <h2>¿Solo quieres cotizar?</h2>
-      <p style="font-size:13.5px;color:var(--gris);line-height:1.7;margin-bottom:14px">
-        Puedes pedir el precio de tus exámenes sin necesidad de haber venido antes al laboratorio.
-      </p>
-      <button class="btn btn-v" onclick="soloCotizar()">Cotizar mis exámenes</button>
+  </section>
+
+  <div class="confianza">
+    <div class="confianza-int">
+      <div class="dato"><div class="ic"><svg><use href="#i-persona"/></svg></div>
+        <div><b>Atención profesional</b><span>Microbiólogo y Químico Clínico colegiado, CMQCH 2023-2105.</span></div></div>
+      <div class="dato"><div class="ic"><svg><use href="#i-escudo"/></svg></div>
+        <div><b>Calidad garantizada</b><span>Control de calidad diario y sistema de gestión de calidad (SGC).</span></div></div>
+      <div class="dato"><div class="ic"><svg><use href="#i-qr"/></svg></div>
+        <div><b>Informe verificable</b><span>Cada informe lleva un código QR para comprobar que es auténtico.</span></div></div>
+      <div class="dato"><div class="ic"><svg><use href="#i-reloj"/></svg></div>
+        <div><b>Horario amplio</b><span>Lunes a viernes de 6:00 am a 7:00 pm · Sábado de 6:00 am a 12:00 pm.</span></div></div>
     </div>
   </div>
 
+  <section class="seccion">
+    <div class="sup">Nuestras áreas</div>
+    <h2>Un laboratorio completo, cerca de ti</h2>
+    <p class="intro">Desde los exámenes de rutina hasta estudios especializados, con el respaldo de un control de calidad diario.</p>
+    <div class="areas">
+      <div class="area"><div class="ic"><svg><use href="#i-frasco"/></svg></div><b>Bioquímica clínica</b><span>Glucosa, perfil lipídico, función renal y hepática, electrolitos.</span></div>
+      <div class="area"><div class="ic"><svg><use href="#i-gota"/></svg></div><b>Hematología</b><span>Hemograma completo, tipo de sangre, tiempos de coagulación.</span></div>
+      <div class="area"><div class="ic"><svg><use href="#i-escudo"/></svg></div><b>Inmunología y serología</b><span>Pruebas infecciosas y marcadores inmunológicos.</span></div>
+      <div class="area"><div class="ic"><svg><use href="#i-hormona"/></svg></div><b>Hormonas</b><span>Perfil tiroideo, hormonas reproductivas y metabólicas.</span></div>
+      <div class="area"><div class="ic"><svg><use href="#i-tubo"/></svg></div><b>Uroanálisis</b><span>Examen general de orina y estudios complementarios.</span></div>
+      <div class="area"><div class="ic"><svg><use href="#i-lista"/></svg></div><b>Coproanálisis</b><span>Examen general de heces y pruebas parasitológicas.</span></div>
+      <div class="area"><div class="ic"><svg><use href="#i-placa"/></svg></div><b>Microbiología</b><span>Cultivos y antibiogramas para orientar el tratamiento.</span></div>
+      <div class="area"><div class="ic"><svg><use href="#i-corazon"/></svg></div><b>Chequeos preventivos</b><span>Perfiles para cuidar tu salud antes de que aparezcan síntomas.</span></div>
+    </div>
+  </section>
+
+  <section class="seccion">
+    <div class="sup">Cómo funciona</div>
+    <h2>Tres pasos, sin filas ni papeles</h2>
+    <div class="pasos">
+      <div class="paso"><div class="ic"><svg><use href="#i-lupa"/></svg></div>
+        <b>Cotiza en línea</b><p>Elige tus exámenes y recibe el precio al instante. Te confirmamos por WhatsApp y te decimos si necesitas ayuno.</p></div>
+      <div class="paso"><div class="ic"><svg><use href="#i-tubo"/></svg></div>
+        <b>Ven a la toma de muestra</b><p>Atención puntual con tu cita. Cada muestra se identifica con código de barras desde el primer momento.</p></div>
+      <div class="paso"><div class="ic"><svg><use href="#i-doc"/></svg></div>
+        <b>Recibe tu informe en línea</b><p>Consulta y descarga tu PDF aquí mismo, con código QR. Llévalo a tu médico o compártelo por WhatsApp.</p></div>
+    </div>
+  </section>
+
+  <div class="cta">
+    <div class="cta-int">
+      <div>
+        <h2>¿Solo quieres saber cuánto cuestan tus exámenes?</h2>
+        <p>Pide tu cotización sin haber venido antes. El laboratorio la revisa y te confirma precio y horario por WhatsApp.</p>
+      </div>
+      <button class="btn" onclick="soloCotizar()">Cotizar mis exámenes</button>
+    </div>
+  </div>
+
+  <section class="contacto">
+    <div class="tarjeta">
+      <h3>Visítanos</h3>
+      <div class="filas">
+        <div class="fila"><svg><use href="#i-pin"/></svg>
+          <div>Colonia Melgar Castro, calle hacia el Instituto 21 de Octubre, contiguo a Comercial Carolina. Marcala, La Paz.<br>
+            <a href="https://www.google.com/maps/search/?api=1&query=Centro+de+Diagn%C3%B3stico+Integral+Marcala%2C+Colonia+Melgar+Castro%2C+Marcala%2C+La+Paz%2C+Honduras" target="_blank" rel="noopener">Cómo llegar</a></div></div>
+        <div class="fila"><svg><use href="#i-wa"/></svg><div><a href="https://wa.me/50497589992" target="_blank" rel="noopener">WhatsApp +504 9758-9992</a></div></div>
+        <div class="fila"><svg><use href="#i-tel"/></svg><div><a href="tel:+50431725181">+504 3172-5181</a></div></div>
+        <div class="fila"><svg><use href="#i-correo"/></svg><div><a href="mailto:lab_cdim@proton.me">lab_cdim@proton.me</a></div></div>
+      </div>
+      <div class="prof">
+        <div class="ic" style="width:54px;height:54px;border-radius:50%;background:var(--azul-claro);color:var(--azul);display:flex;align-items:center;justify-content:center;flex:0 0 auto"><svg style="width:26px;height:26px"><use href="#i-persona"/></svg></div>
+        <div><b>Dr. Ronald Enrique Martínez Márquez</b>
+          <span>Microbiólogo y Químico Clínico · Regente</span>
+          <span>Colegio de Microbiólogos y Químicos Clínicos de Honduras · CMQCH 2023-2105</span></div>
+      </div>
+    </div>
+    <div class="tarjeta">
+      <h3>Horario de atención</h3>
+      <div class="horario">
+        <b>Lunes a viernes</b><span>6:00 am – 7:00 pm</span>
+        <b>Sábado</b><span>6:00 am – 12:00 pm</span>
+        <b>Domingo</b><span class="cerrado">Cerrado</span>
+      </div>
+      <p style="font-size:13px;color:var(--gris);margin-top:16px;line-height:1.6">
+        Para exámenes con ayuno te recomendamos venir temprano. Si tienes dudas sobre la preparación, escríbenos por WhatsApp antes de tu cita.</p>
+    </div>
+  </section>
+</div>
+
+<div class="cont">
+
   <!-- ══ PANEL DEL PACIENTE ══ -->
-  <div id="secPanel" class="oculto">
+  <div id="secPanel" class="oculto estrecho">
     <div class="tarjeta" style="padding:16px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
       <div>
-        <div style="font-size:11px;color:var(--gris);font-weight:800;text-transform:uppercase;letter-spacing:.4px">Paciente</div>
-        <div style="font-size:16px;font-weight:800;color:var(--azul);margin-top:2px" id="nomPac"></div>
+        <div style="font-size:11px;color:var(--gris);font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-family:'Montserrat',sans-serif">Paciente</div>
+        <div style="font-size:17px;font-weight:800;color:var(--azul);margin-top:2px;font-family:'Montserrat',sans-serif" id="nomPac"></div>
       </div>
       <button class="btn btn-g btn-min" onclick="salir()">Salir</button>
     </div>
@@ -198,7 +465,7 @@ footer{text-align:center;padding:22px 16px;font-size:11.5px;color:var(--gris);li
   </div>
 
   <!-- ══ COTIZACIÓN ══ -->
-  <div id="secCot" class="oculto">
+  <div id="secCot" class="oculto estrecho">
     <div class="tarjeta">
       <h2>Tus datos</h2>
       <div class="campo">
@@ -215,7 +482,7 @@ footer{text-align:center;padding:22px 16px;font-size:11.5px;color:var(--gris);li
       </div>
       <div class="campo">
         <label>Sexo *</label>
-        <select id="cSexo" style="padding:12px 14px;border:1.5px solid var(--linea);border-radius:9px;font-family:inherit;font-size:16px;outline:none;background:#fff;width:100%">
+        <select id="cSexo">
           <option value="">Seleccionar…</option>
           <option value="M">Masculino</option>
           <option value="F">Femenino</option>
@@ -233,7 +500,7 @@ footer{text-align:center;padding:22px 16px;font-size:11.5px;color:var(--gris);li
 
     <div class="tarjeta">
       <h2>Elige tus exámenes</h2>
-      <div class="busca"><span class="lupa">🔍</span>
+      <div class="busca"><span class="lupa"><svg><use href="#i-lupa"/></svg></span>
         <input type="text" id="buscaEx" placeholder="Buscar por nombre…" oninput="pintarEx(this.value)"></div>
       <div class="lista" id="listaEx"><div class="vacio">Cargando catálogo…</div></div>
     </div>
@@ -258,7 +525,7 @@ footer{text-align:center;padding:22px 16px;font-size:11.5px;color:var(--gris);li
   </div>
 
   <!-- ══ ENVIADO ══ -->
-  <div id="secOk" class="oculto">
+  <div id="secOk" class="oculto estrecho">
     <div class="tarjeta">
       <div class="exito">
         <div class="em">✅</div>
@@ -266,7 +533,7 @@ footer{text-align:center;padding:22px 16px;font-size:11.5px;color:var(--gris);li
         <p>El laboratorio la revisa y te contacta por WhatsApp para confirmarte precio y horario.</p>
         <div class="codigo" id="numCot"></div>
         <p><b>Guarda este código.</b></p>
-        <p style="margin-top:14px">📱 <a href="https://wa.me/50497589992" style="color:var(--azul);font-weight:700">WhatsApp: +504 9758-9992</a></p>
+        <p style="margin-top:14px"><a class="btn-wa" href="https://wa.me/50497589992" target="_blank" rel="noopener"><svg><use href="#i-wa"/></svg>WhatsApp +504 9758-9992</a></p>
         <button class="btn btn-g" style="margin-top:20px" onclick="location.reload()">Volver al inicio</button>
       </div>
     </div>
@@ -275,9 +542,12 @@ footer{text-align:center;padding:22px 16px;font-size:11.5px;color:var(--gris);li
 </div>
 
 <footer>
-  <b>Centro de Diagnóstico Integral Marcala</b><br>
-  Dr. Ronald Enrique Martínez Márquez · Microbiólogo y Químico Clínico · CMQCH 2023-2105<br>
-  Col. Melgar Castro, calle hacia el 21 de Octubre · Marcala, La Paz
+  <div class="pie-int">
+    <img src="/img/logo.png" alt="" aria-hidden="true">
+    <div><b style="color:var(--azul)">Centro de Diagnóstico Integral Marcala</b><br>
+      Col. Melgar Castro, calle hacia el 21 de Octubre · Marcala, La Paz · WhatsApp +504 9758-9992</div>
+    <div class="fin">Portal del paciente · Resultados informativos: llévalos siempre a tu médico.</div>
+  </div>
 </footer>
 
 <script>
