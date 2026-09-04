@@ -16185,12 +16185,80 @@ function quitarImagenCfg(campo){
   if(campo==='sello')S.config.selloPropio=false;
   guardar();vConfig();toast('Imagen removida');
 }
+/* ---- Tamaño de las imágenes de la configuración -------------------------
+   Logo, sellos y firma viajan dentro de config: en cada descarga completa
+   del estado, en cada respaldo y en cada informe público. En producción el
+   logo llegó a 4090×4090 (693 KB) y el sello del microbiólogo a 1417×1417
+   (838 KB). En el informe se imprimen a unos 26 mm: a 300 dpi bastan ~310
+   px. 800 px por lado deja el doble de margen, y PNG no pierde nada al
+   reescalar. Se reduce una vez al arrancar (marca meta.imgV2) y cada vez que
+   se carga una imagen nueva. Los originales se guardan fuera del sistema. */
+const LADO_MAX_IMG=800;
+const UMBRAL_REDUCIR_IMG=250*1024;   // solo se toca lo que pesa de verdad
+const CAMPOS_IMG_CFG=['logo','sello','selloMicro','firma'];
+/* Reduce un data-URI a ladoMax px por lado, por pasos de mitad (mejor
+   calidad que un solo salto grande). Devuelve el data-URI reducido; null si
+   ya cabe o no se pudo; y false si en este entorno no hay Image/canvas (las
+   pruebas en vm): ahí no se decide nada y se deja para el navegador. */
+function reducirDataURI(uri,ladoMax){
+  return new Promise(res=>{
+    if(typeof Image==='undefined'||typeof document==='undefined'||!document.createElement)return res(false);
+    let im; try{ im=new Image(); }catch(e){ return res(false); }
+    const lienzo=(fuente,w,h)=>{
+      const c=document.createElement('canvas'); c.width=w; c.height=h;
+      const g=c.getContext('2d'); g.imageSmoothingEnabled=true; g.imageSmoothingQuality='high';
+      g.drawImage(fuente,0,0,w,h); return c;
+    };
+    im.onload=()=>{
+      try{
+        let w=im.naturalWidth||im.width, h=im.naturalHeight||im.height;
+        if(!w||!h||Math.max(w,h)<=ladoMax)return res(null);
+        let fuente=im;
+        while(Math.max(w,h)/2>ladoMax){ w=Math.round(w/2); h=Math.round(h/2); fuente=lienzo(fuente,w,h); }
+        const esc=ladoMax/Math.max(w,h);
+        const final=lienzo(fuente,Math.round(w*esc),Math.round(h*esc));
+        /* PNG de canvas es de 32 bits sin paleta y pesa mucho; WebP con
+           transparencia pesa una fracción y lo entienden todos los
+           navegadores actuales (y el Chrome del PDF). Se queda el más
+           liviano; donde no haya WebP, toDataURL devuelve PNG. */
+        const png=final.toDataURL('image/png');
+        let webp=''; try{ webp=final.toDataURL('image/webp',0.92); }catch(e){}
+        res((webp&&webp.startsWith('data:image/webp')&&webp.length<png.length)?webp:png);
+      }catch(e){ res(null); }
+    };
+    im.onerror=()=>res(null);
+    im.src=uri;
+  });
+}
+async function reducirImagenesConfig(){
+  if(!S||!S.config||(S.meta&&S.meta.imgV2))return false;
+  const cambios=[];
+  for(const campo of CAMPOS_IMG_CFG){
+    const v=S.config[campo];
+    if(typeof v!=='string'||!v.startsWith('data:image/')||v.length<UMBRAL_REDUCIR_IMG)continue;
+    const r=await reducirDataURI(v,LADO_MAX_IMG);
+    if(r===false)return false;               // sin canvas aquí: lo hará un navegador
+    if(r&&r.length<v.length){ S.config[campo]=r; cambios.push(campo+' '+Math.round(v.length/1024)+' KB → '+Math.round(r.length/1024)+' KB'); }
+  }
+  S.meta=S.meta||{}; S.meta.imgV2=1;
+  if(cambios.length){
+    S.bitacora.push({fecha:hoy(),hora:ahoraHora(),responsable:'Sistema',tipo:'Actividad de rutina',
+      descripcion:'Imágenes de la configuración reducidas a '+LADO_MAX_IMG+' px por lado para aligerar el estado y los respaldos: '+cambios.join(' · ')+'. Los originales se conservan fuera del sistema.'});
+  }
+  guardar(true);
+  return cambios.length>0;
+}
 function cargarImagenCfg(inp,campo){
   const f=inp.files[0];if(!f)return;
-  const r=new FileReader();r.onload=()=>{
-    S.config[campo]=r.result;
+  const r=new FileReader();r.onload=async()=>{
+    let uri=r.result, nota='';
+    if(typeof uri==='string'&&uri.startsWith('data:image/')){
+      const red=await reducirDataURI(uri,LADO_MAX_IMG);
+      if(red&&red.length<uri.length){ nota=' · reducida a '+LADO_MAX_IMG+' px por lado ('+Math.round(uri.length/1024)+' KB → '+Math.round(red.length/1024)+' KB)'; uri=red; }
+    }
+    S.config[campo]=uri;
     if(campo==='sello')S.config.selloPropio=true;
-    guardar();vConfig();toast('Imagen cargada ✓');};
+    guardar();vConfig();toast('Imagen cargada ✓'+nota);};
   r.readAsDataURL(f);
 }
 /* ---- Ajustar el correlativo de Facturas/Recibos a mano -------------------
@@ -18852,6 +18920,8 @@ async function continuarArranque(){
   guardar();
   actualizarPieNav();
   vInicio();   // ya no existe mostrarCandado(): el candado local desapareció
+  // Después de la subida de migraciones (1,5 s): imágenes de la configuración a 800 px, una sola vez.
+  setTimeout(()=>{ reducirImagenesConfig().catch(()=>{}); },4000);
 }
 
 /* =============== TRABAJAR SIN CONEXIÓN ===============
@@ -18908,6 +18978,7 @@ async function arrancarSinConexion(u){
   programarSyncPeriodico();        // reintenta solo; al volver la red, sube
   actualizarPieNav();
   vInicio();
+  setTimeout(()=>{ reducirImagenesConfig().catch(()=>{}); },4000);
 }
 
 /* El service worker guarda la aplicación en el navegador para que haya algo
