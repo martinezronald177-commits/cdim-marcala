@@ -7,7 +7,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<!-- JsBarcode NO se carga aquí. Ninguna pantalla de la aplicación lo usa: los
+     códigos de barras se dibujan dentro de las ventanas de impresión (recibos,
+     facturas, hoja de trabajo), que cargan su propia copia. Cargarlo en la
+     cabecera, desde un CDN y de forma síncrona, bloqueaba el primer pintado de
+     CADA apertura hasta que un servidor de terceros respondiera — y con datos
+     móviles eso se nota. -->
 <style>
 :root{
   --azul:#285068; --azul-osc:#102634; --verde:#70A020; --dorado:#b8974a;--dorado-suave:#f7f0e0;
@@ -18023,17 +18028,30 @@ function actualizarIndicadorSync(ok){
 }
 
 /* Sincronización periódica (cada 30 s comprueba si hay cambios) */
+/* Un barrido: lo que el sistema hace cada 30 s y también al volver a la
+   pestaña. Con la pestaña OCULTA no se descarga nada —ni cotizaciones del
+   portal ni cambios de otros equipos—: nadie los va a ver, y con tres
+   pestañas abiertas en tres equipos eran tres consultas cada 30 s al servidor
+   y batería del teléfono. Lo que SÍ se hace siempre, oculta o no, es subir lo
+   pendiente: un cambio propio nunca se retiene. */
+function pestanaOculta(){ return typeof document!=='undefined' && document.hidden===true; }
+async function barridoSync(){
+  if(!MODO_WEB)return;
+  if(pestanaOculta()){ if(_syncPendiente)await subirEstado(); return; }
+  await importarCotWebDesdeServidor();
+  // Si esta computadora tiene cambios propios sin subir (los suyos o los
+  // que acaba de dejar importarCotWebDesdeServidor), esta vuelta es para
+  // subirlos — no para bajar nada. Si no tiene nada pendiente, es el
+  // momento de revisar si OTRO usuario guardó algo mientras tanto.
+  if(_syncPendiente)await subirEstado();
+  else await revisarActualizacionesServidor();
+}
 function programarSyncPeriodico(){
-  setInterval(async()=>{
-    if(!MODO_WEB)return;
-    await importarCotWebDesdeServidor();
-    // Si esta computadora tiene cambios propios sin subir (los suyos o los
-    // que acaba de dejar importarCotWebDesdeServidor), esta vuelta es para
-    // subirlos — no para bajar nada. Si no tiene nada pendiente, es el
-    // momento de revisar si OTRO usuario guardó algo mientras tanto.
-    if(_syncPendiente)await subirEstado();
-    else await revisarActualizacionesServidor();
-  },30000);
+  setInterval(barridoSync,30000);
+  /* Al volver a la pestaña no se espera al próximo tic: se barre ya, para que
+     lo que otros guardaron mientras tanto aparezca al instante. */
+  if(typeof document!=='undefined'&&document.addEventListener)
+    document.addEventListener('visibilitychange',()=>{ if(!document.hidden)barridoSync(); });
 }
 
 /* Bajar cambios de OTRO usuario sin que nadie tenga que recargar la página ──
