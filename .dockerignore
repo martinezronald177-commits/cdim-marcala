@@ -1,0 +1,23 @@
+# Lo que NUNCA debe entrar en la imagen.
+
+# Los datos del laboratorio viven en el disco que monta el proveedor, no
+# dentro de la imagen. Si se copiaran aquí, cada despliegue traería una
+# copia congelada de expedientes clínicos y taparía la buena.
+data/
+datos/
+uploads/
+respaldos/
+
+# Se reinstalan dentro con npm ci, y las de esta máquina son de Windows.
+node_modules/
+
+# El Chrome que descarga Puppeteer: son ~170 MB que esta imagen no usa,
+# porque el navegador viene del catálogo de Debian.
+.cache/
+
+.git/
+.gitignore
+*.log
+npm-debug.log*
+Dockerfile
+.dockerignore
