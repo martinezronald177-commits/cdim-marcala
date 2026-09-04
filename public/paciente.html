@@ -224,6 +224,10 @@ td{padding:8px 4px;border-bottom:1px solid #eef2f5;vertical-align:top;line-heigh
 .exito p{color:var(--gris);font-size:14px;line-height:1.7;margin-bottom:6px}
 .codigo{font-size:19px;font-weight:800;color:var(--azul);letter-spacing:1px;background:#eef4f8;padding:9px 20px;border-radius:9px;display:inline-block;margin:12px 0;word-break:break-all}
 .oculto{display:none}
+.nota-ok{display:flex;gap:8px;align-items:flex-start;background:#eef7e4;border:1.5px solid #bcdc9a;color:#2f5a0e;border-radius:10px;
+  padding:10px 13px;font-size:13px;line-height:1.5;margin:-4px 0 14px}
+.nota-ok svg{width:16px;height:16px;flex:0 0 auto;margin-top:2px;color:var(--verde)}
+.nota-ok.oculto{display:none}
 
 /* ── Pie ── */
 footer{margin-top:28px;border-top:1px solid var(--linea);background:var(--carta)}
@@ -469,16 +473,18 @@ footer{margin-top:28px;border-top:1px solid var(--linea);background:var(--carta)
     <div class="tarjeta">
       <h2>Tus datos</h2>
       <div class="campo">
-        <label>Nombre completo *</label>
-        <input type="text" id="cNombre" placeholder="Como aparece en tu identidad" autocomplete="name">
-      </div>
-      <div class="campo">
         <label>Número de identidad *</label>
-        <input type="text" id="cDni" inputmode="numeric" placeholder="1208-1990-00001" maxlength="15" oninput="fmtDni(this)">
+        <input type="text" id="cDni" inputmode="numeric" placeholder="1208-1990-00001" maxlength="15" oninput="fmtDni(this);buscarMisDatos()">
+        <span class="ayuda">Si ya has venido al laboratorio, con tu identidad y tu fecha de nacimiento cargamos tus datos.</span>
       </div>
       <div class="campo">
         <label>Fecha de nacimiento *</label>
-        <input type="date" id="cFnac">
+        <input type="date" id="cFnac" onchange="buscarMisDatos()">
+      </div>
+      <div class="nota-ok oculto" id="cDatosNota"><svg><use href="#i-check"/></svg> Encontramos tu expediente y cargamos tus datos. Revisa que estén bien.</div>
+      <div class="campo">
+        <label>Nombre completo *</label>
+        <input type="text" id="cNombre" placeholder="Como aparece en tu identidad" autocomplete="name">
       </div>
       <div class="campo">
         <label>Sexo *</label>
@@ -721,6 +727,32 @@ function pintarCotDentro(){
 }
 
 async function soloCotizar(){ ver('secCot'); if(!CAT.length)await cargarCatalogo(); }
+
+/* ── Pre-llenar con el expediente ──
+   Con identidad Y fecha de nacimiento (la misma llave que "Ver mis
+   resultados") se piden los datos al servidor y se rellenan nombre, sexo,
+   teléfono y médico. Si no coinciden, no pasa nada: se llena a mano. */
+let _ultimaBusquedaDatos='';
+async function buscarMisDatos(){
+  const g=id=>document.getElementById(id);
+  const dni=(g('cDni').value||'').trim(), fnac=g('cFnac').value;
+  const nota=g('cDatosNota');
+  if(dni.length<13||!fnac)return;
+  const clave=dni+'|'+fnac;
+  if(_ultimaBusquedaDatos===clave)return;
+  _ultimaBusquedaDatos=clave;
+  try{
+    const r=await fetch('/api/paciente-datos',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({dni,fnac})});
+    if(!r.ok){ nota.classList.add('oculto'); return; }
+    const d=await r.json();
+    if(d.nombre)g('cNombre').value=d.nombre;
+    if(d.sexo)g('cSexo').value=d.sexo;
+    if(d.tel&&!g('cTel').value)g('cTel').value=d.tel;
+    if(d.medico&&!g('cMedico').value)g('cMedico').value=d.medico;
+    nota.classList.remove('oculto');
+  }catch(e){ /* sin red: se llena a mano */ }
+}
 
 async function enviarCot(dentro){
   const g=id=>{const e=document.getElementById(id);return e?e.value.trim():'';};

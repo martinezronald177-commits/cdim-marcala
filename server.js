@@ -1575,6 +1575,25 @@ app.post('/api/resultado', (req, res) => {
   });
 });
 
+/* Datos del expediente para pre-llenar la cotización del portal. Misma
+   llave que /api/resultado —identidad Y fecha de nacimiento— y el mismo
+   mensaje neutro cuando no coincide: con el DNI solo no se revela nada, ni
+   siquiera si está registrado. Devuelve solo lo que el formulario pide. */
+app.post('/api/paciente-datos', (req, res) => {
+  const ip = ipDe(req);
+  if(!limitarIntentos(ip))
+    return res.status(429).json({error:'Demasiados intentos. Espera unos minutos e inténtalo de nuevo.'});
+  const { dni: dniRaw, fnac } = req.body || {};
+  if(!dniRaw || !fnac)
+    return res.status(400).json({error:'Se necesitan el número de identidad y la fecha de nacimiento'});
+  const estado = leerDB('estado');
+  const dni = String(dniRaw).replace(/\D/g,'');
+  const pac = estado && (estado.pacientes||[]).find(p =>
+    p.idNumero && p.idNumero.replace(/\D/g,'') === dni && p.fnac === fnac);
+  if(!pac) return res.status(404).json({error:'No encontramos un expediente con esos datos'});
+  res.json({ nombre: pac.nombre || '', sexo: pac.sexo || '', tel: pac.tel || '', medico: pac.medico || '' });
+});
+
 /* Estado de las cotizaciones que envió el paciente desde el portal */
 app.post('/api/mis-cotizaciones', (req, res) => {
   const ip = ipDe(req);
