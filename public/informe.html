@@ -204,14 +204,14 @@ tr.critico td{background:#fdecea}
     <!-- Enlace directo al PDF ya armado por el servidor (ver /r/:numero/:token/pdf
          en server.js) -- ya no pasa por window.print() ni por el diálogo de
          impresión del navegador: un toque y el PDF se abre o se descarga solo. -->
-    <a class="btn btn-v" id="btn-pdf" href="#" target="_blank" rel="noopener">⬇ Ver / Descargar PDF</a>
+    <a class="btn btn-v" id="btn-pdf" href="#" rel="noopener">⬇ Descargar PDF</a>
     <a class="btn btn-b" href="/paciente">Mis resultados</a>
   </div>
 </div>
 
 <div class="envoltura">
   <div id="aviso" class="aviso oculto">
-    Toque <b>Ver / Descargar PDF</b>: se abre directo, sin pasar por ningún menú de impresión.
+    Toque <b>Descargar PDF</b>: se guarda en su dispositivo con el nombre del informe, listo para abrirlo o enviarlo por WhatsApp a su médico.
     En el teléfono normalmente se abre en el visor de PDF del navegador, con su propio botón
     para descargarlo o enviarlo por WhatsApp a su médico.
   </div>
@@ -2467,6 +2467,12 @@ function pintar(){
   const {config:c, paciente:p, orden:o} = DATOS;
   document.title = 'Resultados_'+o.numero+'_'+(p.nombre||'').replace(/[^\wáéíóúñÁÉÍÓÚÑ ]/g,'')
     .normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/\s+/g,'_')+'_'+(o.fecha||'').replace(/-/g,'_');
+  /* El PDF se guarda con el nombre del informe: el nombre va al final de la
+     URL (Android nombra por la URL e ignora Content-Disposition) y en el
+     atributo download (Chrome y Safari guardan directo, sin abrir el visor). */
+  { const a=document.getElementById('btn-pdf');
+    a.href='/r/'+NUM+'/'+TOK+'/pdf/'+encodeURIComponent(document.title)+'.pdf';
+    a.setAttribute('download',document.title+'.pdf'); }
   document.getElementById('sub-tit').textContent = (p.nombre||'') + ' · Orden ' + o.numero;
   document.getElementById('aviso').classList.remove('oculto');
   document.getElementById('pie-web').innerHTML =

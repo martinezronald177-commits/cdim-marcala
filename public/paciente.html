@@ -561,7 +561,7 @@ footer{margin-top:28px;border-top:1px solid var(--linea);background:var(--carta)
         <p>El laboratorio la revisa y te contacta por WhatsApp para confirmarte precio y horario.</p>
         <div class="codigo" id="numCot"></div>
         <p><b>Guarda este código.</b></p>
-        <a class="btn btn-p oculto" id="btnPdfCot" href="#" target="_blank" rel="noopener" style="margin-top:8px"><svg style="width:18px;height:18px"><use href="#i-doc"/></svg> Descargar PDF de tu cotización</a>
+        <a class="btn btn-p oculto" id="btnPdfCot" href="#" rel="noopener" style="margin-top:8px"><svg style="width:18px;height:18px"><use href="#i-doc"/></svg> Descargar PDF de tu cotización</a>
         <p style="margin-top:14px"><a class="btn-wa" href="https://wa.me/50497589992" target="_blank" rel="noopener"><svg><use href="#i-wa"/></svg>WhatsApp +504 9758-9992</a></p>
         <button class="btn btn-g" style="margin-top:20px" onclick="location.reload()">Volver al inicio</button>
       </div>
@@ -835,7 +835,11 @@ async function enviarCot(dentro){
       document.getElementById('numCot').textContent=cot.numero;
       /* El PDF, idéntico al que imprime el laboratorio (ver /c/:numero/:token/pdf) */
       const a=document.getElementById('btnPdfCot');
-      if(resp.token){ a.href='/c/'+cot.numero+'/'+resp.token+'/pdf'; a.classList.remove('oculto'); }
+      if(resp.token){
+        const archivo=(resp.archivo||('Cotizacion_'+cot.numero))+'.pdf';
+        a.href='/c/'+cot.numero+'/'+resp.token+'/pdf/'+encodeURIComponent(archivo);
+        a.setAttribute('download',archivo);      // se guarda directo, con este nombre, también en el celular
+        a.classList.remove('oculto'); }
       else a.classList.add('oculto');
       ver('secOk');
     }

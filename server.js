@@ -1375,7 +1375,9 @@ app.post('/api/cotizacion-publica', (req, res) => {
   cola.push({...cot, token, recibida: new Date().toISOString()});
   escribirDB('cola_cot', cola);
   console.log(`[CDIM] Cotización web recibida: ${cot.numero} - ${cot.nombre}`);
-  res.json({ok:true, numero:cot.numero, token});
+  // El nombre del archivo, el MISMO que le pone el LIS (nombreArchivo en
+  // 50_impresion.js): el portal lo usa en la URL y en el atributo download.
+  res.json({ok:true, numero:cot.numero, token, archivo:nombreArchivoDoc('Cotizacion', cot.numero, cot.nombre, cot.fecha)});
 });
 
 app.get('/api/cotizaciones-web', auth, (req, res) => {
@@ -1612,6 +1614,14 @@ app.post('/api/paciente-datos', (req, res) => {
    convierte con Chrome, como el informe. Se busca primero en la cola (recién
    enviada) y después en el estado (ya importada al LIS, quizá con precios
    ajustados: esa es la versión que vale). */
+/* Copia servidor de nombreArchivo() (LIS, 50_impresion.js): sin tildes,
+   espacios ni signos, unido por guiones bajos. */
+function nombreArchivoDoc(...partes){
+  return partes.filter(Boolean).map(p => String(p)
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-zA-Z0-9]+/g,' ').trim()
+    .replace(/\s+/g,'_')).join('_').slice(0,120);
+}
 function cotizacionPublica(numero, token){
   if(!numero || !token) return null;
   const enCola = (leerDB('cola_cot')||[]).find(c => c.numero===numero && c.token && c.token===token);
@@ -1641,7 +1651,7 @@ app.get('/api/cotizacion-web/:numero/:token', (req, res) => {
   res.json({config, cotizacion:c});
 });
 app.get('/c/:numero/:token', (req, res) => res.sendFile(path.join(PUB_DIR, 'cotizacion_pdf.html')));
-app.get('/c/:numero/:token/pdf', async (req, res) => {
+app.get(['/c/:numero/:token/pdf', '/c/:numero/:token/pdf/:archivo'], async (req, res) => {
   const ip = ipDe(req);
   if(!limitarPDF(ip))
     return res.status(429).send('Demasiadas solicitudes de PDF. Espera unos minutos e intenta de nuevo.');
@@ -1947,7 +1957,10 @@ app.get('/r/:numero/:token', (req,res)=>
   res.sendFile(path.join(PUB_DIR,'informe.html')));
 /* PDF directo del informe -- mismo informe, ya armado en PDF, sin pasar por
    el diálogo de impresión del navegador (ver navegador() más arriba). */
-app.get('/r/:numero/:token/pdf', async (req, res) => {
+/* El último tramo opcional (:archivo) es solo para que el navegador del
+   celular guarde el PDF con ese nombre: Android nombra por la URL e ignora
+   Content-Disposition. Aquí no se usa para nada más. */
+app.get(['/r/:numero/:token/pdf', '/r/:numero/:token/pdf/:archivo'], async (req, res) => {
   const ip = ipDe(req);
   if(!limitarPDF(ip))
     return res.status(429).send('Demasiadas solicitudes de PDF. Espera unos minutos e intenta de nuevo.');
