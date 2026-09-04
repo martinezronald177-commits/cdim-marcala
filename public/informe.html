@@ -46,7 +46,8 @@ body{font-family:'Montserrat',sans-serif;background:var(--bg);color:#16242e;
 .cab{display:flex;align-items:center;justify-content:space-between;gap:14px;
   flex-wrap:wrap;padding-bottom:12px;border-bottom:2px solid #111}
 .cab-logo{flex:0 0 auto;max-width:32%;display:flex;align-items:center}
-.cab-logo img{height:66px;max-height:66px;width:auto;max-width:100%;display:block}
+/* Mismo tamaño que el informe del LIS (50b_plantillas_comunes.js): a 66 px un logo redondo con anillo oscuro se veía como una mancha. */
+.cab-logo img{max-height:100px;height:auto;width:auto;max-width:100%;display:block}
 .cab-nom{font-size:15px;font-weight:800;color:var(--azul);line-height:1.15;max-width:160px}
 .cab-datos{flex:1 1 220px;min-width:200px;font-size:11px;line-height:1.55;color:#333}
 .cab-datos b{color:#111}

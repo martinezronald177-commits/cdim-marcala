@@ -1470,10 +1470,45 @@ function limitarPDF(ip){
    barato. Si el navegador se cae (o nunca llegó a abrir), _navegadorProm se
    limpia para que el siguiente pedido lo vuelva a intentar en vez de quedar
    fallando para siempre. */
+/* Chrome para los PDF. Puppeteer lo descarga durante `npm install` a la
+   carpeta que fija .puppeteerrc.cjs (cdim-server/.cache/puppeteer). Visto en
+   producción (sep. 2026): cuando Render reutiliza node_modules de un build
+   anterior, ese paso no corre, la carpeta -que no forma parte de la caché de
+   build- llega vacía, y cada PDF fallaba en 0,4 s con "Could not find
+   Chrome". Aquí se comprueba al arrancar y, si falta, se instala con
+   @puppeteer/browsers (viene con Puppeteer). navegador() espera esa
+   instalación antes de lanzar, así el primer PDF tras un despliegue tarda
+   más pero sale. */
+/* Solo en producción (o pidiéndolo con CDIM_INSTALAR_CHROME=1): en desarrollo
+   y en las pruebas -que levantan este servidor decenas de veces- no se baja
+   nada sin que nadie lo pida; ahí un PDF sin Chrome falla como siempre. */
+const AUTO_INSTALAR_CHROME = process.env.NODE_ENV === 'production' || process.env.CDIM_INSTALAR_CHROME === '1';
+let _instalandoChrome = null, _avisadoSinChrome = false;
+async function asegurarChrome(){
+  if(process.env.PUPPETEER_EXECUTABLE_PATH) return;   // Chrome del sistema: nada que instalar
+  const ruta = await puppeteer.executablePath();
+  if(fs.existsSync(ruta)) return;
+  if(!AUTO_INSTALAR_CHROME){
+    if(!_avisadoSinChrome){ _avisadoSinChrome = true;
+      console.warn('[CDIM] Chrome para los PDF no está en ' + ruta + ' (no se instala solo fuera de producción; CDIM_INSTALAR_CHROME=1 lo fuerza).'); }
+    return;
+  }
+  if(!_instalandoChrome){
+    const {install, detectBrowserPlatform, Browser} = require('@puppeteer/browsers');
+    const cacheDir = require('./.puppeteerrc.cjs').cacheDirectory;
+    const buildId = puppeteer.PUPPETEER_REVISIONS.chrome;
+    console.log(`[CDIM] Chrome ${buildId} no está en ${cacheDir}: se instala para poder generar los PDF…`);
+    _instalandoChrome = install({browser: Browser.CHROME, buildId, cacheDir, platform: detectBrowserPlatform()})
+      .then(() => { console.log('[CDIM] Chrome instalado: los PDF del informe ya se pueden generar.'); })
+      .catch(e => { console.error('[CDIM] No se pudo instalar Chrome para los PDF: ' + e.message); throw e; })
+      .finally(() => { _instalandoChrome = null; });
+  }
+  return _instalandoChrome;
+}
 let _navegadorProm = null;
 function navegador(){
   if(!_navegadorProm){
-    _navegadorProm = puppeteer.launch({
+    _navegadorProm = asegurarChrome().then(() => puppeteer.launch({
       headless: 'new',
       // Permite apuntar a un Chrome del sistema si hiciera falta (por
       // ejemplo, si el que trae Puppeteer no pudiera descargarse en el
@@ -1481,7 +1516,7 @@ function navegador(){
       // el Chromium que Puppeteer instala solo con `npm install`.
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
       args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage'],
-    }).then(b => {
+    })).then(b => {
       b.on('disconnected', () => { _navegadorProm = null; });
       return b;
     }).catch(e => { _navegadorProm = null; throw e; });
@@ -1753,6 +1788,10 @@ app.post('/api/respaldo-externo', auth, soloAdmin, async (req, res) => {
 
 /* Informe de una orden por su token. La dirección la lleva el QR impreso:
    quien tiene el papel puede abrirlo, igual que puede leerlo. */
+function imagenInforme(v, fabrica){
+  if(v === 'ninguno') return '';
+  return v || fabrica;
+}
 app.get('/api/informe/:numero/:token', (req, res) => {
   const ip = ipDe(req);
   if(!limitarIntentos(ip))
@@ -1783,7 +1822,15 @@ app.get('/api/informe/:numero/:token', (req, res) => {
       regente: estado.config?.regente, colegiacion: estado.config?.colegiacion,
       profesional: estado.config?.profesional, profesionalTitulo: estado.config?.profesionalTitulo,
       servicios: estado.config?.servicios, anclaSGC: estado.config?.anclaSGC,
-      logo: estado.config?.logo, firma: estado.config?.firma, sello: estado.config?.sello,
+      /* Las imágenes se resuelven aquí, con la misma regla que imagenLab() en
+         el LIS: '' es la de fábrica (archivo en /img/), 'ninguno' es sin
+         imagen, un data-URI es una propia. Y el informe lleva el sello del
+         MICROBIÓLOGO si está configurado (51_informe.js hace lo mismo); el de
+         config.sello es el del laboratorio, con el RTN, que va en recibos y
+         facturas, no en el informe. */
+      logo: imagenInforme(estado.config?.logo, '/img/logo.png'),
+      firma: estado.config?.firma || '',
+      sello: estado.config?.selloMicro || imagenInforme(estado.config?.sello, '/img/sello.png'),
       prefijoId: estado.config?.prefijoId,
     },
     paciente: {
@@ -1886,6 +1933,9 @@ app.get('*', (req, res) => {
 
 // ── Arrancar ─────────────────────────────────────────────────
 app.listen(PORT, () => {
+  // Que Chrome esté listo ANTES del primer PDF, no durante. Mejor esfuerzo:
+  // si falla, navegador() lo volverá a intentar cuando alguien pida un PDF.
+  asegurarChrome().catch(() => {});
   console.log(`\n╔══════════════════════════════════════╗`);
   console.log(`║   CDI Marcala · Servidor activo      ║`);
   console.log(`║   http://localhost:${PORT}              ║`);
