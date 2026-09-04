@@ -2824,6 +2824,13 @@ function vInicio(){
   const citasManana=(typeof citasDelDia==='function'
     ?citasDelDia(typeof masDias==='function'?masDias(hoyF,1):''):[])
     .filter(c=>c.estado==='Programada');
+  /* Solicitudes del PORTAL web sin revisar. Alguien las mandó desde su
+     celular y está esperando que el laboratorio le confirme precio y hora:
+     tienen que estar aquí, a la vista, hasta que se aprueben o se
+     descarten. La más vieja primero, con los días que lleva esperando. */
+  const webPend=S.cotizaciones.filter(c=>c.origen==='web'&&c.estadoCot==='Pendiente'&&!c.ot)
+    .map(c=>({c,dias:Math.max(0,Math.round((new Date(hoyF+'T12:00:00')-new Date((c.fecha||hoyF)+'T12:00:00'))/86400000))}))
+    .sort((a,b)=>b.dias-a.dias||String(a.c.numero).localeCompare(String(b.c.numero)));
   const necesitaResp=cfg.recordarRespaldo>0&&(!S.meta.ultimoRespaldo||
     (new Date(hoyF)-new Date(S.meta.ultimoRespaldo))/86400000>=cfg.recordarRespaldo);
   // Ingresos de los últimos 7 días, también en una pasada
@@ -2860,7 +2867,7 @@ function vInicio(){
         órdenes están al día", que era sencillamente falso. */''
    }${(criticos.length||deltas.length||vencidas.length||hoyEntrega.length
       ||parciales.length||sinValidar.length||sinReportar.length||porCobrar.length||necesitaResp
-      ||citasHoy.length||citasManana.length)?`
+      ||citasHoy.length||citasManana.length||webPend.length)?`
   <div class="tarjeta">
     <h3 style="color:var(--azul);margin-bottom:10px">Centro de alertas</h3>
     ${criticos.slice(0,15).map(c=>`<div class="alerta-critica">⚠ CRÍTICO · ${c.o.numero} · ${esc(c.o.pacienteNombre)} — ${esc(c.a)}
@@ -2874,6 +2881,10 @@ function vInicio(){
     ${hoyEntrega.slice(0,10).map(o=>`<div class="aviso"><svg class="ico-en" aria-hidden="true"><use href="#i-calendario"/></svg> ENTREGA HOY · ${o.numero} · ${esc(o.pacienteNombre)} — prometida para hoy, aún pendiente de enviar
       <button class="btn btn-g btn-min" style="float:right" onclick="modalResultados('${o.numero}')">Ver</button></div>`).join('')}
     ${hoyEntrega.length>10?`<div style="font-size:11.5px;color:var(--gris);margin:4px 0 8px">y ${hoyEntrega.length-10} entrega(s) más que vencen hoy.</div>`:''}
+    ${webPend.slice(0,10).map(x=>{const c=x.c;const n=(c.items||[]).length;
+      return `<div class="aviso" style="border-left-color:var(--azul)"><svg class="ico-en" aria-hidden="true"><use href="#i-web"/></svg> SOLICITUD DEL PORTAL · ${esc(c.numero)} · ${esc(c.nombre||'')} — ${n} examen(es) · ${L(totalCot(c))}${c.tel?' · '+esc(c.tel):''} · ${x.dias===0?'hoy':x.dias===1?'desde ayer':'hace '+x.dias+' días'}
+      <button class="btn btn-v btn-min" style="float:right" onclick="irA('cotizaciones');modalCotizacion('${esc(c.numero)}')">Revisar</button></div>`;}).join('')}
+    ${webPend.length>10?`<div style="font-size:11.5px;color:var(--gris);margin:4px 0 8px">y ${webPend.length-10} solicitud(es) más del portal.</div>`:''}
     ${citasTarde.slice(0,10).map(c=>`<div class="aviso" style="border-left-color:var(--rojo)"><svg class="ico-en" aria-hidden="true"><use href="#i-calendario"/></svg> CITA SIN RECIBIR · ${esc(c.hora)} · ${esc(c.nombre)} — pasó la hora y no se ha recibido
       <button class="btn btn-v btn-min" style="float:right" onclick="recibirCitaUI('${c.id}')">Recibir</button></div>`).join('')}
     ${citasHoy.filter(c=>!citaVencida(c,hoyF)).slice(0,10).map(c=>`<div class="aviso"><svg class="ico-en" aria-hidden="true"><use href="#i-calendario"/></svg> CITA HOY · ${esc(c.hora)} · ${esc(c.nombre)}${citaRequiereAyuno(c)?' — en ayunas':''}
