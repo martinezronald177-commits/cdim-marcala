@@ -581,6 +581,32 @@ footer{margin-top:28px;border-top:1px solid var(--linea);background:var(--carta)
 
 <script>
 let PAC=null, CAT=[], SEL=new Set();
+
+/* El botón de descarga: pide el archivo por fetch para distinguir "salió
+   bien" de "el servidor no pudo armarlo". Sin esto, con el atributo download
+   el navegador guardaría la página de respaldo con nombre .pdf. */
+async function descargarPDF(ev, a, urlRespaldo){
+  if(!window.fetch || !window.URL || !URL.createObjectURL) return;
+  ev.preventDefault();
+  const antes=a.textContent;
+  a.textContent='Preparando tu PDF…';
+  a.style.pointerEvents='none';
+  try{
+    const r=await fetch(a.href);
+    if(r.status===429){ alert('Estamos recibiendo muchas solicitudes. Espera unos minutos e intenta de nuevo.'); return; }
+    const blob=await r.blob();
+    if(!r.ok || String(blob.type).indexOf('application/pdf')<0) throw new Error('no vino un PDF');
+    const url=URL.createObjectURL(blob);
+    const tmp=document.createElement('a');
+    tmp.href=url; tmp.download=a.getAttribute('download')||'documento.pdf';
+    document.body.appendChild(tmp); tmp.click(); tmp.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),20000);
+  }catch(e){
+    location.href=urlRespaldo;
+  }finally{
+    a.textContent=antes; a.style.pointerEvents='';
+  }
+}
 const CONSENT_VERSION='2026-09';   // sube cuando cambie el texto del consentimiento
 
 function fmtDni(el){
@@ -839,6 +865,9 @@ async function enviarCot(dentro){
         const archivo=(resp.archivo||('Cotizacion_'+cot.numero))+'.pdf';
         a.href='/c/'+cot.numero+'/'+resp.token+'/pdf/'+encodeURIComponent(archivo);
         a.setAttribute('download',archivo);      // se guarda directo, con este nombre, también en el celular
+        /* Si el servidor no puede armarlo, lleva a la página de la cotización
+           en vez de guardar un archivo roto. Ver descargarPDF(). */
+        a.onclick=ev=>descargarPDF(ev,a,'/c/'+cot.numero+'/'+resp.token+'?respaldo=1');
         a.classList.remove('oculto'); }
       else a.classList.add('oculto');
       ver('secOk');

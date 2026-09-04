@@ -1689,7 +1689,8 @@ app.get(['/c/:numero/:token/pdf', '/c/:numero/:token/pdf/:archivo'], async (req,
     res.send(pdf);
   }catch(e){
     console.error('Error generando PDF de cotización:', e.message);
-    res.status(500).send('No se pudo generar el PDF en este momento. Intenta de nuevo en un momento.');
+    // Igual que el informe: a la página, que se ve y se puede guardar sin Chrome.
+    res.redirect(302, `/c/${encodeURIComponent(req.params.numero)}/${encodeURIComponent(req.params.token)}?respaldo=1`);
   }finally{
     if(page) await page.close().catch(()=>{});
   }
@@ -2033,7 +2034,11 @@ app.get(['/r/:numero/:token/pdf', '/r/:numero/:token/pdf/:archivo'], async (req,
     res.send(pdf);
   }catch(e){
     console.error('Error generando PDF de informe:', e.message);
-    res.status(500).send('No se pudo generar el PDF en este momento. Intenta de nuevo en un momento.');
+    /* El informe del paciente existe y está validado: que Chrome no pueda
+       armar el PDF no puede dejarlo sin él. Se le manda a la misma página,
+       que no necesita Chrome, con la marca para que le explique cómo
+       guardarlo desde su navegador. */
+    res.redirect(302, `/r/${encodeURIComponent(req.params.numero)}/${encodeURIComponent(req.params.token)}?modo=pdf&respaldo=1`);
   }finally{
     if(page) await page.close().catch(()=>{});
   }

@@ -1515,6 +1515,64 @@ function imprimirCotizacion(n,opciones){
 
 const partes=location.pathname.split('/').filter(Boolean);   // ['c', numero, token]
 const NUM=partes[1], TOK=partes[2];
+/* Lo pone el servidor cuando no pudo armar el PDF (ver /c/:numero/:token/pdf). */
+const RESPALDO = new URLSearchParams(location.search).get('respaldo') === '1';
+
+/* ── Respaldo cuando el PDF no se pudo armar ──
+   La página se muestra igual (no necesita Chrome) y se le explica al
+   paciente cómo guardarla con su propio navegador. El aviso se esconde al
+   imprimir: lo que salga en papel o en su PDF es el documento, sin nada
+   nuestro encima. */
+function avisoRespaldo(queEs){
+  const st=document.createElement('style');
+  st.textContent='.aviso-respaldo{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#fff8e6;'+
+    'border:1.5px solid #f0c060;border-radius:10px;padding:14px 16px;margin:12px auto;max-width:760px;'+
+    'font-size:14px;line-height:1.6;color:#5a4300}'+
+    '.aviso-respaldo b{display:block;margin-bottom:4px;color:#7a3d00}'+
+    '.aviso-respaldo .acc{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}'+
+    '.aviso-respaldo button,.aviso-respaldo a{font-family:inherit;font-size:14px;font-weight:700;border-radius:8px;'+
+    'padding:10px 16px;border:none;cursor:pointer;text-decoration:none;display:inline-block}'+
+    '.aviso-respaldo button{background:#285068;color:#fff}'+
+    '.aviso-respaldo a{background:#25d366;color:#fff}'+
+    '@media print{.aviso-respaldo{display:none!important}}';
+  document.head.appendChild(st);
+  const d=document.createElement('div');
+  d.className='aviso-respaldo';
+  d.innerHTML='<b>No pudimos preparar el archivo PDF en este momento.</b>'+
+    'Aquí abajo está '+queEs+', completo. Para guardarlo, pulsa «Guardar como PDF» '+
+    'y elige esa opción como destino de impresión.'+
+    '<div class="acc"><button type="button" onclick="window.print()">Guardar como PDF</button>'+
+    '<a href="https://wa.me/50497589992" target="_blank" rel="noopener">Pídelo por WhatsApp</a></div>';
+  document.body.insertBefore(d, document.body.firstChild);
+}
+/* El botón no es un enlace normal a propósito: se pide el archivo por fetch
+   para poder distinguir "salió bien" de "el servidor no pudo armarlo". Sin
+   esto, con el atributo download el navegador guardaría la página de
+   respaldo con nombre .pdf, que es peor que el error. Si el navegador no
+   soporta fetch o blobs, no se toca nada y el enlace funciona como siempre. */
+async function descargarPDF(ev, a, urlRespaldo){
+  if(!window.fetch || !window.URL || !URL.createObjectURL) return;
+  ev.preventDefault();
+  const antes=a.textContent;
+  a.textContent='Preparando tu PDF…';
+  a.style.pointerEvents='none';
+  try{
+    const r=await fetch(a.href);
+    if(r.status===429){ alert('Estamos recibiendo muchas solicitudes. Espera unos minutos e intenta de nuevo.'); return; }
+    const blob=await r.blob();
+    if(!r.ok || String(blob.type).indexOf('application/pdf')<0) throw new Error('no vino un PDF');
+    const url=URL.createObjectURL(blob);
+    const tmp=document.createElement('a');
+    tmp.href=url; tmp.download=a.getAttribute('download')||'documento.pdf';
+    document.body.appendChild(tmp); tmp.click(); tmp.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),20000);
+  }catch(e){
+    location.href=urlRespaldo;
+  }finally{
+    a.textContent=antes; a.style.pointerEvents='';
+  }
+}
+
 
 function pintarPDF(){
   const c=S.cotizaciones[0];
@@ -1530,6 +1588,7 @@ function pintarPDF(){
     else s.outerHTML='<b style="font-size:8pt">'+escTxt(s.dataset.valor)+'</b>';
   });
   repaginarPaginas(window);
+  if(RESPALDO) avisoRespaldo('tu cotización');
 }
 async function cargar(){
   try{
