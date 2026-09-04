@@ -18640,6 +18640,16 @@ const TIPOS_BIT=['Actividad de rutina','Control de calidad','Mantenimiento de eq
    recorta al bajar el estado). El historial completo se pide aparte y vive
    aquí, NO en S: es para mirar e imprimir, y desde él no se borra nada. */
 let _bitacoraCompleta=null;
+/* Por hojas, como las demás listas largas (trozoHoja/barraHojas en
+   10b_formato_compartido.js). La hoja se guarda aquí y no en la URL. */
+const POR_HOJA_BIT=15;
+let _hojaBit=1;
+function irHojaBit(n){
+  _hojaBit=n;
+  const q=document.getElementById('q_bit'), l=document.getElementById('lista_bit');
+  if(l)l.innerHTML=filasBitacora((q&&q.value)||'');
+  if(l&&l.scrollIntoView)l.scrollIntoView({block:'start'});
+}
 function avisoBitacoraRecortada(){
   if(typeof MODO_WEB==='undefined'||!MODO_WEB)return '';
   if(_bitacoraCompleta)return `<div class="aviso">Historial completo: ${_bitacoraCompleta.length} entradas, tal como están guardadas en el servidor. Desde aquí no se borra nada.
@@ -18662,22 +18672,26 @@ async function cargarBitacoraCompleta(){
 function filasBitacora(filtro=''){
   const f=normTxt(filtro);
   const lista=(_bitacoraCompleta||S.bitacora).map((b,i)=>({...b,_i:i})).filter(b=>normTxt(b.tipo+' '+b.descripcion+' '+b.responsable+' '+b.fecha).includes(f)).reverse();
-  return `${lista.length?`<table class="tabla-bit"><thead><tr><th style="width:90px">Fecha</th><th style="width:55px">Hora</th><th>Tipo</th><th>Descripción</th><th>Responsable</th><th></th></tr></thead><tbody>
-    ${lista.map(b=>`<tr>
+  const t=trozoHoja(lista,_hojaBit,POR_HOJA_BIT);
+  _hojaBit=t.hoja;                 // por si la hoja se quedó fuera de rango
+  const barra=barraHojas(t,'irHojaBit','entrada(s)');
+  return `${t.total?`${barra}<table class="tabla-bit"><thead><tr><th style="width:90px">Fecha</th><th style="width:55px">Hora</th><th>Tipo</th><th>Descripción</th><th>Responsable</th><th></th></tr></thead><tbody>
+    ${t.items.map(b=>`<tr>
       <td class="nw">${fmtFecha(b.fecha)}<div class="solo-movil cel-sub">${esc(b.hora||'')}</div></td><td>${b.hora}</td>
       <td><span class="chip ${/Incidencia|correctiva/.test(b.tipo)?'chip-rj':/caja/.test(b.tipo)?'chip-do':'chip-az'}">${esc(b.tipo)}</span></td>
       <td style="font-size:12.5px">${esc(b.descripcion)}</td><td style="font-size:12px">${esc(b.responsable)}</td>
       <td>${b.manual?(_bitacoraCompleta?'':`<button class="btn btn-r btn-min" onclick="borrarBitacora(${b._i})">✕</button>`)
         :`<span class="chip chip-vd" style="font-size:9.5px" title="Entrada generada por el sistema: no se puede eliminar"><svg class="ico-en" aria-hidden="true"><use href="#i-bloqueado"/></svg> sistema</span>`}</td></tr>`).join('')}
-  </tbody></table>`:`<div class="vacio">${filtro?'Ninguna entrada coincide con “'+esc(filtro)+'”.':'Sin entradas en la bitácora.'}</div>`}`;
+  </tbody></table>${t.hojas>1?barra:''}`:`<div class="vacio">${filtro?'Ninguna entrada coincide con “'+esc(filtro)+'”.':'Sin entradas en la bitácora.'}</div>`}`;
 }
-function vBitacora(filtro='',historial=false){
+function vBitacora(filtro='',historial=false,hoja=1){
   if(!historial)_bitacoraCompleta=null;
+  _hojaBit=hoja;
   vista.innerHTML=`
   <div class="cabecera"><h2>Bitácora de Trabajo</h2>
     <div style="display:flex;gap:10px">
       <input class="busqueda" id="q_bit" placeholder="Buscar en la bitácora…"
-        value="${esc(filtro)}" oninput="document.getElementById('lista_bit').innerHTML=filasBitacora(this.value)">
+        value="${esc(filtro)}" oninput="_hojaBit=1;document.getElementById('lista_bit').innerHTML=filasBitacora(this.value)">
       <button class="btn btn-d" onclick="previsualizar(()=>imprimirBitacora(),'Bitácora de trabajo','Imprimir bitácora')"><svg class="ico-en" aria-hidden="true"><use href="#i-ver"/></svg> Ver e imprimir</button>
       <button class="btn btn-p" onclick="modalBitacora()">+ Nueva entrada</button>
     </div>
@@ -18719,7 +18733,9 @@ function borrarBitacora(i){
   // vaciarse sin dejar constancia de que alguien vació una entrada.
   S.bitacora.push({fecha:hoy(),hora:ahoraHora(),responsable:usuarioActivo().nombre,tipo:'Incidencia / No conformidad',
     descripcion:'Entrada de bitácora eliminada (registrada el '+fmtFecha(b.fecha)+', tipo "'+(b.tipo||'')+'"): "'+(b.descripcion||'')+'".'});
-  guardar(true);vBitacora();
+  // Se conserva la hoja y el filtro: borrar una entrada no te manda al principio.
+  const q=document.getElementById('q_bit');
+  guardar(true);vBitacora((q&&q.value)||'',false,_hojaBit);
 }
 function imprimirBitacora(){
   const lista=(_bitacoraCompleta||S.bitacora).slice().sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora));
