@@ -32,7 +32,7 @@ const BASE = ["./index.html","./paciente.html","./cotizacion.html",
               "./img/logo.png","./img/sello.png",
               "./fonts/fuentes.css","./fonts/montserrat-latin.woff2","./fonts/ibm-plex-sans-latin.woff2",
               "./fonts/ibm-plex-mono-400-latin.woff2","./fonts/ibm-plex-mono-500-latin.woff2","./fonts/ibm-plex-mono-600-latin.woff2",
-              "./fonts/inconsolata-latin.woff2"];
+              "./fonts/inconsolata-400-latin.woff2","./fonts/inconsolata-700-latin.woff2"];
 
 /* ── Interruptor de emergencia ──
    Trabajar en línea es lo que importa; guardar el programa es el seguro. Si el
