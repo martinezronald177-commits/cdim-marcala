@@ -1366,10 +1366,16 @@ app.post('/api/cotizacion-publica', (req, res) => {
   const cola = leerDB('cola_cot') || [];
   if(cola.some(c => c.numero === cot.numero))
     return res.json({ok:true, mensaje:'Ya recibida'});
-  cola.push({...cot, recibida: new Date().toISOString()});
+  /* Token por solicitud: con él el paciente baja SU cotización en PDF
+     (/c/:numero/:token/pdf) sin sesión, y sin él nadie más puede: el número
+     de cotización es predecible (fecha y hora), el token no. Viaja al LIS
+     con la importación para que el PDF siga sirviendo -y refleje lo que el
+     laboratorio ajuste- después de sacarla de la cola. */
+  const token = require('crypto').randomBytes(9).toString('base64url');
+  cola.push({...cot, token, recibida: new Date().toISOString()});
   escribirDB('cola_cot', cola);
   console.log(`[CDIM] Cotización web recibida: ${cot.numero} - ${cot.nombre}`);
-  res.json({ok:true, numero:cot.numero});
+  res.json({ok:true, numero:cot.numero, token});
 });
 
 app.get('/api/cotizaciones-web', auth, (req, res) => {
@@ -1598,6 +1604,72 @@ app.post('/api/paciente-datos', (req, res) => {
     p.idNumero && p.idNumero.replace(/\D/g,'') === dni && p.fnac === fnac);
   if(!pac) return res.status(404).json({error:'No encontramos un expediente con esos datos'});
   res.json({ nombre: pac.nombre || '', sexo: pac.sexo || '', tel: pac.tel || '', medico: pac.medico || '' });
+});
+
+/* ── La cotización del portal en PDF, idéntica a la del LIS ──
+   La página cotizacion_pdf.html lleva (por sync_informe_web.py) la MISMA
+   plantilla que imprime el laboratorio; aquí solo se le dan los datos y se
+   convierte con Chrome, como el informe. Se busca primero en la cola (recién
+   enviada) y después en el estado (ya importada al LIS, quizá con precios
+   ajustados: esa es la versión que vale). */
+function cotizacionPublica(numero, token){
+  if(!numero || !token) return null;
+  const enCola = (leerDB('cola_cot')||[]).find(c => c.numero===numero && c.token && c.token===token);
+  if(enCola){
+    // Misma forma que le da importarCotWebDesdeServidor() en el LIS
+    return {numero:enCola.numero, fecha:enCola.fecha, nombre:enCola.nombre, idNumero:enCola.idNumero, fnac:enCola.fnac,
+      sexo:enCola.sexo, tel:enCola.tel, medico:enCola.medico||'',
+      items:(enCola.items||[]).map(i => ({id:i.id, nombre:i.nombre, cantidad:1, precio:i.precio, descPct:0, gravado:false})),
+      descPct:0, condPago:'Contado', validez:7, elaboradoPor:'Portal web', obs:enCola.obs||'',
+      origen:'web', estadoCot:'Pendiente', ot:'', pacCodigo:''};
+  }
+  const estado = leerDB('estado');
+  return (estado && (estado.cotizaciones||[]).find(c => c.numero===numero && c.token && c.token===token)) || null;
+}
+// Solo lo que la plantilla de la cotización lee de la configuración: nada de usuarios, alertas ni imágenes de firma.
+const CAMPOS_CFG_COT = ['nombre','lema','razonSocial','rtn','direccion','dirPie','telefono','telefono2','whatsapp','correo','horario',
+  'regente','colegiacion','profesional','profesionalTitulo','servicios','anclaSGC','codigoDocCot','revisionDoc','condicionesCot',
+  'moneda','sucursal','sucursales','web','redes','logo'];
+app.get('/api/cotizacion-web/:numero/:token', (req, res) => {
+  if(!limitarIntentos(ipDe(req)))
+    return res.status(429).json({error:'Demasiadas consultas. Espera unos minutos.'});
+  const c = cotizacionPublica(req.params.numero, req.params.token);
+  if(!c) return res.status(404).json({error:'No encontramos esa cotización'});
+  const cfg = (leerDB('estado')||{}).config || {};
+  const config = {};
+  for(const k of CAMPOS_CFG_COT) if(cfg[k] !== undefined) config[k] = cfg[k];
+  res.json({config, cotizacion:c});
+});
+app.get('/c/:numero/:token', (req, res) => res.sendFile(path.join(PUB_DIR, 'cotizacion_pdf.html')));
+app.get('/c/:numero/:token/pdf', async (req, res) => {
+  const ip = ipDe(req);
+  if(!limitarPDF(ip))
+    return res.status(429).send('Demasiadas solicitudes de PDF. Espera unos minutos e intenta de nuevo.');
+  const c = cotizacionPublica(req.params.numero, req.params.token);
+  if(!c) return res.status(404).send('No encontramos esa cotización.');
+  let page = null;
+  try{
+    const browser = await navegador();
+    page = await browser.newPage();
+    await page.setViewport({width:780, height:1100});
+    const origenPublico = `${req.protocol}://${req.get('host')}`;
+    const propia = `http://127.0.0.1:${PORT}/c/${encodeURIComponent(req.params.numero)}/${encodeURIComponent(req.params.token)}?origen=${encodeURIComponent(origenPublico)}`;
+    await page.goto(propia, {waitUntil:'networkidle0', timeout:20000});
+    await page.waitForSelector('.pagina', {timeout:10000});
+    const pdf = Buffer.from(await page.pdf({format:'Letter', printBackground:true, preferCSSPageSize:true}));
+    const titulo = await page.title().catch(() => '');
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `inline; filename="${(titulo||'Cotizacion_'+c.numero).replace(/"/g,'')}.pdf"`,
+      'Content-Length': pdf.length,
+    });
+    res.send(pdf);
+  }catch(e){
+    console.error('Error generando PDF de cotización:', e.message);
+    res.status(500).send('No se pudo generar el PDF en este momento. Intenta de nuevo en un momento.');
+  }finally{
+    if(page) await page.close().catch(()=>{});
+  }
 });
 
 /* Estado de las cotizaciones que envió el paciente desde el portal */

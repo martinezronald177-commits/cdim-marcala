@@ -2215,6 +2215,7 @@ function fmtDNI(v){v=v.replace(/\D/g,'').slice(0,13);if(v.length>8)return v.slic
 function fmtRTN(v){v=v.replace(/\D/g,'').slice(0,14);if(v.length>8)return v.slice(0,4)+'-'+v.slice(4,8)+'-'+v.slice(8);if(v.length>4)return v.slice(0,4)+'-'+v.slice(4);return v;}
 function fmtId(tipo,v){if(tipo==='DNI')return fmtDNI(v);if(tipo==='RTN')return fmtRTN(v);return v.toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,12);}
 function idPaciente(p){return p.idNumero?((p.idTipo||'DNI')+' '+p.idNumero):'—';}
+/* ===SYNC:NOMBRE=== (sync_informe_web.py — nombreCompleto para la cotización pública) */
 function nombreCompleto(p){return [p.nombre1,p.nombre2,p.apellido1,p.apellido2].filter(Boolean).join(' ')||p.nombre||'';}
 /* A diferencia del paciente (que guarda nombre1/nombre2/apellido1/apellido2
    por separado), el usuario del sistema solo tiene un "nombre" de texto
@@ -2231,6 +2232,7 @@ function nombreCortoUsuario(nombreCompleto){
   if(p.length<=2)return p.join(' ');
   return p[0]+' '+p[p.length-2];
 }
+/* ===FIN-SYNC:NOMBRE=== */
 /* Un menor de edad no puede ser la parte que paga o a quien se le extiende
    un recibo/factura -- si está registrado como menor (esMenor()) y ya tiene
    un responsable/tutor en su ficha (20_pacientes.js, "Responsable / tutor
@@ -4748,6 +4750,7 @@ function aprobarCotWeb(num){
       irA('ordenes');
   },300);
 }
+/* ===SYNC:CALC-COT=== (sync_informe_web.py — pctItem/descItem/calcCot/round2/totalCot para la cotización pública) */
 function pctItem(i){
   // Porcentaje de descuento de la línea (compatibilidad con montos guardados antes)
   if(i.descPct!==undefined&&i.descPct!=='')return Math.min(100,Math.max(0,Number(i.descPct)||0));
@@ -4835,6 +4838,7 @@ function modalCotizacion(num){
   </div>`);
   pintarItemsCot();
 }
+/* ===FIN-SYNC:CALC-COT=== */
 /* Se dispara al salir del campo "Identificación" en Nueva cotización.
    Si el DNI escrito ya pertenece a un paciente registrado, carga sus datos
    automáticamente (igual que elegirlo del listado "Paciente registrado") en
@@ -12598,6 +12602,7 @@ function imprimirDesdePrevia(){
 }
 
 /* =============== IMPRESIÓN: helpers =============== */
+/* ===SYNC:NOMBRE-ARCHIVO=== (sync_informe_web.py — nombreArchivo para la cotización pública) */
 /* Nombre de archivo seguro: sin tildes, espacios ni signos que estorben
    al guardar o al enviar por WhatsApp. */
 function nombreArchivo(...partes){
@@ -12606,6 +12611,7 @@ function nombreArchivo(...partes){
     .replace(/[^a-zA-Z0-9]+/g,' ').trim()
     .replace(/\s+/g,'_')).join('_').slice(0,120);
 }
+/* ===FIN-SYNC:NOMBRE-ARCHIVO=== */
 /* Arma "Orden_Nombre_Fecha" a partir de una orden */
 function nombreDeOrden(o,prefijo){
   if(!o)return nombreArchivo(prefijo,hoy());
@@ -12654,6 +12660,7 @@ function nombreDeOrden(o,prefijo){
    propio -- un elemento aparte solo tras <body> quedaría tapado por él.
    Etiquetas (.et, 57×32 mm) se excluyen a propósito: a ese tamaño el logo
    de fondo no cabe sin volverse ilegible. */
+/* ===SYNC:MARCA-AGUA=== (sync_informe_web.py — marca de agua del logo, para la cotización pública) */
 function cssMarcaAguaDoc(){
   const logo=imagenLab('logo');
   if(!logo)return '';
@@ -12670,6 +12677,7 @@ function cssMarcaAguaDoc(){
    background-repeat:no-repeat;background-position:center;background-size:48%;
    opacity:.06;z-index:-1;pointer-events:none}`;
 }
+/* ===FIN-SYNC:MARCA-AGUA=== */
 function ventanaImpresion(html,css,nombre,registro){
   volcarEstado();
   css=cssBaseImpresion+'\n'+cssCabeceraDoc+'\n'+cssBloqueDatos+'\n'+cssMarcaAguaDoc()+'\n'+css+(modoAplanado?'\n'+cssAplanado:'');   // base, encabezado y datos del paciente/cliente comunes
@@ -12778,6 +12786,7 @@ const cssDoc=`
  .marca-prelim{border:2px dashed #b35a00;color:#b35a00;font-weight:800;text-align:center;padding:5px;border-radius:8px;margin-bottom:8px;font-size:12px;letter-spacing:1px}
  .delta{color:#8a6d2e;font-weight:700}`;
 
+/* ===SYNC:COTIZACION=== (sync_informe_web.py — cssCotizacion + imprimirCotizacion, para el PDF público de la cotización) */
 /* ---- Imprimir cotización / pre orden (formato institucional) ---- */
 const cssCotizacion=`
  @page{size:8.5in 11in;margin:8mm 9mm}
@@ -13027,6 +13036,7 @@ function imprimirCotizacion(n,opciones){
   ventanaImpresion(html,cssCotizacion,nombreArchivo('Cotizacion',c.numero,c.nombre,c.fecha),
     {tipo:'cotizacion',numero:c.numero});
 }
+/* ===FIN-SYNC:COTIZACION=== */
 
 /* =============== CONTROL DE IMPRESIÓN ===============
    Qué documentos ya salieron del laboratorio y cuáles no. Antes no quedaba
@@ -14104,6 +14114,7 @@ function imprimirRecibo(n){
   <div class="pie">${esc(S.config.anclaSGC)} · WhatsApp ${esc(S.config.whatsapp)}</div>`;
   ventanaImpresion(html,cssDoc);
 }
+/* ===SYNC:EN-LETRAS=== (sync_informe_web.py — enLetras para la cotización pública) */
 function enLetras(num){
   const U=['cero','uno','dos','tres','cuatro','cinco','seis','siete','ocho','nueve','diez','once','doce','trece','catorce','quince','dieciséis','diecisiete','dieciocho','diecinueve','veinte'];
   const D=['','','veinte','treinta','cuarenta','cincuenta','sesenta','setenta','ochenta','noventa'];
@@ -14122,6 +14133,7 @@ function enLetras(num){
   t=t.replace(/\buno$/,'un').replace(/\bveintiuno$/,'veintiún');
   return (t.charAt(0).toUpperCase()+t.slice(1))+(ent===1?' lempira':' lempiras')+' con '+String(cent).padStart(2,'0')+'/100';
 }
+/* ===FIN-SYNC:EN-LETRAS=== */
 
 
 /* =============== HOJA DE TRABAJO INTERNA (BANCADA) ===============
@@ -18157,7 +18169,9 @@ async function importarCotWebDesdeServidor(){
         descPct:0,condPago:'Contado',validez:7,elaboradoPor:'Portal web',obs:cw.obs||'',
         origen:'web',estadoCot:'Pendiente',ot:'',pacCodigo:'',
         // Constancia del consentimiento que dio el paciente en el portal
-        consentimiento:cw.consentimiento||null});
+        consentimiento:cw.consentimiento||null,
+        // Token con el que el paciente baja su cotización en PDF desde el portal
+        token:cw.token||''});
       n++;
     });
     if(n){
@@ -18194,7 +18208,9 @@ function importarCotWeb(){
         descPct:0,condPago:'Contado',validez:7,elaboradoPor:'Portal web',obs:cw.obs||'',
         origen:'web',estadoCot:'Pendiente',ot:'',pacCodigo:'',
         // Constancia del consentimiento que dio el paciente en el portal
-        consentimiento:cw.consentimiento||null});
+        consentimiento:cw.consentimiento||null,
+        // Token con el que el paciente baja su cotización en PDF desde el portal
+        token:cw.token||''});
       n++;
     });
     if(n){localStorage.removeItem('LIS_CDIM_cotWeb');guardar(true);toast(n+' cotización(es) del portal importada(s) ✓');}

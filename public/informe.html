@@ -428,6 +428,140 @@ function fmtTexto(s,sep){
   return t.replace(/\n/g,sep||'<br>');
 }
 
+/* Nombre del mes en español a partir de 'AAAA-MM' (también acepta una fecha
+   completa 'AAAA-MM-DD'). Lo usa el consolidado mensual de facturas, tanto
+   para el título del documento como para el nombre del archivo que propone
+   el navegador (Facturas_Septiembre_2026). Ningún mes en español lleva
+   tilde, así que nombreArchivo() no tiene nada que limpiar aquí. */
+const MESES_LARGOS=['Enero','Febrero','Marzo','Abril','Mayo','Junio',
+  'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+function nombreMes(mes){
+  const m=parseInt(String(mes||'').slice(5,7),10);
+  return (m>=1&&m<=12)?MESES_LARGOS[m-1]:'';
+}
+function etiquetaMes(mes){
+  const n=nombreMes(mes);
+  return n?n+' '+String(mes).slice(0,4):String(mes||'');
+}
+/* Último día del mes 'AAAA-MM' — el 28, 29, 30 o 31 que corresponda, con los
+   años bisiestos incluidos (día 0 del mes siguiente = último del actual). */
+function ultimoDiaDelMes(mes){
+  const a=parseInt(String(mes).slice(0,4),10), m=parseInt(String(mes).slice(5,7),10);
+  return new Date(Date.UTC(a,m,0)).getUTCDate();
+}
+
+/* =============== LISTAS POR HOJAS ===============
+   Una tira de cientos de registros no se recorre: se pierde uno. Por hojas se
+   sabe siempre dónde se está y cuánto falta.
+
+   Vive aquí, y no dentro de Pacientes, porque la misma barra vale para
+   cualquier lista larga: se le pasa el arreglo ya filtrado, la hoja actual y el
+   nombre de la función que cambia de hoja. Escrito tres veces se comportaría
+   distinto las tres. */
+
+/* Recorta la lista y, de paso, corrige la hoja: si se borró el último registro
+   de la hoja 4 y ya solo hay 3, devuelve la 3 en vez de una hoja vacía. */
+function trozoHoja(lista, hoja, porHoja){
+  const total=(lista||[]).length;
+  const hojas=Math.max(1, Math.ceil(total/porHoja));
+  const h=Math.min(Math.max(1, Math.floor(hoja)||1), hojas);
+  const desde=(h-1)*porHoja;
+  return {hoja:h, hojas, total, desde, hasta:Math.min(desde+porHoja,total),
+          items:(lista||[]).slice(desde, desde+porHoja)};
+}
+
+/* Qué números se enseñan. Con pocas hojas, todas. Con muchas, la primera, la
+   última y una ventana alrededor de la actual: una fila de cuarenta botones no
+   se lee, y lo que se busca casi siempre está cerca de donde uno está. */
+function numerosHoja(hoja, hojas){
+  if(hojas<=7) return Array.from({length:hojas},(_,i)=>i+1);
+  const s=new Set([1, hojas, hoja, hoja-1, hoja+1]);
+  if(hoja<=3)      [2,3,4].forEach(x=>s.add(x));
+  if(hoja>=hojas-2)[hojas-1,hojas-2,hojas-3].forEach(x=>s.add(x));
+  const ns=[...s].filter(x=>x>=1&&x<=hojas).sort((a,b)=>a-b);
+  const salida=[];
+  ns.forEach((x,i)=>{ if(i && x-ns[i-1]>1) salida.push('…'); salida.push(x); });
+  return salida;
+}
+
+/* `ir` es el NOMBRE de la función que cambia de hoja, no la función: el botón
+   se pinta como HTML y necesita el nombre para el onclick. */
+function barraHojas(t, ir, nombre){
+  if(!t.total) return '';
+  const boton=x=> x==='…'
+    ? '<span class="hojas-sep">…</span>'
+    : `<button class="btn btn-min ${x===t.hoja?'btn-p':'btn-g'}" `+
+      `onclick="${ir}(${x})" ${x===t.hoja?'aria-current="page"':''}>${x}</button>`;
+  return `<div class="hojas">
+    <span class="hojas-info">Mostrando <b class="nw">${t.desde+1}–${t.hasta}</b> de <b>${t.total}</b>${nombre?' '+esc(nombre):''}${t.hojas>1?` · hoja <b>${t.hoja}</b> de <b>${t.hojas}</b>`:''}</span>
+    ${t.hojas>1?`<div class="hojas-btn">
+      <button class="btn btn-g btn-min" ${t.hoja<=1?'disabled':''} title="Hoja anterior" onclick="${ir}(${t.hoja-1})">‹</button>
+      ${numerosHoja(t.hoja,t.hojas).map(boton).join('')}
+      <button class="btn btn-g btn-min" ${t.hoja>=t.hojas?'disabled':''} title="Hoja siguiente" onclick="${ir}(${t.hoja+1})">›</button>
+    </div>`:''}
+  </div>`;
+}
+
+/* =============== SUCURSALES ===============
+   El digito identifica la sucursal y prefija cada orden; el nombre es como se
+   llama. Donde antes se pintaba solo el numero, ahora se pinta "1 · Principal".
+   Si el numero no esta en el catalogo -un documento viejo de una sucursal que
+   se dio de baja- se pinta el numero solo: no se inventa un nombre. */
+function sucursales(){
+  const l=(S&&S.config&&Array.isArray(S.config.sucursales))?S.config.sucursales:[];
+  return l.filter(x=>x&&String(x.num||'').trim());
+}
+function nombreSucursal(num){
+  const n=String(num??'').trim();
+  const x=sucursales().find(s=>String(s.num).trim()===n);
+  return x?String(x.nombre||'').trim():'';
+}
+function etiquetaSucursal(num){
+  const n=String(num??'').trim()||'1';
+  const nombre=nombreSucursal(n);
+  return nombre?n+' · '+nombre:n;
+}
+/* Reglas del catalogo. Puras: reciben la lista y la activa, devuelven
+   {ok, motivo}. Las usa Configuracion al guardar. */
+function validarSucursales(lista, activa){
+  lista=(lista||[]).map(x=>({num:String(x.num??'').trim(),nombre:String(x.nombre??'').trim()}));
+  if(!lista.length)return {ok:false,motivo:'Tiene que haber al menos una sucursal'};
+  for(const x of lista){
+    if(!/^\d{1,2}$/.test(x.num))return {ok:false,motivo:'El número de sucursal es de 1 o 2 dígitos: "'+x.num+'" no vale'};
+    if(x.num==='0'||x.num==='00')return {ok:false,motivo:'La sucursal 0 no existe: el número empieza cada orden y no puede ser cero'};
+    if(!x.nombre)return {ok:false,motivo:'La sucursal '+x.num+' necesita un nombre (Principal, Frente al parque…)'};
+  }
+  const nums=lista.map(x=>x.num);
+  const rep=nums.find((n,i)=>nums.indexOf(n)!==i);
+  if(rep)return {ok:false,motivo:'El número '+rep+' está dos veces: cada sucursal lleva su propio número'};
+  const a=String(activa??'').trim();
+  if(!nums.includes(a))return {ok:false,motivo:'La sucursal activa ('+(a||'ninguna')+') tiene que estar en la lista'};
+  return {ok:true, lista};
+}
+
+/* =============== IMAGENES DEL LABORATORIO ===============
+   config.logo / config.sello:  '' = la de fabrica (archivo en /img/),
+   data-URI = una propia, 'ninguno' = sin imagen a proposito.
+   La URL es ABSOLUTA porque los documentos se escriben en un iframe cuya URL
+   es about:blank: una ruta relativa no resolveria ahi. */
+const IMG_FABRICA={logo:'/img/logo.png',sello:'/img/sello.png'};
+function imagenLab(campo){
+  const v=(typeof S!=='undefined'&&S&&S.config&&S.config[campo])||'';
+  if(v==='ninguno')return '';
+  if(v)return v;
+  if(!IMG_FABRICA[campo])return '';
+  const origen=(typeof location!=='undefined'&&location&&location.origin&&location.origin!=='null')?location.origin:'';
+  return origen+IMG_FABRICA[campo];
+}
+
+/* Las fuentes propias (/fonts/fuentes.css) para los documentos que se
+   escriben en un iframe o ventana con URL about:blank: ahi una ruta relativa
+   no resuelve, asi que se antepone el origen, igual que hace imagenLab(). */
+function urlFuentes(){
+  const origen=(typeof location!=='undefined'&&location&&location.origin&&location.origin!=='null')?location.origin:'';
+  return origen+'/fonts/fuentes.css';
+}
+
 /* ---- 23b_evaluacion_compartida.js ---- */
 
 /* ── Evaluación clínica de parámetros de laboratorio ──
@@ -672,7 +806,53 @@ const cssCabeceraDoc=`
  .cab-datos .ln-contacto{text-align:left;white-space:nowrap;margin-top:1px}
  .cab-prof{flex:0 0 24%;text-align:right}
  .prof-n{font-size:9.2pt;font-weight:700;letter-spacing:-.2px;color:#111;line-height:1.25}
- .prof-t{font-size:7.6pt;color:#333;line-height:1.45}`;
+ .prof-t{font-size:7.6pt;color:#333;line-height:1.45}
+ /* Firma y hasta dos sellos opcionales (bloqueFirmaSello, más abajo): flotan
+    JUSTO encima de la línea de firma de cada documento (la propia línea le
+    pone la clase "firma-lab" para volverse el ancla de position:relative).
+    Van EN FILA, uno al lado del otro y sin encimarse: encimados, el sello de
+    arriba tapaba la firma y el otro sello, y en papel no se distinguía cuál
+    era cuál. El "gap" los separa; cada pieza conserva su tamaño físico. */
+ .firma-lab{position:relative}
+ /* En el flujo normal (no position:absolute): flotando, el bloque no reservaba
+    su propio alto y un sello de 45 mm terminaba montado sobre el total en
+    letras y los totales. Así se coloca solo encima de la línea de firma y
+    empuja lo que venga arriba; y cuando no se marca ningún sello el span ni
+    se genera, de modo que no queda hueco en blanco. */
+ /* Reserva 30 mm -- el alto de un sello redondo, que es el caso normal -- y
+    deja que lo que sea más alto sobresalga HACIA ARRIBA (align-items:flex-end
+    + overflow visible). El sello del laboratorio mide 45 mm porque arrastra
+    la caja fiscal; reservarle los 45 mm completos empujaba el documento 15 mm
+    y tumbaba la cotización y la factura a una segunda página. Esos 15 mm
+    sobresalen sobre la franja en blanco que siempre queda entre los totales y
+    la línea de firma, donde no hay texto que tapar. */
+ .firma-lab-img{display:flex;align-items:flex-end;justify-content:center;
+   gap:3mm;line-height:0;margin-bottom:1mm;height:26mm}
+ .firma-lab-img img{flex:none}
+ /* 18 mm de alto: la firma tiene que leerse como firma al lado de sellos de
+    30 y 40 mm. A la altura del informe (48px ≈ 12.7 mm) quedaba empequeñecida
+    entre los dos sellos, que allí no la acompañan. */
+ .firma-lab-img .img-firma-doc{height:18mm;width:auto;position:relative;z-index:3}
+ /* Ancho fijo + height:auto (no un cuadro fijo): conserva la relación de
+    aspecto real de cada sello en vez de estirarlo/aplastarlo a un cuadro --
+    un sello redondo y uno rectangular no deforman igual si se fuerzan
+    ambos lados a la misma medida. "multiply" imita la tinta del sello real
+    sobre el papel, igual que en el informe de resultados. */
+ .firma-lab-img .img-sello-doc{height:auto;position:relative;z-index:1;
+   opacity:.94;mix-blend-mode:multiply}
+ /* Sello de microbiólogo (Colegio de Microbiólogos y Químicos Clínicos de
+    Honduras): círculo de 30 mm de diámetro, sin caja. La imagen es cuadrada,
+    así que fijar el ANCHO a 30 mm deja el círculo a su medida real -- el
+    mismo tamaño con el que sale en el informe de resultados (.img-sello). */
+ .firma-lab-img .img-sello-izq{width:30mm}
+ /* Sello del laboratorio (medido directamente del sello físico, ago. 2026):
+    círculo de 30 mm de diámetro con una caja rectangular de 40×15 mm debajo.
+    Se fija el ANCHO a 40 mm -- el lado más ancho, el de la caja -- y el alto
+    queda proporcional; así el círculo también sale a su tamaño real sin
+    tener que medirlo aparte. Para que la escala coincida, el PNG que se suba
+    en Configuración debe venir recortado justo al borde visible del sello,
+    sin aire alrededor. */
+ .firma-lab-img .img-sello-der{width:40mm}`;
 
 /* ---- Plantillas de impresión compartidas entre documentos (ago. 2026) ----
    Antes, el bloque "logo + dirección/contacto + profesional" (clase .cab)
@@ -701,7 +881,7 @@ function bloqueCab(cf,opciones){
   const claseContacto=('claseContacto' in opciones)?opciones.claseContacto:'ln-contacto';
   const atrContacto=claseContacto?` class="${claseContacto}"`:'';
   return `<div class="cab">
-    <div class="cab-logo">${cf.logo?`<img src="${cf.logo}">`:`<div class="cab-nom">${esc(cf.nombre)}</div>`}</div>
+    <div class="cab-logo">${imagenLab('logo')?`<img src="${imagenLab('logo')}">`:`<div class="cab-nom">${esc(cf.nombre)}</div>`}</div>
     <div class="cab-datos">
       ${(opciones.razonSocial&&cf.razonSocial)?`<div class="ln-razon">De <b>${esc(cf.razonSocial)}</b>${cf.rtn?' · R.T.N.: '+esc(cf.rtn):''}</div>`:''}
       <div>&#9906; <b>DIRECCIÓN:</b> ${esc((cf.direccion||'').toUpperCase())}</div>
@@ -714,6 +894,31 @@ function bloqueCab(cf,opciones){
       ${opciones.codigoBarra?`<svg class="codigo" data-valor="${opciones.codigoBarra}" style="width:74px;height:17px;margin-top:3px"></svg>`:''}
     </div>
   </div>`;
+}
+
+/* ---- Firma y sellos, opcionales (ago. 2026, pedido del usuario) ----
+   opcionesFirma (declarada en 50_impresion.js junto a modoAplanado, mismo
+   patrón) es una preferencia de SESIÓN, no algo grabado en la factura/recibo/
+   cotización/sobre: se marcan con los "chips" de la vista previa o del modal
+   de PDF (ver filaOpcionesFirma()/previsualizar()/modalPDF()), y deciden si
+   ESTA copia en particular lleva la firma, el sello de microbiólogo y/o el
+   sello del laboratorio configurados en Configuración -- la siguiente copia
+   del MISMO documento puede salir con una combinación distinta. Se usa junto
+   con la clase "firma-lab" (position:relative) que cada documento le pone a
+   su propia línea de firma.
+
+   Las tres imágenes se dibujan encimadas, como quedaría un documento firmado
+   y sellado a mano de verdad: la firma al centro y arriba (z-index más
+   alto), un sello a cada lado, ligeramente detrás. */
+function bloqueFirmaSello(cf){
+  const o=opcionesFirma;
+  const partes=[
+    (o.selloMicro&&cf.selloMicro)?`<img src="${cf.selloMicro}" class="img-sello-doc img-sello-izq">`:'',
+    (o.firma&&cf.firma)?`<img src="${cf.firma}" class="img-firma-doc">`:'',
+    (o.selloLab&&imagenLab('sello'))?`<img src="${imagenLab('sello')}" class="img-sello-doc img-sello-der">`:'',
+  ].filter(Boolean);
+  if(!partes.length)return '';
+  return `<span class="firma-lab-img">${partes.join('')}</span>`;
 }
 
 /* Formato de moneda para los montos de cotización/recibo (ago. 2026) — antes
@@ -743,6 +948,101 @@ function bloquePieCompacto(cf){
     </div>
   </div>`;
 }
+
+/* ===== Bloque de "datos del paciente/cliente" — estandarizado (ago. 2026) =====
+   El usuario, viendo el encabezado del informe de resultados, pidió
+   explícitamente que cotización e instructivos salgan "estandarizados,
+   uniformemente" con ese mismo encabezado — no solo el logo/dirección
+   (bloqueCab, arriba, ya era compartido desde Fase 8), sino también el
+   recuadro de "Paciente / Identificación / Médico / ..." que va debajo.
+   Antes de esta fecha, informe, cotización e instructivo tenían CADA UNO
+   su propia copia de este bloque: mismos conceptos, pero con etiquetas
+   distintas ("Nombre" vs "Paciente", "N° Identidad" vs "Identificación"),
+   orden distinto, y hasta una cuadrícula CSS distinta por documento
+   (2 columnas por ancho desigual en el informe, grid de 3 columnas en
+   cotización, grid de 3 columnas con otras proporciones en instructivo)
+   — a pesar de que el CSS de instructivo llevaba un comentario que decía
+   "igual que en el informe", nunca lo fue de verdad.
+
+   El informe de resultados es el diseño DE REFERENCIA: su HTML no cambió
+   ni un carácter con este refactor (mismo orden de campos, misma
+   etiqueta, mismo estilo). Cotización e instructivo adoptan ese mismo
+   orden/etiquetas/estilo; lo único que cada uno agrega de más (Dirección
+   en cotización; nada nuevo en instructivo) entra por `extra`, y lo que
+   no aplica (Expediente si el cliente de una cotización no es todavía un
+   paciente registrado) simplemente se omite — nunca se inventa un dato.
+
+   Esta función NUNCA toca S ni el DOM: todo llega ya resuelto por quien
+   llama (igual que cabeceraInforme) — así el portal web del paciente
+   puede usar exactamente este mismo bloque más adelante si alguna vez lo
+   necesita, sin arrastrar ninguna dependencia del LIS.
+
+   Parámetros de `d` (todos con valor por defecto seguro):
+   - nombre: se muestra en MAYÚSCULAS, igual que el informe siempre hizo.
+   - identificacion: texto YA resuelto por quien llama (cada documento
+     tiene hoy su propia regla de cuál identificación mostrar — DNI vs.
+     código alterno en el informe, con reservas distintas en cotización —
+     esa lógica de negocio no se tocó, solo el HTML/CSS que la muestra).
+   - medico: texto YA resuelto (de la orden, del catálogo, o del texto
+     libre según el documento).
+   - expediente: si se omite o es cadena vacía, esa línea no aparece.
+   - fnac, tel: directos. edadTexto: si se omite, se calcula con
+     edadDetallada(fnac) (el mismo que ya usaban los tres documentos).
+   - sexo: código crudo ('M'/'F') a convertir con sexoTexto(); si quien
+     llama YA tiene el texto resuelto de otra forma (p.ej. cotización, que
+     guarda "Femenino"/"Masculino" tal cual desde su propio formulario, no
+     un código), pasa sexoTexto directamente y este gana sobre `sexo`.
+   - extra: arreglo opcional de líneas <div> ya armadas en HTML (usar la
+     clase "ancho" para que ocupen toda la fila, igual que "Responsable"
+     ya hacía en el informe).
+   - conCasillaQR: true si este documento RESERVA la casilla lateral para
+     un QR (hoy: solo el informe) — se reserva el espacio aunque, para
+     esta orden en particular, no se dibuje nada adentro (informe
+     preliminar/parcial), igual que hacía el informe antes de este
+     refactor. Documentos que nunca tienen QR (cotización, instructivo)
+     simplemente omiten este parámetro y el bloque de datos ocupa todo el
+     ancho, sin dejar un hueco muerto a la derecha.
+   - qrHTML: contenido de esa casilla (el SVG + el pie "Escanea este QR…")
+     cuando sí corresponde dibujarlo; cadena vacía = casilla reservada
+     pero vacía. */
+function bloqueDatosPersona(d){
+  d=d||{};
+  const campos=[
+    `<div><span class="et">${esc(d.etiquetaNombre||'Paciente')}:</span> <b>${esc((d.nombre||'').toUpperCase())}</b></div>`,
+    `<div><span class="et">Identificación:</span> <b>${esc(d.identificacion||'—')}</b></div>`,
+    `<div><span class="et">Médico:</span> <b>${esc((d.medico||'N/A').toUpperCase())}</b></div>`,
+    d.expediente?`<div><span class="et">Expediente:</span> <b>${esc(d.expediente)}</b></div>`:'',
+    `<div><span class="et">F. Nacimiento:</span> <b>${d.fnac?fmtFecha(d.fnac):'—'}</b> &nbsp; <span class="et">Género:</span> <b>${d.sexoTexto||sexoTexto(d.sexo||'')}</b></div>`,
+    `<div><span class="et">Teléfono:</span> <b>${esc(d.tel||'—')}</b></div>`,
+    `<div><span class="et">Edad:</span> <b>${d.edadTexto||edadDetallada(d.fnac)}</b></div>`,
+    ...(d.extra||[]),
+  ].filter(Boolean).join('');
+  return `<div class="pac">
+    <div class="pac-campos">${campos}</div>
+    ${d.conCasillaQR?`<div class="pac-cb">${d.qrHTML||''}</div>`:''}
+  </div>`;
+}
+/* CSS del bloque de arriba — antes vivía solo (con variaciones) dentro de
+   cssInforme/cssCotizacion/cssInstructivo; ahora es una sola definición
+   que ventanaImpresion() ya inyecta a TODO documento (ver el `css=...`
+   dentro de ventanaImpresion en 50_impresion.js), igual que cssCabeceraDoc
+   arriba. Las reglas en sí son las que ya usaba el informe de resultados
+   (el diseño de referencia), movidas aquí verbatim. */
+const cssBloqueDatos=`
+ .pac{display:flex;gap:12px;background:#fff;border-top:.7px solid #ccc;border-bottom:.7px solid #ccc;
+   padding:6px 2px;margin-top:6px;align-items:flex-start}
+ .pac-campos{flex:1;font-size:0;line-height:0}
+ .pac-campos>div{display:inline-block;width:58%;vertical-align:top;padding-right:10px;
+   font-size:8.2pt;line-height:1.52;white-space:nowrap;overflow:hidden;
+   text-overflow:ellipsis;box-sizing:border-box}
+ .pac-campos>div:nth-child(even){width:42%;padding-right:2px}
+ .pac-campos>div.ancho{width:100%}
+ .pac-campos .et{color:#333;font-weight:400}
+ .pac-campos b{color:#111;font-weight:700;letter-spacing:-.1px}
+ .pac-cb{flex:0 0 138px;display:flex;flex-direction:column;align-items:center;
+   justify-content:flex-start;gap:3px;padding-top:1px}
+ .pac-cb svg{width:64px;height:64px;display:block}
+ .qr-pie{font-size:6pt;color:#222;text-align:center;line-height:1.3;width:138px}`;
 
 /* repaginarHojas() se mueve aquí VERBATIM desde 50_impresion.js (Fase 8,
    ago. 2026): mide el DOM ya renderizado (window.getComputedStyle/
@@ -830,6 +1130,367 @@ function repaginarHojas(win){
       if(tot)tot.textContent=String(totalFinal);
     });
   }catch(e){ /* si algo falla, se imprime como estaba: el repaginado nunca debe bloquear una impresión */ }
+}
+
+/* repaginarPaginas(): el hermano de repaginarHojas() para los documentos
+   comerciales (cotización, factura, recibo), que en vez de ".hoja" usan
+   ".pagina" y llevan el cuerpo dentro de una <table class="items">.
+
+   Esos documentos reparten sus renglones con un tope FIJO de filas por hoja
+   (POR_PAG), calculado a ojo: no sabe si una descripción larga ocupa dos
+   líneas ni si se marcaron los sellos, que suman 26 mm. Cuando la cuenta se
+   queda corta, ".pagina" (max-height + overflow:hidden) recortaba en silencio
+   lo que sobraba -- se perdían renglones, los totales o las condiciones.
+
+   Aquí se mide la hoja ya renderizada y, mientras desborde, se pasa su última
+   fila al principio de la siguiente (creándola con el mismo encabezado si no
+   existe). El bloque de totales y firma viaja siempre a la hoja final, y al
+   terminar se renumeran los artículos y el "Página X de Y", de modo que la
+   secuencia siga siendo continua y correlativa.
+
+   El límite se toma como max-height MÁS el relleno vertical: en pantalla la
+   vista previa le pone padding a la hoja y en impresión el margen lo pone
+   @page, así que sumarlo deja la misma altura útil en los dos lados y la
+   previa pagina idéntico a lo que sale por la impresora. */
+function repaginarPaginas(win){
+  try{
+    /* El consolidado mensual de cotizaciones mete varias cotizaciones en un
+       mismo documento, cada una envuelta en .grupo-doc. Repaginarlas todas
+       juntas las fundiria en una sola: las filas de todas terminarian bajo el
+       encabezado de la primera -con SU numero y SU codigo de barras- y el
+       "Pagina X de Y" contaria el documento entero en vez de cada cotizacion.
+       Por eso se repagina grupo por grupo. Sin grupos -una cotizacion suelta,
+       que es el caso de siempre- el documento entero es el grupo y el
+       comportamiento no cambia en nada. */
+    const grupos=win.document.querySelectorAll('.grupo-doc');
+    if(grupos.length)grupos.forEach(g=>repaginarGrupo(win,g));
+    else repaginarGrupo(win,win.document);
+  }catch(e){ /* igual que repaginarHojas: nunca debe bloquear una impresion */ }
+}
+function repaginarGrupo(win,raiz){
+  try{
+    const originales=[...raiz.querySelectorAll('.pagina')];
+    if(!originales.length)return;
+    const FILAS='table.items tbody';
+    const COLA='.totales,.nota,.cot-firma,.rv-tot,.rv-letras,.rv-sar,.rv-caja,.rv-firmas';
+    if(!originales[0].querySelector(FILAS))return;   // no usa este patrón
+
+    /* Si el documento se está midiendo en un ancho que no es el de una hoja
+       (un iframe angosto, un contenedor de 0 px), el texto se envuelve palabra
+       por palabra y las alturas se disparan: repaginar con esas medidas
+       partiría la cotización en decenas de hojas de una fila. Ante esa duda se
+       deja el documento como venía -- ver el mismo cuidado en ventanaImpresion(),
+       que le da tamaño carta al iframe de impresión justamente por esto. */
+    if(originales[0].clientWidth<500)return;
+
+    const cs=win.getComputedStyle(originales[0]);
+    const relleno=(parseFloat(cs.paddingTop)||0)+(parseFloat(cs.paddingBottom)||0);
+    /* La hoja tiene min-height y su pie usa margin-top:auto, así que
+       scrollHeight NUNCA baja de ese mínimo: aunque lleve un solo renglón,
+       mide una hoja completa. Comparar scrollHeight contra el mínimo daba
+       siempre "desborda" y la cotización salía a un análisis por hoja.
+       Para medir el contenido DE VERDAD se anula el mínimo un instante: sin
+       él la hoja se encoge a lo que ocupa, y restándole el relleno queda el
+       alto real del contenido. La capacidad es ese mismo min-height, que
+       vale igual en pantalla y en papel -- por eso la previa y la impresora
+       reparten las filas idéntico. */
+    const capacidad=(parseFloat(cs.minHeight)||parseFloat(cs.maxHeight))||0;
+    if(!capacidad)return;
+    const margen=Math.max(capacidad*0.005,3);
+    const altoContenido=h=>{
+      const antes=h.style.minHeight;
+      h.style.minHeight='0';
+      const alto=h.scrollHeight-relleno;
+      h.style.minHeight=antes;
+      return alto;
+    };
+    /* El margen se RESTA, no se suma: en impresión la hoja lleva
+       max-height:262mm con overflow:hidden, así que pasarse aunque sea medio
+       milímetro recorta el pie. Cortar un pelo antes solo cuesta, de vez en
+       cuando, un renglón que baja a la hoja siguiente. */
+    const desborda=h=>altoContenido(h)>capacidad-margen;
+
+    /* Se reconstruye de cero en vez de ir empujando filas entre hojas: así el
+       reparto depende solo de lo que mide cada fila, y el proceso termina por
+       construcción (cada fila se coloca una única vez). */
+    const filas=[];
+    originales.forEach(pg=>{ const tb=pg.querySelector(FILAS); if(tb)filas.push(...tb.rows); });
+    const cola=[];
+    originales.forEach(pg=>cola.push(...pg.querySelectorAll(COLA)));
+    filas.forEach(f=>f.remove()); cola.forEach(e=>e.remove());
+
+    /* Las hojas nuevas se insertan ANTES de la primera original y las
+       originales se quitan al final: si se quitaran primero, el nodo que se
+       usara de ancla podría ser una de ellas y ya estaría fuera del documento,
+       insertBefore lanzaría y el catch dejaría la cotización sin ninguna hoja. */
+    const padre=originales[0].parentNode, ancla=originales[0];
+    const molde=originales[0].cloneNode(true);       // encabezado + tabla vacía + pie
+
+    const hojas=[];
+    const nuevaHoja=()=>{ const h=molde.cloneNode(true); padre.insertBefore(h,ancla); hojas.push(h); return h; };
+    let hoja=nuevaHoja(), tb=hoja.querySelector(FILAS);
+    for(const fila of filas){
+      tb.appendChild(fila);
+      // Si esta fila hizo desbordar y no es la única de la hoja, se pasa entera
+      // a una hoja nueva: nunca se corta un renglón por la mitad.
+      if(desborda(hoja)&&tb.rows.length>1){
+        fila.remove();
+        hoja=nuevaHoja(); tb=hoja.querySelector(FILAS);
+        tb.appendChild(fila);
+      }
+    }
+    // Totales, nota, firma y sellos van en la hoja final; si ya no caben, se
+    // les da una hoja propia (con su encabezado y su correlativo).
+    if(cola.length){
+      const meter=h=>{ const ref=h.querySelector('.cond')||null;
+        cola.forEach(e=>ref?h.insertBefore(e,ref):h.appendChild(e)); };
+      meter(hoja);
+      if(desborda(hoja)&&tb.rows.length){
+        cola.forEach(e=>e.remove());
+        hoja=nuevaHoja(); meter(hoja);
+      }
+    }
+
+    originales.forEach(pg=>pg.remove());
+
+    let n=0;
+    hojas.forEach((h,idx)=>{
+      h.querySelectorAll('td.c-art').forEach(td=>{ td.textContent=String(++n); });
+      const num=h.querySelector('.pag-num'), tot=h.querySelector('.pag-total');
+      if(num)num.textContent=String(idx+1);
+      if(tot)tot.textContent=String(hojas.length);
+    });
+  }catch(e){ /* igual que repaginarHojas: nunca debe bloquear una impresión */ }
+}
+
+/* =============== CONSOLIDADO MENSUAL DE DOCUMENTOS ===============
+   Un solo PDF con todos los documentos de un tipo emitidos del día 1 al
+   último día de un mes, en orden correlativo, encabezado por una hoja de
+   resumen con los totales del periodo. Es lo que se archiva y lo que se le
+   entrega al contador: en papel suelto, documento por documento, cuadrar un
+   mes obliga a sumar a mano.
+
+   Lo usan Facturas, Recibos y Cotizaciones. Cada módulo aporta un descriptor
+   (CONS_FACTURA, CONS_RECIBO, CONS_COTIZACION) con lo que cambia de uno a
+   otro; el resto —el rango de fechas, el orden correlativo, la hoja de
+   resumen, el modal y el nombre del archivo— es común.
+
+   Factura y Recibo son casi el mismo documento: misma plantilla .rv, mismo
+   calcRecibo(), una hoja cada uno. La Cotización no: usa .pagina, puede
+   ocupar varias hojas, se repagina midiendo (ver repaginarPaginas más
+   arriba), su cálculo tiene otras columnas fiscales y sus números SÍ pueden
+   tener huecos porque una cotización se puede borrar. Por eso el descriptor
+   lleva ganchos y no solo rótulos.
+
+   No se reimprime nada: cada documento lo arma el MISMO renderizador que usa
+   la impresión individual (con opciones.devolver), así que lo que sale aquí
+   es idéntico a lo que se le entregó al cliente el día de la emisión. */
+function docsDelMes(lista,mes){
+  mes=String(mes||'').slice(0,7);
+  /* Orden correlativo, no de captura: el número lleva la secuencia con
+     relleno de ceros, así que ordenarlo como texto ya deja el rango en orden
+     ascendente. */
+  return (lista||[]).filter(x=>String(x.fecha||'').startsWith(mes))
+    .slice().sort((a,b)=>String(a.numero||'').localeCompare(String(b.numero||'')));
+}
+/* Suma las columnas que pida el descriptor. Lo anulado no suma: conserva su
+   número (el correlativo no puede tener huecos) pero no es ingreso ni genera
+   I.S.V. Qué cuenta como anulado también lo decide el descriptor: la
+   cotización no tiene ese concepto. */
+function totalesDocsMes(lista,cfg){
+  const t={};
+  cfg.clavesTotal.forEach(k=>{t[k]=0;});
+  (lista||[]).filter(d=>!cfg.anulado(d)).forEach(d=>{const c=cfg.calc(d);
+    cfg.clavesTotal.forEach(k=>{t[k]+=Number(c[k])||0;});});
+  return t;
+}
+/* Números de la secuencia que no aparecen en el mes. En un documento fiscal
+   la secuencia tiene que ser continua: un salto significa uno emitido que no
+   quedó registrado, que es justo lo que revisa la SAR. */
+function huecosCorrelativo(lista){
+  const nums=(lista||[]).map(x=>{const m=/(\d+)\s*$/.exec(String(x.numero||''));
+      return m?parseInt(m[1],10):null;})
+    .filter(n=>n!==null&&!isNaN(n)).sort((a,b)=>a-b);
+  const huecos=[];
+  for(let i=1;i<nums.length;i++){
+    const desde=nums[i-1]+1, hasta=nums[i]-1;
+    if(hasta>=desde) huecos.push(desde===hasta?String(desde):desde+' a '+hasta);
+  }
+  return huecos;
+}
+/* El bloque de "Resumen del periodo" de un documento fiscal: cuántos valen,
+   cuántos se anularon y qué tramo del rango autorizado cubre el mes. Lo
+   comparten Facturas y Recibos; Cotizaciones tiene el suyo. */
+function resumenFiscalMes(cfg,lista){
+  const T=cfg.txt;
+  const vivos=lista.filter(d=>!cfg.anulado(d)).length;
+  return `${esc(T.validos)}: <b>${vivos}</b> &nbsp;·&nbsp; ${esc(T.anulados)}: <b>${lista.length-vivos}</b><br>
+    Correlativo: <b>${lista.length?esc(lista[0].numero)+' a '+esc(lista[lista.length-1].numero):'—'}</b><br>
+    <span style="color:#444">${esc(T.notaAnulados)}</span>`;
+}
+const cssResumenMensual=`
+ /* La hoja de resumen NO usa .rv ni .pagina: aquellas tienen alto fijo de una
+    carta con overflow:hidden, y un mes de 200 documentos recortaría la tabla
+    sin avisar. Esta fluye por las páginas que haga falta.
+    Se define entera aquí -incluida la caja de totales- para no depender de
+    qué CSS de documento la acompañe: va con cssReciboVenta en Facturas y
+    Recibos, y con cssCotizacion en Cotizaciones. */
+ .res-mes{page-break-after:always;font-size:9pt;color:#000}
+ .res-tit{display:flex;justify-content:space-between;align-items:flex-end;
+   margin-top:10px;border-bottom:1.4px solid #111;padding-bottom:6px}
+ .res-t1{font-size:15pt;font-weight:800;letter-spacing:1.5px}
+ .res-t2{font-size:9.4pt;color:#333;margin-top:2px}
+ .res-num{text-align:right}
+ .res-num .n{font-size:20pt;font-weight:800;line-height:1}
+ .res-num .f{font-size:8.4pt;color:#333}
+ table.res-tab{width:100%;border-collapse:collapse;margin-top:10px}
+ /* El encabezado se repite en cada página impresa: sin esto, de la segunda
+    hoja en adelante las columnas quedan sin rótulo. */
+ table.res-tab thead{display:table-header-group}
+ table.res-tab tr{page-break-inside:avoid}
+ table.res-tab th{border-bottom:1.2px solid #111;font-size:8.4pt;font-weight:800;
+   text-align:left;padding:5px 5px}
+ table.res-tab .num{text-align:right;white-space:nowrap}
+ table.res-tab td{padding:4px 5px;font-size:8.6pt;border-bottom:.4px solid #e6e6e6;vertical-align:top}
+ table.res-tab .mono{font-variant-numeric:tabular-nums}
+ /* "RTN 0801-1981-01001" son 19 caracteres: partido en dos renglones duplica
+    el alto de TODAS las filas y empuja el resumen a una hoja de más. Se le da
+    el ancho que pide y se prohíbe el corte. */
+ table.res-tab .ident{white-space:nowrap;font-size:8pt}
+ table.res-tab .nw{white-space:nowrap}
+ table.res-tab tr.apag td{color:#777}
+ table.res-tab tr.apag .est{color:#cc0000;font-weight:800}
+ .res-cierre{display:flex;justify-content:space-between;gap:18px;margin-top:12px;
+   align-items:flex-start;page-break-inside:avoid}
+ .res-nota{flex:1;font-size:8.8pt;line-height:1.7}
+ .res-alerta{border:1.2px solid #cc0000;color:#cc0000;padding:5px 8px;margin-top:6px;
+   font-size:8.4pt;line-height:1.5}
+ .res-firma{margin-top:15mm;border-top:1.1px solid #111;padding-top:2.5mm;
+   max-width:80mm;text-align:center;font-size:8.4pt;color:#333}
+ .res-caja{width:280px}
+ .res-caja table{width:100%;border-collapse:collapse}
+ .res-caja td{padding:3.5px 6px;font-size:9.4pt}
+ .res-caja .lbl{font-weight:800;text-align:right}
+ .res-caja .val{text-align:right;font-variant-numeric:tabular-nums}
+ .res-caja .fila-total td{border-top:1.3px solid #111;font-size:12pt;font-weight:800;padding-top:5px}
+ /* Documentos de varias hojas (la cotización) van envueltos en .grupo-doc.
+    Sin esto, ".pagina:last-child" haría que la última hoja de CADA
+    cotización no rompiera página y la siguiente arrancara pegada debajo. */
+ .grupo-doc .pagina{page-break-after:always}
+ .grupo-doc:last-child .pagina:last-child{page-break-after:auto}`;
+/* El navegador propone el <title> como nombre del archivo al "Guardar como
+   PDF": Facturas_Septiembre_2026, Recibos_…, Cotizaciones_… */
+function nombreConsolidadoMes(cfg,mes){
+  return nombreArchivo(cfg.archivo,nombreMes(mes),String(mes).slice(0,4));
+}
+function hojaResumenMensual(cfg,mes,lista){
+  const c=S.config, T=cfg.txt, t=totalesDocsMes(lista,cfg);
+  const huecos=cfg.avisaHuecos?huecosCorrelativo(lista):[];
+  const cai=cfg.cai?cfg.cai():'';
+  const mm=String(mes).slice(5,7), aa=String(mes).slice(0,4);
+  const ult=String(ultimoDiaDelMes(mes)).padStart(2,'0');
+  return `
+  <div class="res-mes">
+    ${bloqueCab(c,{razonSocial:true,claseContacto:''})}
+    <div class="res-tit">
+      <div>
+        <div class="res-t1">${esc(T.titulo)}</div>
+        <div class="res-t2">${esc(etiquetaMes(mes))} &nbsp;·&nbsp; del 01/${mm}/${aa} al ${ult}/${mm}/${aa}</div>
+      </div>
+      <div class="res-num">
+        <div class="n">${lista.length}</div>
+        <div class="f">${esc(T.contador)}</div>
+        ${cai?`<div class="f">C.A.I.: ${esc(cai)}</div>`:''}
+      </div>
+    </div>
+    <table class="res-tab">
+      <thead><tr>
+        <th style="width:24px">#</th><th style="width:132px">No. de ${esc(T.unoMin)}</th>
+        <th style="width:62px">Fecha</th><th>${esc(T.columnaCliente||'Cliente')}</th>
+        <th style="width:136px">Identificación</th>
+        <th style="width:72px">Estado</th><th style="width:76px" class="num">Total</th>
+      </tr></thead>
+      <tbody>${lista.map((d,i)=>{const dt=cfg.calc(d), e=cfg.estado(d);
+        return `<tr class="${e.mal?'apag':''}">
+        <td>${i+1}</td>
+        <td class="mono nw"><b>${esc(d.numero)}</b></td>
+        <td class="nw">${fmtFecha(d.fecha)}</td>
+        <td>${esc(cfg.cliente(d))}</td>
+        <td class="mono ident">${esc(cfg.ident(d))}</td>
+        <td class="est">${esc(e.txt)}</td>
+        <td class="num">${cfg.anulado(d)?'—':moneda(dt.total)}</td>
+      </tr>`;}).join('')}</tbody>
+    </table>
+    <div class="res-cierre">
+      <div class="res-nota">
+        <b>Resumen del periodo</b><br>
+        ${cfg.resumen(cfg,lista)}
+        ${huecos.length?`<div class="res-alerta"><b>Faltan números en el correlativo de este mes:</b>
+          ${esc(huecos.join(', '))}. ${esc(T.huecoFin)}</div>`:''}
+        <div class="res-firma">${esc((typeof USUARIO_WEB!=='undefined'&&USUARIO_WEB&&USUARIO_WEB.nombre)||'')}<br>
+          <span style="font-size:7.4pt">Consolidado generado el ${fmtFecha(hoy())}</span></div>
+      </div>
+      <div class="res-caja"><table>
+        ${cfg.filasTotal(t).map(([et,v])=>`<tr><td class="lbl">${esc(et)}:</td><td class="val">${moneda(v)}</td></tr>`).join('')}
+        <tr class="fila-total"><td class="lbl">TOTAL ${esc(c.moneda||'L')}:</td><td class="val">${moneda(t.total)}</td></tr>
+      </table></div>
+    </div>
+  </div>`;
+}
+function imprimirConsolidadoMes(cfg,mes){
+  mes=String(mes||'').slice(0,7);
+  const lista=docsDelMes(cfg.lista(),mes);
+  if(!lista.length){toast(cfg.txt.sinNadaToast+' '+etiquetaMes(mes));return;}
+  const n=lista.length;
+  const html=hojaResumenMensual(cfg,mes,lista)
+    /* Una sola copia de cada documento: el consolidado ES el archivo del
+       laboratorio, y sacar además la copia del cliente doblaría el papel sin
+       aportar nada. La leyenda dice qué lugar ocupa dentro del PDF, para
+       notar de un vistazo si falta alguno.
+       Los documentos de varias hojas van envueltos en .grupo-doc para que
+       repaginarPaginas() los mida de uno en uno y no los funda. */
+    +lista.map((d,i)=>{
+      const cuerpo=cfg.dibujar(d,{devolver:true,
+        copia:'Copia — Archivo del laboratorio · '+cfg.txt.uno+' '+(i+1)+' de '+n,
+        posicion:{n:i+1, de:n}});
+      return cfg.envuelve?`<div class="grupo-doc">${cuerpo}</div>`:cuerpo;
+    }).join('');
+  ventanaImpresion(html,cfg.css()+'\n'+cssResumenMensual,nombreConsolidadoMes(cfg,mes));
+}
+/* Elegir el mes antes de generar. Se abre desde el encabezado de la vista,
+   para no obligar a poner primero el filtro en "Mes" para encontrarlo. */
+function modalConsolidadoMes(cfg,mes){
+  const T=cfg.txt;
+  mes=String(mes||cfg.mesActual()).slice(0,7);
+  const lista=docsDelMes(cfg.lista(),mes);
+  const t=totalesDocsMes(lista,cfg);
+  const apagados=lista.filter(d=>cfg.estado(d).mal).length;
+  const hay=lista.length>0;
+  abrirModal(`
+  <h3>${esc(T.tituloModal)}</h3>
+  <p style="font-size:12.5px;color:var(--gris);margin:0 0 10px">${esc(T.intro)}</p>
+  <div class="rejilla c2">
+    <div class="campo"><label>Mes</label>
+      <input type="month" value="${esc(mes)}" onchange="${cfg.fnModal}(this.value)"></div>
+    <div class="campo"><label>Se guardará como</label>
+      <input value="${esc(nombreConsolidadoMes(cfg,mes))}.pdf" readonly
+        style="font-family:ui-monospace,monospace;font-size:12px"></div>
+  </div>
+  ${hay?`<div class="kpis" style="grid-template-columns:repeat(4,1fr);margin:4px 0 10px">
+    <div class="kpi"><div class="n">${lista.length}</div><div class="t">${esc(T.kpiCuenta)}</div></div>
+    <div class="kpi" style="border-left-color:var(--verde)"><div class="n" style="color:var(--verde)">${lista.length-apagados}</div><div class="t">${esc(T.kpiValidos)}</div></div>
+    <div class="kpi" style="border-left-color:var(--rojo)"><div class="n" style="color:var(--rojo)">${apagados}</div><div class="t">${esc(T.anulados)}</div></div>
+    <div class="kpi" style="border-left-color:var(--dorado)"><div class="n" style="color:var(--dorado)">${L(t.total)}</div><div class="t">${esc(T.kpiTotal)}</div></div>
+  </div>
+  <div class="aviso" style="margin-bottom:10px">${esc(T.hojas(lista.length))}
+    ${lista.length>60?'Con este volumen, la vista previa puede tardar unos segundos en dibujarse.':''}</div>`
+  :`<div class="aviso" style="border-left-color:var(--ambar)">${esc(T.sinNada)}
+    <b>${esc(etiquetaMes(mes))}</b>. Elige otro mes.</div>`}
+  <div class="modal-pie">
+    <button class="btn btn-g" onclick="cerrarModal()">Cancelar</button>
+    ${hay?`<button class="btn btn-d" onclick="previsualizar(()=>${cfg.fnImprimir}('${esc(mes)}'),'${esc(T.tituloPrevia)} ${esc(etiquetaMes(mes))}','Imprimir todos',true)"><svg class="ico-en" aria-hidden="true"><use href="#i-ver"/></svg> Vista previa</button>
+    <button class="btn btn-p" onclick="modalPDF('${esc(cfg.tipoPDF)}','${esc(mes)}')">⬇ Generar PDF</button>`:''}
+  </div>`,true);
 }
 
 /* ---- 56_qr.js ---- */
@@ -1067,30 +1728,12 @@ const cssInforme=`
  /* Barra de orden */
  .barra{display:flex;justify-content:space-between;gap:8px;border-top:1.5px solid #111;border-bottom:1.5px solid #111;padding:4px 2px;margin-top:6px;font-size:8.2pt}
  .barra b{color:#1c2b36}
- /* Datos del paciente */
- /* Bloque del paciente en dos columnas, con el QR a la derecha.
-    Las etiquetas van en tipografía monoespaciada y los datos en negrita:
-    así el ojo distingue de un vistazo el rótulo del dato. */
- .pac{display:flex;gap:12px;background:#fff;border-top:.7px solid #ccc;border-bottom:.7px solid #ccc;
-   padding:6px 2px;margin-top:0;align-items:flex-start}
- /* Dos columnas con inline-block. El font-size:0 del contenedor elimina el
-    espacio en blanco entre etiquetas HTML, que si no impide que dos bloques
-    del 50 % quepan en la misma línea. */
- /* Dos columnas de ancho desigual: la izquierda lleva los textos largos
-    (nombre, médico) y la derecha los datos cortos. Repartir 50/50 dejaba
-    la derecha a medias y un hueco muerto junto al QR. */
- .pac-campos{flex:1;font-size:0;line-height:0}
- .pac-campos>div{display:inline-block;width:58%;vertical-align:top;padding-right:10px;
-   font-size:8.2pt;line-height:1.52;white-space:nowrap;overflow:hidden;
-   text-overflow:ellipsis;box-sizing:border-box}
- .pac-campos>div:nth-child(even){width:42%;padding-right:2px}
- .pac-campos>div.ancho{width:100%}
- .pac-campos .et{color:#333;font-weight:400}
- .pac-campos b{color:#111;font-weight:700;letter-spacing:-.1px}
- .pac-cb{flex:0 0 138px;display:flex;flex-direction:column;align-items:center;
-   justify-content:flex-start;gap:3px;padding-top:1px}
- .pac-cb svg{width:64px;height:64px;display:block}
- .qr-pie{font-size:6pt;color:#222;text-align:center;line-height:1.3;width:138px}
+ /* Datos del paciente: el bloque .pac/.pac-campos/.pac-cb en sí (colores,
+    columnas, QR) se estandarizó en ago. 2026 y ahora vive en
+    cssBloqueDatos (50b_plantillas_comunes.js), compartido con cotización
+    e instructivo — ver bloqueDatosPersona() ahí mismo. Aquí solo queda el
+    pequeño ajuste que es realmente propio de ESTE documento (el margen
+    entre hojas repetidas del mismo informe, más abajo). */
  /* Área y examen */
  .area-sig{margin-top:9px !important}
  .pac{margin-bottom:3px}
@@ -1578,25 +2221,24 @@ function cabeceraInforme(o,p,c,opts){
       : '<i>Pendiente de validación</i>'}</span>
     <span><b>Página:</b> <span class="pag-num">${opts.pagina||1}</span> de <span class="pag-total">${opts.totalPaginas||1}</span></span>
   </div>
-  <div class="pac">
-    <div class="pac-campos">
-      <div><span class="et">Paciente:</span> <b>${esc((o.pacienteNombre||p.nombre||'').toUpperCase())}</b></div>
-      <div><span class="et">Identificación:</span> <b>${p.idTipo==='DNI'?esc(p.idNumero||'—'):esc(codigoIdentidad(p))}</b></div>
-      <div><span class="et">Médico:</span> <b>${esc((p.medico||'N/A').toUpperCase())}</b></div>
-      <div><span class="et">Expediente:</span> <b>${esc(codigoIdentidad(p))}</b></div>
-      <div><span class="et">F. Nacimiento:</span> <b>${p.fnac?fmtFecha(p.fnac):'—'}</b> &nbsp; <span class="et">Género:</span> <b>${sexoTexto(sx)}</b></div>
-      <div><span class="et">Teléfono:</span> <b>${esc(p.tel||'—')}</b></div>
-      <div><span class="et">Edad:</span> <b>${edadDetallada(p.fnac)}</b></div>
-      <div><span class="et">F. Recibido:</span> <b>${fmtFecha(o.fecha)}${o.hora?' '+hora12(o.hora):''}</b></div>
-      <div class="ancho"><span class="et">F. Resultado:</span> <b>${o.fechaValidacion
+  ${bloqueDatosPersona({
+    nombre:o.pacienteNombre||p.nombre||'',
+    identificacion:p.idTipo==='DNI'?(p.idNumero||''):codigoIdentidad(p),
+    medico:p.medico||'',
+    expediente:codigoIdentidad(p),
+    fnac:p.fnac, sexo:sx, tel:p.tel,
+    extra:[
+      `<div><span class="et">F. Recibido:</span> <b>${fmtFecha(o.fecha)}${o.hora?' '+hora12(o.hora):''}</b></div>`,
+      `<div class="ancho"><span class="et">F. Resultado:</span> <b>${o.fechaValidacion
         ? fmtFecha(o.fechaValidacion)+(o.horaValidacion?' '+hora12(o.horaValidacion):'')
-        : '—'}</b></div>
-      ${(p.fnac&&esMenor(p.fnac)&&p.respNombre)?`<div class="ancho"><span class="et">Responsable:</span> <b>${esc(p.respNombre)}</b>${p.respParentesco?' ('+esc(p.respParentesco)+')':''}${p.respId?' · '+esc(p.respId):''}</div>`:''}
-    </div>
-    <div class="pac-cb">${(opts.urlQR&&!opts.preliminar&&!opts.parcial)?`
+        : '—'}</b></div>`,
+      (p.fnac&&esMenor(p.fnac)&&p.respNombre)?`<div class="ancho"><span class="et">Responsable:</span> <b>${esc(p.respNombre)}</b>${p.respParentesco?' ('+esc(p.respParentesco)+')':''}${p.respId?' · '+esc(p.respId):''}</div>`:'',
+    ],
+    conCasillaQR:true,
+    qrHTML:(opts.urlQR&&!opts.preliminar&&!opts.parcial)?`
       ${qrSVG(opts.urlQR,74,1)}
-      <div class="qr-pie">Escanea este QR para<br>validar el reporte en línea</div>`:''}</div>
-  </div>
+      <div class="qr-pie">Escanea este QR para<br>validar el reporte en línea</div>`:'',
+  })}
   </div>`;
 }
 
