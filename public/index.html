@@ -4679,6 +4679,9 @@ function abrirMenuCot(ev,n){
     </div>
     <p style="font-size:11.5px;color:var(--gris);margin-top:7px;line-height:1.5">
       Al aprobar se registra al paciente por su identidad y se crea la orden de trabajo.</p>
+    ${c.consentimiento&&c.consentimiento.acepta
+      ?`<p style="font-size:11.5px;color:var(--verde);margin-top:6px;line-height:1.5">✓ Consentimiento aceptado el ${fmtFecha(String(c.consentimiento.fecha||'').slice(0,10))}${c.consentimiento.fecha?' a las '+String(c.consentimiento.fecha).slice(11,16):''}: contacto por WhatsApp${c.tel?' al '+esc(c.tel):''} y uso de sus datos para esta solicitud y su expediente (texto v. ${esc(c.consentimiento.version||'')}).</p>`
+      :`<p style="font-size:11.5px;color:var(--ambar);margin-top:6px;line-height:1.5">⚠ Esta solicitud no trae constancia de consentimiento (llegó antes de que el portal lo pidiera). Confírmalo con el paciente al contactarlo.</p>`}
   </div>`:''}
 
   <div class="acc-grupo"><b>Revisar</b>
@@ -18152,7 +18155,9 @@ async function importarCotWebDesdeServidor(){
         medico:cw.medico||'',
         items:(cw.items||[]).map(i=>({id:i.id,nombre:i.nombre,cantidad:1,precio:i.precio,descPct:0,gravado:false})),
         descPct:0,condPago:'Contado',validez:7,elaboradoPor:'Portal web',obs:cw.obs||'',
-        origen:'web',estadoCot:'Pendiente',ot:'',pacCodigo:''});
+        origen:'web',estadoCot:'Pendiente',ot:'',pacCodigo:'',
+        // Constancia del consentimiento que dio el paciente en el portal
+        consentimiento:cw.consentimiento||null});
       n++;
     });
     if(n){
@@ -18187,7 +18192,9 @@ function importarCotWeb(){
         medico:cw.medico||'',
         items:(cw.items||[]).map(i=>({id:i.id,nombre:i.nombre,cantidad:1,precio:i.precio,descPct:0,gravado:false})),
         descPct:0,condPago:'Contado',validez:7,elaboradoPor:'Portal web',obs:cw.obs||'',
-        origen:'web',estadoCot:'Pendiente',ot:'',pacCodigo:''});
+        origen:'web',estadoCot:'Pendiente',ot:'',pacCodigo:'',
+        // Constancia del consentimiento que dio el paciente en el portal
+        consentimiento:cw.consentimiento||null});
       n++;
     });
     if(n){localStorage.removeItem('LIS_CDIM_cotWeb');guardar(true);toast(n+' cotización(es) del portal importada(s) ✓');}

@@ -228,6 +228,13 @@ td{padding:8px 4px;border-bottom:1px solid #eef2f5;vertical-align:top;line-heigh
   padding:10px 13px;font-size:13px;line-height:1.5;margin:-4px 0 14px}
 .nota-ok svg{width:16px;height:16px;flex:0 0 auto;margin-top:2px;color:var(--verde)}
 .nota-ok.oculto{display:none}
+.consent{background:var(--carta);border:1.5px solid var(--linea);border-radius:12px;padding:14px 16px;margin-bottom:14px}
+.consent-caja{display:flex;gap:12px;align-items:flex-start;cursor:pointer;font-size:13.5px;line-height:1.55}
+.consent-caja input{width:20px;height:20px;flex:0 0 auto;margin-top:2px;accent-color:var(--verde)}
+.consent-det{margin-top:10px}
+.consent-det summary{cursor:pointer;font-family:'Montserrat',sans-serif;font-weight:700;font-size:13px;color:var(--azul)}
+.consent-txt{margin-top:8px;font-size:13px;color:var(--gris);line-height:1.6}
+.consent-txt p{margin-bottom:8px}
 
 /* ── Pie ── */
 footer{margin-top:28px;border-top:1px solid var(--linea);background:var(--carta)}
@@ -495,8 +502,9 @@ footer{margin-top:28px;border-top:1px solid var(--linea);background:var(--carta)
         </select>
       </div>
       <div class="campo">
-        <label>Teléfono / WhatsApp</label>
-        <input type="tel" id="cTel" placeholder="9999-9999">
+        <label>Teléfono / WhatsApp *</label>
+        <input type="tel" id="cTel" placeholder="9999-9999" inputmode="tel" autocomplete="tel">
+        <span class="ayuda">Por aquí te confirmamos el precio y la hora de tu cita.</span>
       </div>
       <div class="campo">
         <label>Médico que los solicita</label>
@@ -522,6 +530,20 @@ footer{margin-top:28px;border-top:1px solid var(--linea);background:var(--carta)
     <div class="campo">
       <label>Algo más que debamos saber</label>
       <input type="text" id="cObs" placeholder="Opcional">
+    </div>
+    <!-- Consentimiento informado: casilla sin marcar de fábrica y aviso completo -->
+    <div class="consent">
+      <label class="consent-caja"><input type="checkbox" id="cConsiente">
+        <span><b>Acepto que el Centro de Diagnóstico Integral Marcala me contacte por WhatsApp o llamada para atender esta solicitud</b>, y que use mis datos personales (nombre, identidad, fecha de nacimiento y teléfono) únicamente para atenderla y para mi expediente en el laboratorio.</span></label>
+      <details class="consent-det"><summary>Leer el aviso de privacidad</summary>
+        <div class="consent-txt">
+          <p><b>Qué datos recogemos.</b> Tu nombre, número de identidad, fecha de nacimiento, sexo, teléfono y los exámenes que solicitas. Si indicas un médico, también su nombre.</p>
+          <p><b>Para qué.</b> Para cotizarte, confirmarte precio y horario, identificarte correctamente cuando vengas a la toma de muestra y entregarte tus resultados. Nada más.</p>
+          <p><b>Quién los ve.</b> Solo el personal del laboratorio. No se venden ni se comparten con terceros, salvo el médico que tú indiques o una obligación legal.</p>
+          <p><b>Cuánto tiempo.</b> Mientras tengas expediente en el laboratorio, como exige la normativa de registros clínicos.</p>
+          <p><b>Tus derechos.</b> Puedes pedir ver, corregir o eliminar tus datos escribiendo por WhatsApp al +504 9758-9992 o al correo lab_cdim@proton.me. Retirar el consentimiento no afecta lo que ya se haya atendido.</p>
+        </div>
+      </details>
     </div>
     <div class="error" id="errCot"></div>
     <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -558,6 +580,7 @@ footer{margin-top:28px;border-top:1px solid var(--linea);background:var(--carta)
 
 <script>
 let PAC=null, CAT=[], SEL=new Set();
+const CONSENT_VERSION='2026-09';   // sube cuando cambie el texto del consentimiento
 
 function fmtDni(el){
   let v=el.value.replace(/\D/g,'').slice(0,13);
@@ -718,8 +741,15 @@ function pintarCotDentro(){
     <div class="total"><span>Total estimado</span><span id="resTotalDentro">L 0.00</span></div>
   </div>
   <div class="tarjeta">
+    <div class="campo"><label>Teléfono / WhatsApp *</label>
+      <input type="tel" id="cTelDentro" placeholder="9999-9999" inputmode="tel" autocomplete="tel">
+      <span class="ayuda">Por aquí te confirmamos el precio y la hora de tu cita.</span></div>
     <div class="campo"><label>Algo más que debamos saber</label>
       <input type="text" id="cObsDentro" placeholder="Opcional"></div>
+    <div class="consent">
+      <label class="consent-caja"><input type="checkbox" id="cConsienteDentro">
+        <span><b>Acepto que el Centro de Diagnóstico Integral Marcala me contacte por WhatsApp o llamada para atender esta solicitud</b>, y que use mis datos personales únicamente para atenderla y para mi expediente en el laboratorio.</span></label>
+    </div>
     <div class="error" id="errCotDentro"></div>
     <button class="btn btn-v" id="btnEnviarDentro" onclick="enviarCot(true)">Enviar solicitud</button>
   </div>`;
@@ -758,7 +788,7 @@ async function enviarCot(dentro){
   const g=id=>{const e=document.getElementById(id);return e?e.value.trim():'';};
   let datos;
   if(dentro){
-    datos={nombre:PAC.nombre,dni:PAC.dni,fnac:PAC.fnac,sexo:PAC.sexo||'',tel:'',medico:'',
+    datos={nombre:PAC.nombre,dni:PAC.dni,fnac:PAC.fnac,sexo:PAC.sexo||'',tel:g('cTelDentro'),medico:'',
       obs:g('cObsDentro')};
   }else{
     datos={nombre:g('cNombre'),dni:g('cDni'),fnac:g('cFnac'),
@@ -766,6 +796,13 @@ async function enviarCot(dentro){
     if(!datos.nombre||datos.dni.length<13||!datos.fnac||!datos.sexo){
       err(dentro?'errCotDentro':'errCot','Completa tu nombre, identidad, fecha de nacimiento y sexo.');return;}
   }
+  /* WhatsApp obligatorio: sin él no hay forma de confirmar precio ni hora. */
+  if(datos.tel.replace(/\D/g,'').length<8){
+    err(dentro?'errCotDentro':'errCot','Escribe tu número de WhatsApp: es por donde te confirmamos el precio y la hora.');return;}
+  /* Consentimiento explícito: la casilla nunca viene marcada de fábrica. */
+  const consiente=document.getElementById(dentro?'cConsienteDentro':'cConsiente');
+  if(!consiente||!consiente.checked){
+    err(dentro?'errCotDentro':'errCot','Para enviar la solicitud marca la casilla de consentimiento: necesitamos tu permiso para contactarte y usar tus datos.');return;}
   if(!SEL.size){err(dentro?'errCotDentro':'errCot','Elige al menos un examen.');return;}
   const bid=dentro?'btnEnviarDentro':'btnEnviar';
   const b=document.getElementById(bid);
@@ -779,7 +816,10 @@ async function enviarCot(dentro){
     fecha:d.toISOString().slice(0,10),
     nombre:datos.nombre,idNumero:datos.dni,fnac:datos.fnac,sexo:datos.sexo,
     tel:datos.tel,medico:datos.medico,obs:datos.obs,
-    items,total:items.reduce((a,e)=>a+e.precio,0),origen:'web',estadoCot:'Pendiente'
+    items,total:items.reduce((a,e)=>a+e.precio,0),origen:'web',estadoCot:'Pendiente',
+    /* La constancia: qué aceptó, cuándo y con qué texto. Viaja al LIS. */
+    consentimiento:{acepta:true,fecha:d.toISOString(),version:CONSENT_VERSION,
+      texto:'Acepta ser contactado por WhatsApp o llamada para atender la solicitud y que sus datos personales se usen únicamente para atenderla y para su expediente en el laboratorio.'}
   };
   try{
     const r=await fetch('/api/cotizacion-publica',{method:'POST',headers:{'Content-Type':'application/json'},

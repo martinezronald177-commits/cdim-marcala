@@ -1348,6 +1348,12 @@ app.post('/api/cotizacion-publica', (req, res) => {
   const cot = req.body;
   if(!cot || !cot.numero || !cot.nombre)
     return res.status(400).json({error:'Datos incompletos'});
+  /* WhatsApp obligatorio y consentimiento explícito (sep. 2026). La casilla
+     del navegador no es la única barrera: sin ellos no se recibe. */
+  if(String(cot.tel||'').replace(/\D/g,'').length < 8)
+    return res.status(400).json({error:'Falta el número de WhatsApp'});
+  if(!cot.consentimiento || cot.consentimiento.acepta !== true)
+    return res.status(400).json({error:'Falta el consentimiento para contactarte y usar tus datos'});
   // numCot() en cotizacion.html solo genera "COT-WEB-AAAAMMDD-HHMMSS": letras,
   // dígitos y guiones. Cualquier otra cosa aquí no es un número legítimo del
   // portal -- se rechaza para que nunca llegue a guardarse. Sin este filtro,
