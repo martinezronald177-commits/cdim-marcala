@@ -1099,6 +1099,11 @@ td input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:
 .opcion-motivo{display:flex;align-items:center;gap:8px;padding:6px 4px;font-size:13px;
   font-weight:500;letter-spacing:0;text-transform:none;color:var(--tinta);cursor:pointer}
 .opcion-motivo input{width:auto;margin:0}
+
+/* ---------- Catálogo de sucursales (Configuración) ---------- */
+.suc-fila{display:grid;grid-template-columns:4.5em 1fr auto;gap:6px;align-items:center;margin-bottom:6px}
+.suc-fila .suc-num{text-align:center}
+.suc-fila input{min-width:0}
 </style>
 </head>
 <body>
@@ -1441,6 +1446,27 @@ function migrarEstado(s){
       s.meta.dirPieV1=1;
     }
     if(s.config.sedes!==undefined){ delete s.config.sedes; s.meta.dirPieV1=1; }
+    /* Catálogo de sucursales (sep. 2026). Hasta aquí solo existía el número;
+       ahora cada sucursal tiene nombre. La que estaba configurada pasa a ser
+       la única del catálogo, llamada "Principal", que es como el laboratorio
+       la llama. La activa tiene que existir en la lista: si no, se añade.
+       Marca en s.meta para que el sync la suba (ver 80_bitacora.js).
+       El catálogo NO va en los valores por defecto del Object.assign de
+       arriba a propósito: si se rellenara allí con "1 · Principal", un estado
+       viejo llegaría aquí ya con lista, este bloque no dispararía, no dejaría
+       marca, y un laboratorio que operaba como la 2 recibiría la 1. Es la
+       misma trampa que dirPie. Vive en estadoInicial() y aquí. */
+    if(!Array.isArray(s.config.sucursales)||!s.config.sucursales.length){
+      s.config.sucursales=[{num:String(s.config.sucursal||'1').replace(/\D/g,'')||'1',nombre:'Principal'}];
+      s.meta.sucursalesV1=1;
+    }
+    {
+      const act=String(s.config.sucursal||'1').replace(/\D/g,'')||'1';
+      if(!s.config.sucursales.some(x=>String(x.num)===act)){
+        s.config.sucursales.push({num:act,nombre:'Sucursal '+act});
+        s.meta.sucursalesV1=1;
+      }
+    }
     /* F-CDIM-COT-01 pasa a Rev. 002 (sep. 2026). Cambio de contenido del
        formulario: el pie dejo de imprimir el nombre inventado de una sede y
        ahora imprime el numero de sucursal, tomado de la propia cotizacion.
@@ -1918,6 +1944,7 @@ function estadoInicial(){
       servicios:'Laboratorio Clínico · Bioquímica Clínica · Hematología · Inmunología · Serología · Hormonas · Uroanálisis · Coproanálisis · Microbiología',
       prefijoId:'CDIM',
       sucursal:'1',
+      sucursales:[{num:'1',nombre:'Principal'}],
       moneda:'L',
       sobreAncho:216,sobreAlto:279,
       obsFrecuentes:["Muestra hemolizada; los resultados pueden verse afectados. Se sugiere repetir con nueva muestra.", "Muestra lipémica; se informa con reserva por posible interferencia.", "Muestra ictérica; posible interferencia en la lectura colorimétrica.", "Resultado verificado por repetición en la misma muestra.", "Se sugiere correlacionar con la clínica del paciente.", "Se recomienda repetir el estudio en 15 días para confirmar el hallazgo.", "Paciente no acudió en ayunas, según refiere el paciente.", "Muestra recibida fuera del tiempo óptimo de transporte.", "Valor crítico notificado al médico tratante; se documenta fecha, hora y persona que recibe.", "Resultado confirmado con una segunda metodología."],
@@ -2351,6 +2378,43 @@ function barraHojas(t, ir, nombre){
       <button class="btn btn-g btn-min" ${t.hoja>=t.hojas?'disabled':''} title="Hoja siguiente" onclick="${ir}(${t.hoja+1})">›</button>
     </div>`:''}
   </div>`;
+}
+
+/* =============== SUCURSALES ===============
+   El digito identifica la sucursal y prefija cada orden; el nombre es como se
+   llama. Donde antes se pintaba solo el numero, ahora se pinta "1 · Principal".
+   Si el numero no esta en el catalogo -un documento viejo de una sucursal que
+   se dio de baja- se pinta el numero solo: no se inventa un nombre. */
+function sucursales(){
+  const l=(S&&S.config&&Array.isArray(S.config.sucursales))?S.config.sucursales:[];
+  return l.filter(x=>x&&String(x.num||'').trim());
+}
+function nombreSucursal(num){
+  const n=String(num??'').trim();
+  const x=sucursales().find(s=>String(s.num).trim()===n);
+  return x?String(x.nombre||'').trim():'';
+}
+function etiquetaSucursal(num){
+  const n=String(num??'').trim()||'1';
+  const nombre=nombreSucursal(n);
+  return nombre?n+' · '+nombre:n;
+}
+/* Reglas del catalogo. Puras: reciben la lista y la activa, devuelven
+   {ok, motivo}. Las usa Configuracion al guardar. */
+function validarSucursales(lista, activa){
+  lista=(lista||[]).map(x=>({num:String(x.num??'').trim(),nombre:String(x.nombre??'').trim()}));
+  if(!lista.length)return {ok:false,motivo:'Tiene que haber al menos una sucursal'};
+  for(const x of lista){
+    if(!/^\d{1,2}$/.test(x.num))return {ok:false,motivo:'El número de sucursal es de 1 o 2 dígitos: "'+x.num+'" no vale'};
+    if(x.num==='0'||x.num==='00')return {ok:false,motivo:'La sucursal 0 no existe: el número empieza cada orden y no puede ser cero'};
+    if(!x.nombre)return {ok:false,motivo:'La sucursal '+x.num+' necesita un nombre (Principal, Frente al parque…)'};
+  }
+  const nums=lista.map(x=>x.num);
+  const rep=nums.find((n,i)=>nums.indexOf(n)!==i);
+  if(rep)return {ok:false,motivo:'El número '+rep+' está dos veces: cada sucursal lleva su propio número'};
+  const a=String(activa??'').trim();
+  if(!nums.includes(a))return {ok:false,motivo:'La sucursal activa ('+(a||'ninguna')+') tiene que estar en la lista'};
+  return {ok:true, lista};
 }
 /* =============== CATÁLOGO SEMILLA =============== */
 function semillaExamenes(){
@@ -5858,7 +5922,7 @@ function tablaOrdenes(lista){
     const ids=o.examenes.map(e=>e.id);
     return `<tr>
     <td><b class="nw" style="letter-spacing:.3px">${o.numero}</b>
-      ${dg?`<div class="cel-sub">Suc. ${dg.sucursal} · ${dg.dia}/${dg.mes}/${dg.anio} · N° ${dg.correlativo} del día</div>`:''}
+      ${dg?`<div class="cel-sub">Suc. ${esc(etiquetaSucursal(dg.sucursal))} · ${dg.dia}/${dg.mes}/${dg.anio} · N° ${dg.correlativo} del día</div>`:''}
       ${o.numeroAnterior?`<div class="cel-sub">antes: ${o.numeroAnterior}</div>`:''}
       ${o.cot?`<div class="cel-sub">de ${o.cot}</div>`:''}</td>
     <td class="col-sec nw">${fmtFecha(o.fecha)}</td>
@@ -6419,7 +6483,7 @@ function modalResultados(n,desde,sinScroll,areaActiva){
   ${desde?`<div class="aviso" style="margin-bottom:8px">Estás viendo una orden anterior del paciente.
     <button class="btn btn-p btn-min" style="float:right" onclick="modalResultados('${desde}')">← Volver a ${desde}</button></div>`:''}
   ${desglosarOrden(o.numero)?(dg=>`<div style="font-size:11px;color:var(--gris);margin-top:-10px;margin-bottom:8px">
-    Sucursal ${dg.sucursal} · ${dg.dia}/${dg.mes}/${dg.anio} · paciente N° ${dg.correlativo} del día</div>`)(desglosarOrden(o.numero)):''}
+    Sucursal ${esc(etiquetaSucursal(dg.sucursal))} · ${dg.dia}/${dg.mes}/${dg.anio} · paciente N° ${dg.correlativo} del día</div>`)(desglosarOrden(o.numero)):''}
   <div style="font-size:12px;color:var(--gris);margin-bottom:12px">
     ${sexoTexto(sx)!=='—'?sexoTexto(sx):''} ${p.fnac?'· '+edadDetallada(p.fnac):''} ${p.idNumero?'· '+idPaciente(p):''} · ${fmtFecha(o.fecha)} ${(nombreMedicoOrden(o)||p.medico)?'· Refiere: '+esc(nombreMedicoOrden(o)||p.medico):''}
     ${nPrevias?`· <span class="chip chip-medio" onclick="modalHistorial('${o.pacCodigo}')">☰ Historial (${nPrevias})</span>`:''}
@@ -7727,7 +7791,7 @@ function tablaResultados(lista){
     const ids=o.examenes.filter(e=>e.validado).map(e=>e.id);
     return `<tr>
     <td><b class="nw" style="letter-spacing:.3px">${o.numero}</b>
-      ${dg?`<div class="cel-sub">Suc. ${dg.sucursal} · ${dg.dia}/${dg.mes}/${dg.anio}</div>`:''}
+      ${dg?`<div class="cel-sub">Suc. ${esc(etiquetaSucursal(dg.sucursal))} · ${dg.dia}/${dg.mes}/${dg.anio}</div>`:''}
       <div class="cel-sub">Tomada: ${fmtFecha(o.fecha)}</div></td>
     <td><b>${esc(o.pacienteNombre)}</b></td>
     <td class="cel-ex col-sec" title="${esc(ids.join(', '))}">${esc(ids.slice(0,4).join(', '))}${ids.length>4?` <span class="cel-sub">+${ids.length-4}</span>`:''}</td>
@@ -12661,7 +12725,7 @@ function imprimirCotizacion(n,opciones){
          que empieza toda orden de trabajo. Y se lee de la COTIZACION, no de
          la configuracion de hoy: reimprimir una vieja mostraba la sucursal
          actual en vez de la que la emitio. */''
-     }<span><b>Sucursal:</b> ${esc(String(c.sucursal||cf.sucursal||'1'))}</span>
+     }<span><b>Sucursal:</b> ${esc(etiquetaSucursal(c.sucursal||cf.sucursal||'1'))}</span>
     ${/* .pag-num/.pag-total: marcadores que repaginarPaginas() renumera si al
           medir el documento ya renderizado hace falta repartir las filas en
           más hojas de las que estimó POR_PAG. */''
@@ -13964,7 +14028,7 @@ function imprimirHojaTrabajo(n,porArea){
 
   const cab=(area,np)=>`
   <div class="ht-cab">
-    <div class="ht-lab">${esc(c.nombre)}<span>Sucursal ${esc(String(o.sucursal||c.sucursal||'1'))} · Hoja de trabajo interna</span></div>
+    <div class="ht-lab">${esc(c.nombre)}<span>Sucursal ${esc(etiquetaSucursal(o.sucursal||c.sucursal||'1'))} · Hoja de trabajo interna</span></div>
     <div class="ht-cod">
       <svg class="codigo" data-valor="${o.numero}"></svg>
       <div class="num">${o.numero}</div>
@@ -15756,6 +15820,42 @@ function vEtiquetas(){
 }
 
 /* =============== CONFIGURACIÓN =============== */
+/* ── Catálogo de sucursales en Configuración ── */
+function filaSucursalCfg(x={}){
+  return `<div class="suc-fila">
+    <input class="suc-num" value="${esc(x.num??'')}" placeholder="N°" maxlength="2" inputmode="numeric" title="Número: es el dígito con el que empiezan sus órdenes" oninput="this.value=this.value.replace(/\\D/g,'')">
+    <input class="suc-nom" value="${esc(x.nombre??'')}" placeholder="Nombre (Principal, Frente al parque…)" title="Cómo se llama la sucursal">
+    <button type="button" class="btn btn-r btn-min" title="Quitar esta sucursal" onclick="quitarSucursalCfg(this)">✕</button>
+  </div>`;
+}
+function agregarSucursalCfg(){
+  const c=document.getElementById('cfg_sucursales'); if(!c)return;
+  const usados=[...c.querySelectorAll('.suc-num')].map(i=>i.value.trim()).filter(Boolean).map(Number);
+  const sig=String((usados.length?Math.max(...usados):0)+1);   // el siguiente número libre
+  c.insertAdjacentHTML('beforeend',filaSucursalCfg({num:sig,nombre:''}));
+  const f=c.lastElementChild.querySelector('.suc-nom'); if(f)f.focus();
+}
+function quitarSucursalCfg(btn){
+  const fila=btn.closest('.suc-fila'); if(!fila)return;
+  const num=(fila.querySelector('.suc-num')||{}).value||'';
+  const activa=(document.getElementById('cf_suc')||{}).value||'';
+  /* La activa no se quita desde aquí: primero se elige otra. Sin esto se
+     podía dejar el sistema prefijando órdenes con una sucursal inexistente. */
+  if(num.trim()&&num.trim()===String(activa).trim()){toast('Esa es la sucursal activa. Elige otra como activa antes de quitarla.');return;}
+  fila.remove();
+}
+/* Lee la lista del formulario. Pura sobre el contenedor, para probarla sin
+   navegador. Una fila totalmente vacía se descarta. */
+function recogerSucursalesDOM(cont){
+  return [...cont.querySelectorAll('.suc-fila')].map(f=>({
+    num:((f.querySelector('.suc-num')||{}).value||'').trim(),
+    nombre:((f.querySelector('.suc-nom')||{}).value||'').trim()
+  })).filter(x=>x.num||x.nombre);
+}
+function recogerSucursalesCfg(){
+  const c=document.getElementById('cfg_sucursales');
+  return c?recogerSucursalesDOM(c):(S.config.sucursales||[]);
+}
 function vConfig(){
   const c=S.config;
   const a=c.alertas;
@@ -15850,8 +15950,18 @@ function vConfig(){
         </select></div>
       <div class="campo" style="align-self:end"><div style="background:#eef2f5;border-radius:8px;padding:8px 10px;font-size:12px">
         Ejemplo: <b style="color:var(--azul)">${L(1250.5)}</b> · ${esc(enLetras(1250.5))}</div></div>
-      <div class="campo"><label>N° de sucursal</label><input id="cf_suc" value="${esc(c.sucursal||'1')}" maxlength="2" oninput="this.value=this.value.replace(/\\D/g,'')">
-        <div class="ayuda">Es el dígito con el que empieza toda orden de trabajo. Con <b>2</b> las órdenes salen <b class="nw">2</b>20260902001; si algún día hubiera una sucursal 3, las suyas saldrían <b class="nw">3</b>20260902001. Nada más depende de este número.</div></div>
+      <div class="campo" style="grid-column:1/-1"><label>Sucursales</label>
+        ${/* Cada sucursal: numero + nombre. El numero es el que prefija las
+              ordenes; el nombre es como se llama y es lo que se ve en pantalla
+              y en los documentos junto al numero. */''
+         }<div id="cfg_sucursales">${(c.sucursales||[]).map(x=>filaSucursalCfg(x)).join('')}</div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px">
+          <button type="button" class="btn btn-g btn-min" onclick="agregarSucursalCfg()">+ Añadir sucursal</button>
+          <span class="ayuda" style="margin:0">Ej.: 2 · Frente al parque, 3 · Barrio San Francisco.</span>
+        </div></div>
+      <div class="campo"><label>Sucursal activa en este sistema</label>
+        <select id="cf_suc">${(c.sucursales||[]).map(x=>`<option value="${esc(x.num)}" ${String(x.num)===String(c.sucursal||'1')?'selected':''}>${esc(etiquetaSucursal(x.num))}</option>`).join('')}</select>
+        <div class="ayuda">Su número es el dígito con el que empieza toda orden de trabajo: con la <b>2</b> las órdenes salen <b class="nw">2</b>20260902001. Cambiarla no toca las órdenes ya emitidas.</div></div>
       <div class="campo" style="align-self:end"><div style="background:#eef2f5;border-radius:8px;padding:8px 10px;font-size:12px">
         Próxima orden de hoy: <b style="color:var(--azul);letter-spacing:.5px">${numeroOrden(hoy())}</b></div></div>
       <div class="campo"><label>Firma escaneada (PNG transparente)</label><input type="file" accept="image/*" onchange="cargarImagenCfg(this,'firma')"></div>
@@ -15906,7 +16016,7 @@ function vConfig(){
     <div style="background:#eef2f5;border-radius:10px;padding:12px 14px;margin-bottom:10px">
       <div style="font-size:22px;font-weight:800;color:var(--azul);letter-spacing:1px">${numeroOrden(hoy())}</div>
       <div style="font-size:11.5px;color:var(--gris);margin-top:4px">
-        <b>${String(c.sucursal||'1')}</b> sucursal ·
+        <b>${esc(etiquetaSucursal(c.sucursal||'1'))}</b> sucursal ·
         <b>${hoy().slice(0,4)}</b> año ·
         <b>${hoy().slice(5,7)}</b> mes ·
         <b>${hoy().slice(8,10)}</b> día ·
@@ -16095,12 +16205,15 @@ async function guardarAjusteCorrelativo(tipo){
 }
 function guardarConfig(){
   const g=id=>document.getElementById(id).value.trim();
+  const _suc=validarSucursales(recogerSucursalesCfg(), g('cf_suc'));
+  if(!_suc.ok){ toast(_suc.motivo); return; }
   Object.assign(S.config,{nombre:g('cf_nombre'),lema:g('cf_lema'),direccion:g('cf_dir'),whatsapp:unirTel('cf_wla','cf_wa'),telefono2:unirTel('cf_t2la','cf_tel2'),
     ladaDefecto:document.getElementById('cf_lada').value,elaborador:g('cf_elab'),horario:g('cf_hor'),portalPaciente:g('cf_portal'),
     regente:g('cf_reg'),colegiacion:g('cf_col'),anclaSGC:g('cf_sgc'),
     profesional:g('cf_prof'),profesionalTitulo:g('cf_proft'),servicios:g('cf_serv'),dirPie:g('cf_dirpie'),
     web:g('cf_web'),correo:g('cf_correo'),redes:g('cf_redes'),prefijoId:g('cf_pref')||'CDIM',
     sucursal:g('cf_suc')||'1',
+    sucursales:_suc.lista,               // ya validada y normalizada arriba
     rtn:g('cf_rtn'),razonSocial:g('cf_razon'),codigoDocCot:g('cf_codcot'),revisionDoc:g('cf_rev'),
     reciboPrefijo:g('cf_recpre')||'RV',reciboCopia:g('cf_reccopia')!=='no',facturaSerie:g('cf_facser'),facturaCAI:g('cf_cai'),
     facturaRango:g('cf_frango'),facturaLimite:g('cf_flim'),
