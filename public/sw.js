@@ -25,10 +25,11 @@
    (ver herramientas/desplegar.js), así que el nombre de la caché cambia solo
    en cada despliegue y la anterior se borra sola. Dejarlo escrito a mano fue
    justo el error de la versión anterior. */
-const VERSION = "268b91c5ff";
+const VERSION = "4137e79bd9";
 const CACHE = "cdim-" + VERSION;
 const BASE = ["./index.html","./paciente.html","./cotizacion.html",
-              "./paciente_manifest.json","./icon-192.png","./icon-512.png"];
+              "./paciente_manifest.json","./icon-192.png","./icon-512.png",
+              "./img/logo.png","./img/sello.png"];
 
 /* ── Interruptor de emergencia ──
    Trabajar en línea es lo que importa; guardar el programa es el seguro. Si el
