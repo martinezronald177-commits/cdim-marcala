@@ -541,6 +541,19 @@ const upload = multer({
     cb(null, ok);
   }
 });
+/* Los errores de multer -- sobre todo el tope de 5 MB -- llegaban al
+   manejador por defecto de Express, que responde un 500 con una página HTML
+   y el texto del error dentro. Aquí se traducen a una respuesta JSON con el
+   código que corresponde, como el resto de la API. */
+function recibirArchivo(req, res, next){
+  upload.single('archivo')(req, res, err => {
+    if(!err) return next();
+    if(err.code === 'LIMIT_FILE_SIZE')
+      return res.status(413).json({error:'El archivo supera el límite de 5 MB'});
+    console.error('[CDIM] Subida rechazada:', err.code || err.message);
+    return res.status(400).json({error:'No se pudo recibir el archivo'});
+  });
+}
 /* El fileFilter de arriba solo mira el mimetype que MANDA el cliente, y ese
    es un header cualquiera -- se falsifica sin esfuerzo. Antes de aceptar el
    archivo ya guardado se revisan también sus primeros bytes (la "firma" real
@@ -1394,7 +1407,7 @@ app.delete('/api/cotizaciones-web/:numero', auth, (req, res) => {
 // ════════════════════════════════════════════════════════════
 // SUBIDA DE ARCHIVOS (comprobantes, resultados PDF)
 // ════════════════════════════════════════════════════════════
-app.post('/api/archivo', auth, upload.single('archivo'), (req, res) => {
+app.post('/api/archivo', auth, recibirArchivo, (req, res) => {
   if(!req.file) return res.status(400).json({error:'Sin archivo'});
   const buf = Buffer.alloc(12);
   const fd = fs.openSync(req.file.path, 'r');
