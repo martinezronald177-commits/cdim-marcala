@@ -1071,7 +1071,12 @@ function bloqueDatosPersona(d){
     `<div><span class="et">Identificación:</span> <b>${esc(d.identificacion||'—')}</b></div>`,
     `<div><span class="et">Médico:</span> <b>${esc((d.medico||'N/A').toUpperCase())}</b></div>`,
     d.expediente?`<div><span class="et">Expediente:</span> <b>${esc(d.expediente)}</b></div>`:'',
-    `<div><span class="et">F. Nacimiento:</span> <b>${d.fnac?fmtFecha(d.fnac):'—'}</b> &nbsp; <span class="et">Género:</span> <b>${d.sexoTexto||sexoTexto(d.sexo||'')}</b></div>`,
+    /* class="completo": esta celda lleva DOS datos y es la más justa de
+       todas -medida en el documento real, necesita el ancho exacto que
+       tiene-. Con el recorte general se comía el género, que va al final.
+       Así, si algún día no cabe, pasa a una segunda línea en vez de
+       perderse. Cuando cabe, que es lo normal, se ve igual que siempre. */
+    `<div class="completo"><span class="et">F. Nacimiento:</span> <b>${d.fnac?fmtFecha(d.fnac):'—'}</b> &nbsp; <span class="et">Género:</span> <b>${d.sexoTexto||sexoTexto(d.sexo||'')}</b></div>`,
     `<div><span class="et">Teléfono:</span> <b>${esc(d.tel||'—')}</b></div>`,
     `<div><span class="et">Edad:</span> <b>${d.edadTexto||edadDetallada(d.fnac)}</b></div>`,
     ...(d.extra||[]),
@@ -1096,6 +1101,9 @@ const cssBloqueDatos=`
    text-overflow:ellipsis;box-sizing:border-box}
  .pac-campos>div:nth-child(even){width:42%;padding-right:2px}
  .pac-campos>div.ancho{width:100%}
+ /* La celda con dos datos (F. Nacimiento + Género) se lee entera: si no
+    cabe pasa a otra línea en vez de cortarse con puntos suspensivos. */
+ .pac-campos>div.completo{white-space:normal;overflow:visible;text-overflow:clip}
  .pac-campos .et{color:#333;font-weight:400}
  .pac-campos b{color:#111;font-weight:700;letter-spacing:-.1px}
  .pac-cb{flex:0 0 138px;display:flex;flex-direction:column;align-items:center;
@@ -1924,7 +1932,10 @@ const cssInforme=`
  /* Sello circular de 30 mm exactos, montado sobre la línea de firma como un sello real */
  .img-sello{width:30mm;height:30mm;position:absolute;left:50%;margin-left:8mm;top:0;z-index:2;
    opacity:.94;mix-blend-mode:multiply}
- .linea-firma{width:60mm;border-top:1.1px solid #111;margin:0 auto;padding-top:3px;position:relative;z-index:3}
+ /* margin-top separa la línea del trazo de la firma: dibujada justo al pie
+    de la imagen, la rúbrica la cruzaba. Con 5 mm la firma queda encima de
+    la línea, como en un papel firmado a mano. */
+ .linea-firma{width:60mm;border-top:1.1px solid #111;margin:5mm auto 0;padding-top:3px;position:relative;z-index:3}
  .firma-nom{font-size:8.6pt;font-weight:800}
  .firma-sub{font-size:7.4pt;color:#444}
  /* Observaciones */

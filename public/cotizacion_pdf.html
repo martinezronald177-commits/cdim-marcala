@@ -632,7 +632,12 @@ function bloqueDatosPersona(d){
     `<div><span class="et">Identificación:</span> <b>${esc(d.identificacion||'—')}</b></div>`,
     `<div><span class="et">Médico:</span> <b>${esc((d.medico||'N/A').toUpperCase())}</b></div>`,
     d.expediente?`<div><span class="et">Expediente:</span> <b>${esc(d.expediente)}</b></div>`:'',
-    `<div><span class="et">F. Nacimiento:</span> <b>${d.fnac?fmtFecha(d.fnac):'—'}</b> &nbsp; <span class="et">Género:</span> <b>${d.sexoTexto||sexoTexto(d.sexo||'')}</b></div>`,
+    /* class="completo": esta celda lleva DOS datos y es la más justa de
+       todas -medida en el documento real, necesita el ancho exacto que
+       tiene-. Con el recorte general se comía el género, que va al final.
+       Así, si algún día no cabe, pasa a una segunda línea en vez de
+       perderse. Cuando cabe, que es lo normal, se ve igual que siempre. */
+    `<div class="completo"><span class="et">F. Nacimiento:</span> <b>${d.fnac?fmtFecha(d.fnac):'—'}</b> &nbsp; <span class="et">Género:</span> <b>${d.sexoTexto||sexoTexto(d.sexo||'')}</b></div>`,
     `<div><span class="et">Teléfono:</span> <b>${esc(d.tel||'—')}</b></div>`,
     `<div><span class="et">Edad:</span> <b>${d.edadTexto||edadDetallada(d.fnac)}</b></div>`,
     ...(d.extra||[]),
@@ -657,6 +662,9 @@ const cssBloqueDatos=`
    text-overflow:ellipsis;box-sizing:border-box}
  .pac-campos>div:nth-child(even){width:42%;padding-right:2px}
  .pac-campos>div.ancho{width:100%}
+ /* La celda con dos datos (F. Nacimiento + Género) se lee entera: si no
+    cabe pasa a otra línea en vez de cortarse con puntos suspensivos. */
+ .pac-campos>div.completo{white-space:normal;overflow:visible;text-overflow:clip}
  .pac-campos .et{color:#333;font-weight:400}
  .pac-campos b{color:#111;font-weight:700;letter-spacing:-.1px}
  .pac-cb{flex:0 0 138px;display:flex;flex-direction:column;align-items:center;
