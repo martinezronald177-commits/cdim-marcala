@@ -2383,6 +2383,27 @@ function construirHojasInforme(o,p,c,opts){
     </div>`;
   }).join('');
 }
+
+/* ---- marca de agua (extraído de 50_impresion.js) ---- */
+
+/* ===SYNC:MARCA-AGUA=== (sync_informe_web.py — marca de agua del logo, para la cotización pública) */
+function cssMarcaAguaDoc(){
+  const logo=imagenLab('logo');
+  if(!logo)return '';
+  return `
+ /* z-index:0 (no solo position:relative) es a propósito: SIN un z-index
+    numérico, .rv/.hoja/etc. no abren su propio contexto de apilamiento y el
+    z-index:-1 del ::before termina apilándose contra el documento COMPLETO
+    (el contexto raíz), donde queda tapado por el resto del contenido de la
+    misma hoja en vez de solo por su fondo -- el logo nunca llegaba a verse. */
+ .rv,.pagina,.hoja,.hoja-doc{position:relative;z-index:0}
+ .rv::before,.pagina::before,.hoja::before,.hoja-doc::before{
+   content:'';position:absolute;inset:0;
+   background-image:url("${logo}");
+   background-repeat:no-repeat;background-position:center;background-size:48%;
+   opacity:.06;z-index:-1;pointer-events:none}`;
+}
+/* ===FIN-SYNC:MARCA-AGUA=== */
 /* ===SYNC:FIN=== */
 
 /* =============== Adaptadores propios del portal ===============
@@ -2429,7 +2450,7 @@ function esExamenAutonomo(e){
    como sí hace el LIS). pintarPDF() arma el documento llamando EXACTAMENTE
    al mismo código que usa imprimirResultados() en el LIS
    (cabeceraInforme()/construirHojasInforme(), 51b_plantillas_informe.js) y
-   a la misma hoja de estilos (cssBaseImpresion+cssCabeceraDoc+cssInforme),
+   a la misma hoja de estilos (cssBaseImpresion+cssCabeceraDoc+cssBloqueDatos+cssMarcaAguaDoc()+cssInforme),
    en vez de mantener una segunda plantilla parecida a mano. Al final llama
    a repaginarHojas(window) -- el mismo motor de paginación por altura real
    que usa el LIS antes de imprimir --, que aquí corre dentro del Chromium
@@ -2494,7 +2515,13 @@ function pintarPDF(){
   // oculto de ventanaImpresion() arranca sin ningún CSS propio.
   document.querySelectorAll('head > style').forEach(el => el.remove());
   document.head.insertAdjacentHTML('beforeend',
-    '<style>'+cssBaseImpresion+'\n'+cssCabeceraDoc+'\n'+cssInforme+'</style>');
+    /* Las MISMAS hojas, en el MISMO orden, que ventanaImpresion() en el LIS
+       (ver el css=... de 50_impresion.js). Faltaban las dos del medio:
+       cssBloqueDatos es la que reparte los datos del paciente en dos
+       columnas -sin ella cada campo caía en su propia línea y el informe
+       bajado del portal no cuadraba con el que imprime el laboratorio- y
+       cssMarcaAguaDoc() es el logo tenue de fondo. */
+    '<style>'+cssBaseImpresion+'\n'+cssCabeceraDoc+'\n'+cssBloqueDatos+'\n'+cssMarcaAguaDoc()+'\n'+cssInforme+'</style>');
   // Se reemplaza TODO el <body> (barra de acciones, aviso, envoltura de
   // pantalla): el documento que ve Puppeteer para armar el PDF debe ser
   // únicamente las .hoja, igual que el HTML que ventanaImpresion() mete en
